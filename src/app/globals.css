@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { background-color: #07050d; color: #f0eef8; }
+  a { text-decoration: none; }
+}
+
+@layer components {
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider;
+  }
+
+  .badge-news   { @apply bg-ice/15 text-ice; }
+  .badge-rumor  { @apply bg-flame/15 text-flame; }
+  .badge-guide  { @apply bg-gold/15 text-gold; }
+  .badge-event  { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
+  .badge-update { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+
+  .gradient-text {
+    background: linear-gradient(90deg, #e6358a, #00d2ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glow-panel {
+    box-shadow: 0 0 60px rgba(230, 53, 138, 0.08), 0 0 120px rgba(0, 210, 255, 0.04);
+  }
+}
