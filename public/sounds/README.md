@@ -1,27 +1,35 @@
-# DecodedSix — Sound Files
+# DecodedSix — Internal Dashboard Sounds
 
-These files must be added manually. Do not commit copyrighted audio.
-Source GTA-style sounds from royalty-free libraries only.
-Recommended: Pixabay, Freesound.org, or commission original sounds.
+**Internal use only — family dashboard.**
+If this ever becomes a distributed product,
+replace all files with licensed alternatives before any public release.
 
-## Required Files
+Source: myinstants.com
 
-| Filename | Used When | Notes |
+| File | Source | Fires On |
 |---|---|---|
-| money-collect.mp3 | Revenue metric updates | Coin/cash pickup sound |
-| mission-passed.mp3 | Article approved + published | Victory fanfare |
-| wasted.mp3 | Article rejected | Failure/rejection sound |
-| big-score.mp3 | Gate cleared | Triumphant achievement sound |
-| wanted.mp3 | HITL urgent item | Alert/alarm sound |
-| ui-click.mp3 | Any button click | Clean UI click |
-| cash-register.mp3 | Affiliate conversion logged | Cash register ding |
+| pickup.mp3 | GTA pickup sound | Article/marker approved |
+| wasted.mp3 | GTA V wasted/busted | Article/marker rejected |
+| mission-passed.mp3 | GTA SA mission passed | Gate cleared, milestones |
+| ui-notification.mp3 | GTA V notification | New HITL queue item |
+| wanted-stars.mp3 | GTA V death sound | Compliance flag, copyright flag |
 
-## Implementation
-All sounds loaded via lib/sounds.ts SoundManager.
-See lib/sounds.ts for the SoundEvents enum and play() method.
-Never reference external audio URLs — files must be local.
+## Downloads Used
+gta-pick-up.mp3 → pickup.mp3
+gta-san-andreas-mission-complete-sound-hq.mp3 → mission-passed.mp3
+gta-v-wastedbusted-sound-effect_GcEdnlM.mp3 → wasted.mp3
+gta-v-notification-better-version_WAYpogU.mp3 → ui-notification.mp3
+gta-v-death-sound-effect-102.mp3 → wanted-stars.mp3
 
-## Sound Toggle
-Dashboard has a sound on/off toggle in the top bar.
-State persisted in localStorage under key: ds-sound-enabled
-Default: true (sound on)
+## Adding More Sounds
+1. Download from myinstants.com
+2. Add to this directory with descriptive name
+3. Add to sounds object in src/lib/sounds.ts
+4. Add to SoundEvents mapping
+5. Add a row to this README
+
+## Volume Notes
+- ARTICLE_REJECTED_SOFT plays at 0.4 volume
+- All other sounds play at user preference (default 0.7)
+- Volume persists in localStorage: ds-sound-volume
+- Sound on/off persists in localStorage: ds-sound-enabled
