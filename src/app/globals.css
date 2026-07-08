@@ -1,3 +1,5 @@
+@import url('https://fonts.cdnfonts.com/css/pricedown');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,6 +11,7 @@
 }
 
 @layer components {
+  /* Public site */
   .container {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
@@ -32,5 +35,24 @@
 
   .glow-panel {
     box-shadow: 0 0 60px rgba(230, 53, 138, 0.08), 0 0 120px rgba(0, 210, 255, 0.04);
+  }
+
+  /* Internal dashboard */
+  .dash-card {
+    @apply bg-dash-panel border border-dash-border rounded-xl;
+  }
+
+  .dash-stat {
+    @apply text-gta-gold font-pricedown;
+  }
+
+  .dash-btn-approve {
+    @apply bg-green-500/15 text-green-400 border border-green-500/30
+           hover:bg-green-500/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold;
+  }
+
+  .dash-btn-reject {
+    @apply bg-neon-pink/15 text-neon-pink border border-neon-pink/30
+           hover:bg-neon-pink/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold;
   }
 }

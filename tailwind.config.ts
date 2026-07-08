@@ -9,22 +9,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Backgrounds
+        // Public site
         void: '#07050d',
         panel: '#100c1a',
         raised: '#18122a',
-        // Accents
         flame: '#e6358a',
         ice: '#00d2ff',
         gold: '#ffcc00',
-        // Text
         bright: '#f0eef8',
         quiet: '#9b94b8',
         whisper: '#5a5270',
+        // Internal dashboard (Vice City surface)
+        'dash-bg': '#0D0014',
+        'gta-gold': '#C8A84B',
+        'neon-pink': '#FF2D6B',
+        'dash-panel': '#180025',
+        'dash-border': '#2a0040',
       },
       fontFamily: {
         heading: ['var(--font-rajdhani)', 'system-ui', 'sans-serif'],
         body: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        pricedown: ['Pricedown', 'var(--font-rajdhani)', 'system-ui', 'sans-serif'],
       },
     },
   },
