@@ -20,17 +20,12 @@ CREATE TABLE IF NOT EXISTS articles (
     CHECK (status IN ('draft', 'published', 'archived'))
 );
 
-CREATE TABLE IF NOT EXISTS map_markers (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  product_id TEXT NOT NULL DEFAULT 'gta-hub',
-  title TEXT NOT NULL,
-  description TEXT,
-  marker_type TEXT NOT NULL,
-  lat DECIMAL(10, 8) NOT NULL,
-  lng DECIMAL(11, 8) NOT NULL,
-  icon TEXT,
-  verified BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS waitlist_emails (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id TEXT NOT NULL DEFAULT 'decodedsix',
+  email      TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(email, product_id)
 );
 
 CREATE TABLE IF NOT EXISTS vehicles (
@@ -76,7 +71,7 @@ CREATE TABLE IF NOT EXISTS agents_log (
 
 -- Row Level Security
 ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE map_markers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE waitlist_emails ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE weekly_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agents_log ENABLE ROW LEVEL SECURITY;
@@ -85,8 +80,9 @@ ALTER TABLE agents_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "articles_public_read" ON articles
   FOR SELECT USING (status = 'published');
 
-CREATE POLICY "map_markers_public_read" ON map_markers
-  FOR SELECT USING (true);
+-- Waitlist: write-only for anon (insert email), no public read
+CREATE POLICY "waitlist_emails_anon_insert" ON waitlist_emails
+  FOR INSERT TO anon WITH CHECK (true);
 
 CREATE POLICY "vehicles_public_read" ON vehicles
   FOR SELECT USING (true);
@@ -104,7 +100,7 @@ CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
 CREATE INDEX IF NOT EXISTS idx_articles_slug ON articles(slug);
 CREATE INDEX IF NOT EXISTS idx_articles_product_id ON articles(product_id);
 CREATE INDEX IF NOT EXISTS idx_articles_source_url ON articles(source_url);
-CREATE INDEX IF NOT EXISTS idx_map_markers_product_id ON map_markers(product_id);
+CREATE INDEX IF NOT EXISTS idx_waitlist_emails_product_id ON waitlist_emails(product_id);
 CREATE INDEX IF NOT EXISTS idx_vehicles_product_id ON vehicles(product_id);
 CREATE INDEX IF NOT EXISTS idx_weekly_events_product_id ON weekly_events(product_id);
 CREATE INDEX IF NOT EXISTS idx_agents_log_product_id ON agents_log(product_id);
@@ -125,10 +121,10 @@ VALUES
     NOW() - INTERVAL '2 hours'
   ),
   (
-    'Decoded Six is Live: Your 24/7 GTA 6 Intelligence Hub',
+    'Decoded Six is Live: Your GTA 6 Intelligence Hub',
     'decoded-six-is-live',
-    'We built an AI-powered news aggregator that monitors dozens of GTA 6 sources around the clock. Here is how it works and what to expect.',
-    'Decoded Six is now live. The site is powered by Agent 04, a custom news scraping and summarization pipeline that monitors GTA 6 coverage across gaming press, Reddit, and community forums every six hours. When Agent 04 finds a new article or discussion worth surfacing, it generates an original summary - not a copy of the source - and publishes it here within minutes. The goal is to be the single place you check for GTA 6 news instead of juggling a dozen tabs. Phase 1 is the news site you are reading now. Phase 2 launches with the PC release: interactive maps covering every location and collectible, a full vehicle database with performance stats and money-making rankings, weekly GTA Online event digests, and heist guides updated with community-tested strategies. Bookmark this and check back. Agent 04 never sleeps.',
+    'Everything GTA 6 in one place — news, confirmed locations, vehicle stats, and weekly event digests. Here is what to expect.',
+    'Decoded Six is now live. The goal is simple: be the single place you check for GTA 6 coverage instead of juggling a dozen tabs. We monitor gaming press, official Rockstar channels, and community sources continuously, surfacing the most relevant news and analysis here. Phase 1 is the news site you are reading now. Phase 2 launches with the PC release: interactive maps covering every confirmed location and collectible, a full vehicle database with performance stats and money-making rankings, weekly GTA Online event digests, and heist guides updated with community-tested strategies. Bookmark this and check back.',
     'Decoded Six',
     'guide',
     'published',
