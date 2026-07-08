@@ -3,6 +3,7 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { Countdown } from '@/components/Countdown'
 import { ArticleCard } from '@/components/ArticleCard'
+import { MapPlaceholder } from '@/components/map/MapPlaceholder'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -136,6 +137,38 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Interactive map */}
+        <section className="mt-16">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-0.5 h-5 bg-flame rounded-full" />
+            <h2 className="font-heading font-bold text-lg text-bright uppercase tracking-widest">
+              Interactive Map
+            </h2>
+          </div>
+          {process.env.NEXT_PUBLIC_MAP_LIVE === 'true' ? (
+            <a
+              href="/map"
+              className="block bg-panel border border-ice/20 rounded-2xl p-10 text-center hover:border-ice/40 transition-colors group"
+            >
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <span className="w-2 h-2 rounded-full bg-green animate-pulse" />
+                <span className="text-xs font-mono text-green uppercase tracking-widest">Live Now</span>
+              </div>
+              <h3 className="font-heading font-bold text-2xl md:text-3xl text-bright mb-2">
+                Interactive Map
+              </h3>
+              <p className="text-quiet text-sm mb-6 max-w-sm mx-auto">
+                Every confirmed location, money spot, and vehicle spawn — all plotted.
+              </p>
+              <span className="inline-block px-5 py-2.5 rounded-xl bg-ice/10 text-ice text-sm font-medium group-hover:bg-ice/20 transition-colors">
+                Open Map &rarr;
+              </span>
+            </a>
+          ) : (
+            <MapPlaceholder />
+          )}
         </section>
       </div>
 

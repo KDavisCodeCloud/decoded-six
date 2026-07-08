@@ -16,14 +16,28 @@ export interface Article {
 
 export interface MapMarker {
   id: string
-  product_id: string
-  title: string
+  name: string
   description: string | null
-  marker_type: string
-  lat: number
-  lng: number
-  icon: string | null
+  category: 'money_spot' | 'vehicle_spawn' | 'property' | 'heist' | 'mission_start' | 'weapon_pickup' | 'health_armor' | 'collectible' | 'landmark' | 'daily_location'
+  coordinates: { lat: number; lng: number }
+  area_name: string | null
+  payout_per_hour: number | null
+  difficulty: 'solo' | 'small_crew' | 'full_crew' | null
   verified: boolean
+  source: 'community' | 'agent_scraped' | 'manual' | null
+  status: 'pending' | 'approved' | 'published' | 'retired'
+  daily_reset: boolean
+  last_confirmed: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MapArea {
+  id: string
+  name: string
+  geojson: Record<string, unknown>
+  color: string
+  opacity: number
   created_at: string
 }
 
