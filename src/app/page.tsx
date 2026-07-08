@@ -58,8 +58,8 @@ export default async function HomePage() {
             </h1>
 
             <p className="text-quiet text-lg md:text-xl mb-10 max-w-xl leading-relaxed">
-              News, rumors, interactive maps, vehicle stats, and weekly event digests.
-              Agent-powered and updated around the clock.
+              The fastest GTA 6 coverage on the internet. News, confirmed locations,
+              vehicle stats, and weekly event digests — all in one place.
             </p>
 
             <Countdown targetDate={launchDate} label="PC Launch Countdown" />
@@ -104,12 +104,12 @@ export default async function HomePage() {
         {/* Empty state */}
         {articles.length === 0 && (
           <section className="mb-16 py-24 text-center">
-            <div className="text-6xl mb-4">📡</div>
+            <div className="text-6xl mb-4">🌆</div>
             <h2 className="font-heading font-bold text-2xl text-bright mb-3">
-              Agent 04 is warming up
+              First stories dropping soon
             </h2>
             <p className="text-quiet">
-              News articles are being collected. Check back in a few minutes.
+              GTA 6 coverage is loading. Check back in a few minutes.
             </p>
           </section>
         )}

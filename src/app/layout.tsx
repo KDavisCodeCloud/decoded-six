@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     template: `%s | ${siteName}`,
   },
   description:
-    'The definitive independent source for GTA 6 news, rumors, interactive maps, vehicle stats, and weekly event guides. Agent-powered and updated around the clock.',
+    'The definitive independent source for GTA 6 news, rumors, interactive maps, vehicle stats, and weekly event guides.',
   keywords: ['GTA 6', 'Grand Theft Auto 6', 'GTA 6 map', 'GTA 6 news', 'GTA 6 release date'],
   openGraph: {
     type: 'website',

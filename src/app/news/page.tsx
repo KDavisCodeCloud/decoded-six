@@ -8,7 +8,7 @@ export const revalidate = 60
 
 export const metadata = {
   title: 'GTA 6 News',
-  description: 'All the latest GTA 6 updates, leaks, and breaking news — agent-curated 24/7.',
+  description: 'All the latest GTA 6 updates, leaks, and breaking news — updated continuously.',
 }
 
 const CATS = ['all', 'news', 'rumor', 'guide', 'event', 'update'] as const
@@ -30,9 +30,10 @@ async function getArticles(category: string): Promise<Article[]> {
 export default async function NewsPage({
   searchParams,
 }: {
-  searchParams: { category?: string }
+  searchParams: Promise<{ category?: string }>
 }) {
-  const cat = searchParams.category ?? 'all'
+  const { category } = await searchParams
+  const cat = category ?? 'all'
   const articles = await getArticles(cat)
 
   return (
@@ -42,7 +43,7 @@ export default async function NewsPage({
       <div className="container py-10">
         <div className="mb-8">
           <h1 className="font-heading font-bold text-4xl text-bright mb-2">GTA 6 News</h1>
-          <p className="text-quiet">Agent-curated from across the web. Updated every 6 hours.</p>
+          <p className="text-quiet">Breaking news, leaks, and official updates. Refreshed continuously.</p>
         </div>
 
         {/* Category filter */}
@@ -69,7 +70,7 @@ export default async function NewsPage({
         ) : (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">📡</div>
-            <p className="text-quiet">No articles yet. Agent 04 is on it.</p>
+            <p className="text-quiet">No articles yet. First stories coming soon.</p>
           </div>
         )}
       </div>
