@@ -4,7 +4,7 @@ Takes an article_id, reads the current draft content, rewrites it via
 Anthropic using the VOICE.md rules as a system prompt, then runs a
 deterministic pass that guarantees the two purely mechanical rules (no em
 dashes, no banned buzzwords) hold even if the rewrite misses one. Updates
-articles.content in place and sets humanizer_pass = true.
+articles.content in place; writes an audit_log entry as the record of the pass.
 """
 
 from __future__ import annotations
@@ -134,7 +134,7 @@ def humanize_article(
 
         update_result = (
             supabase.table("articles")
-            .update({"content": final_content, "humanizer_pass": True})
+            .update({"content": final_content})
             .eq("id", article_id)
             .execute()
         )

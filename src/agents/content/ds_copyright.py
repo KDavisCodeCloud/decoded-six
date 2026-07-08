@@ -103,10 +103,10 @@ def check_copyright(
     """
     Scan article_id's title + content for trademark/protected phrases.
 
-    Returns {article_id, flagged, matches}. Sets articles.copyright_pass
-    accordingly. Raises CopyrightError only if the check itself can't run
-    (e.g. article not found) — a match is a normal flagged result, not
-    an exception.
+    Returns {article_id, flagged, matches}. Writes an audit_log entry
+    recording the outcome. Raises CopyrightError only if the check itself
+    can't run (e.g. article not found) — a match is a normal flagged
+    result, not an exception.
     """
     supabase = supabase_client or _get_supabase_client()
 
@@ -121,16 +121,12 @@ def check_copyright(
         matches = sorted({pattern for pattern, regex in _COMPILED_PATTERNS if regex.search(combined)})
         flagged = bool(matches)
 
-        update_result = (
-            supabase.table("articles")
-            .update({"copyright_pass": not flagged})
-            .eq("id", article_id)
-            .execute()
+        # No copyright_pass column on articles — audit_log is the record of
+        # truth for pass/fail history (action='copyright_check').
+        _write_audit(
+            supabase, article_id, "copyright_check",
+            f"flagged:{','.join(matches)}" if flagged else "passed",
         )
-        if not update_result.data:
-            raise CopyrightError(f"Update to articles failed for {article_id}")
-
-        _write_audit(supabase, article_id, "copyright_check", "flagged" if flagged else "passed")
 
         return {"article_id": article_id, "flagged": flagged, "matches": matches}
 

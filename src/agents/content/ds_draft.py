@@ -149,11 +149,12 @@ def draft_article(
         slug = slugify(parsed["title"])
 
         row = {
+            "product_id": "gta-hub",
             "slug": slug,
             "title": parsed["title"],
             "content": parsed["content"],
             "excerpt": parsed["excerpt"],
-            "article_type": category,
+            "category": category,
             "status": "draft",
             "agent_generated": True,
         }
