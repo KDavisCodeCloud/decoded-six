@@ -4,3 +4,5 @@ node_modules/
 .env.local
 .env
 out/
+__pycache__/
+*.pyc

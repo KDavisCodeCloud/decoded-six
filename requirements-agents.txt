@@ -1,0 +1,8 @@
+# DecodedSix — Python content pipeline agent dependencies
+# Install: pip install -r requirements-agents.txt
+
+anthropic==0.34.2
+supabase==2.7.4
+python-dotenv==1.0.1
+requests==2.34.2
+python-slugify==8.0.4
