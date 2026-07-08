@@ -8,6 +8,13 @@ import type { Article } from '@/lib/types'
 
 export const revalidate = 300
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://decodedsix.com'
+
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`
+}
+
 async function getArticle(slug: string): Promise<Article | null> {
   const { data } = await supabase
     .from('articles')
@@ -33,18 +40,27 @@ async function getRelated(category: string, excludeId: string): Promise<Article[
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }): Promise<Metadata> {
-  const article = await getArticle(params.slug)
+  const { slug } = await params
+  const article = await getArticle(slug)
   if (!article) return { title: 'Not Found' }
+
+  const description = article.excerpt ? truncate(article.excerpt, 160) : undefined
+
   return {
     title: article.title,
-    description: article.excerpt ?? undefined,
+    description,
+    alternates: {
+      canonical: `${siteUrl}/news/${slug}`,
+    },
     openGraph: {
       title: article.title,
-      description: article.excerpt ?? undefined,
+      description,
       type: 'article',
       publishedTime: article.published_at,
+      // No image_url column on articles (checked supabase/migrations/001_schema.sql) —
+      // omitted rather than referencing a field that doesn't exist on Article.
     },
   }
 }
@@ -63,15 +79,37 @@ const CAT_CLASS: Record<string, string> = {
 export default async function ArticlePage({
   params,
 }: {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }) {
-  const article = await getArticle(params.slug)
+  const { slug } = await params
+  const article = await getArticle(slug)
   if (!article) notFound()
 
   const related = await getRelated(article.category, article.id)
 
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: article.title,
+    description: article.excerpt ?? undefined,
+    datePublished: article.published_at,
+    // articles has no updated_at column (supabase/migrations/001_schema.sql) —
+    // created_at is the closest real signal available.
+    dateModified: article.created_at,
+    author: { '@type': 'Organization', name: 'Decoded Six' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Decoded Six',
+      url: siteUrl,
+    },
+  }
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <Header />
 
       <article className="container py-10 max-w-3xl">
