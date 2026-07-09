@@ -23,7 +23,7 @@ const TYPE_CLASS: Record<string, string> = {
 export default function QueuePage() {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
-  const [overlay, setOverlay] = useState<OverlayType | null>(null)
+  const [overlay, setOverlay] = useState<{ type: OverlayType; reward?: string } | null>(null)
   const [processing, setProcessing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({})
@@ -65,7 +65,7 @@ export default function QueuePage() {
           .eq('id', article.id)
       }
       soundManager.play(SoundEvents.ARTICLE_APPROVED)
-      setOverlay('mission-passed')
+      setOverlay({ type: 'mission-passed', reward: 'ARTICLE SECURED' })
       setArticles(prev => prev.filter(a => a.id !== article.id))
     } finally {
       setProcessing(null)
@@ -95,7 +95,7 @@ export default function QueuePage() {
       .update({ status: 'archived' })
       .eq('id', article.id)
     soundManager.play(SoundEvents.ARTICLE_REJECTED_SOFT, { volume: 0.4 })
-    setOverlay('wasted')
+    setOverlay({ type: 'wasted' })
     setArticles(prev => prev.filter(a => a.id !== article.id))
     setProcessing(null)
   }, [])
@@ -109,7 +109,7 @@ export default function QueuePage() {
 
   return (
     <>
-      <GTAOverlay type={overlay} onDismiss={() => setOverlay(null)} />
+      <GTAOverlay type={overlay?.type ?? null} reward={overlay?.reward} onDismiss={() => setOverlay(null)} />
 
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">

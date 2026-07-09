@@ -53,10 +53,79 @@
     box-shadow: 0 0 60px rgba(236, 18, 114, 0.08), 0 0 120px rgba(47, 196, 232, 0.04);
   }
 
-  /* Internal dashboard */
+  /* Internal dashboard — Vice City aesthetic */
+  .dash-stripe-bg {
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 40px,
+      rgba(255, 255, 255, 0.015) 40px,
+      rgba(255, 255, 255, 0.015) 41px
+    );
+  }
+
   .dash-card {
     @apply bg-dash-panel border border-dash-border rounded-xl;
   }
+
+  /* Vice City stat card */
+  .dash-vc-card {
+    background: #0D0014;
+    border: 2px solid #00f0ff;
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .dash-vc-label {
+    @apply font-pricedown text-gta-gold uppercase tracking-wide mb-2;
+    font-size: 15px;
+  }
+
+  .dash-vc-stat {
+    @apply font-pricedown text-white leading-none mb-5;
+    font-size: 52px;
+  }
+
+  .dash-vc-stat-error {
+    @apply font-pricedown text-neon-pink leading-none mb-5;
+    font-size: 52px;
+  }
+
+  .dash-vc-btn-cyan {
+    width: 100%;
+    background: #00f0ff;
+    color: #000;
+    font-family: var(--font-archivo), system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .dash-vc-btn-cyan:hover { opacity: 0.85; }
+  .dash-vc-btn-cyan:disabled { opacity: 0.4; cursor: default; }
+
+  .dash-vc-btn-pink {
+    width: 100%;
+    background: #FF2D6B;
+    color: #fff;
+    font-family: var(--font-archivo), system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .dash-vc-btn-pink:hover { opacity: 0.85; }
+  .dash-vc-btn-pink:disabled { opacity: 0.4; cursor: default; }
 
   .dash-stat {
     @apply text-gta-gold font-pricedown;

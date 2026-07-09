@@ -24,6 +24,7 @@ const config: Config = {
         whisper: 'rgba(255,255,255,0.35)',
         // Internal dashboard
         'dash-bg':     '#0D0014',
+        'dash-cyan':   '#00f0ff',
         'gta-gold':    '#C8A84B',
         'neon-pink':   '#FF2D6B',
         'dash-panel':  '#180025',

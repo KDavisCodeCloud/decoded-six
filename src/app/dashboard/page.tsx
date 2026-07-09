@@ -1,101 +1,168 @@
-import { createClient } from '@/lib/supabase-server'
+'use client'
 
-async function getStats(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const [articles, agentRuns] = await Promise.all([
-    supabase
-      .from('articles')
-      .select('id, status')
-      .eq('product_id', 'gta-hub'),
-    supabase
-      .from('audit_log')
-      .select('id, created_at')
-      .gte('created_at', new Date(Date.now() - 86400000).toISOString())
-      .order('created_at', { ascending: false })
-      .limit(50),
-  ])
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase-browser'
+import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
+import { soundManager, SoundEvents } from '@/lib/sounds'
 
-  const pending   = articles.data?.filter(a => a.status === 'pending_review').length ?? 0
-  const published = articles.data?.filter(a => a.status === 'published').length ?? 0
-  const agentRuns24h = agentRuns.data?.length ?? 0
-
-  return { pending, published, agentRuns24h }
+interface Stats {
+  published: number
+  pending: number
+  errors: number
+  agentRuns: number
 }
 
-export default async function DashboardOverview() {
-  const supabase = await createClient()
-  const stats = await getStats(supabase).catch(() => ({
-    pending: 0, published: 0, agentRuns24h: 0,
-  }))
+export default function DashboardOverview() {
+  const [stats, setStats] = useState<Stats>({ published: 0, pending: 0, errors: 0, agentRuns: 0 })
+  const [overlay, setOverlay] = useState<{ type: OverlayType; reward?: string } | null>(null)
 
   const daysToLaunch = Math.ceil(
     (new Date('2027-11-19T00:00:00Z').getTime() - Date.now()) / 86400000
   )
 
-  const STATS = [
-    { label: 'Queue',      value: stats.pending,      note: 'awaiting review',  color: 'text-gta-gold' },
-    { label: 'Published',  value: stats.published,    note: 'articles live',    color: 'text-green-400' },
-    { label: 'Agent Runs', value: stats.agentRuns24h, note: 'last 24 hours',    color: 'text-quiet' },
-    { label: 'Launch',     value: daysToLaunch,       note: 'days remaining',   color: 'text-neon-pink' },
-  ]
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const [articles, audit] = await Promise.all([
+        supabase.from('articles').select('id, status').eq('product_id', 'gta-hub'),
+        supabase.from('audit_log').select('id, error, created_at')
+          .gte('created_at', new Date(Date.now() - 86400000).toISOString()),
+      ])
+      const data = articles.data ?? []
+      const logs = audit.data ?? []
+      setStats({
+        published: data.filter(a => a.status === 'published').length,
+        pending:   data.filter(a => a.status === 'pending_review').length,
+        errors:    logs.filter(l => l.error).length,
+        agentRuns: logs.length,
+      })
+    }
+    load().catch(() => {})
+  }, [])
+
+  function triggerMission(reward: string) {
+    soundManager.play(SoundEvents.REVENUE_MILESTONE)
+    setOverlay({ type: 'mission-passed', reward })
+  }
+
+  function triggerWasted() {
+    soundManager.play(SoundEvents.ARTICLE_REJECTED)
+    setOverlay({ type: 'wasted' })
+  }
+
+  function pickupSound() {
+    soundManager.play(SoundEvents.ARTICLE_APPROVED)
+  }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="font-pricedown text-gta-gold text-3xl leading-none">MISSION CONTROL</h1>
-        <p className="text-quiet text-sm mt-1">DecodedSix — Internal Dashboard</p>
-      </div>
+    <>
+      <GTAOverlay
+        type={overlay?.type ?? null}
+        reward={overlay?.reward}
+        onDismiss={() => setOverlay(null)}
+      />
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {STATS.map(s => (
-          <div key={s.label} className="dash-card p-5">
-            <div className={`font-pricedown text-4xl leading-none mb-1 ${s.color}`}>
-              {s.value}
-            </div>
-            <div className="text-whisper text-xs uppercase tracking-widest">{s.label}</div>
-            <div className="text-quiet text-xs mt-0.5">{s.note}</div>
+      <div className="dash-stripe-bg min-h-screen p-8">
+        {/* Vice City header */}
+        <div className="mb-6 pb-4" style={{ borderBottom: '2px solid #FF2D6B' }}>
+          <div className="flex items-center justify-between">
+            <h1 className="font-pricedown text-4xl italic leading-none">
+              <span className="text-white">VICE CITY </span>
+              <span style={{ color: '#00f0ff' }}>STATS</span>
+            </h1>
+            <span className="font-pricedown italic" style={{ color: '#C8A84B', fontSize: '18px' }}>
+              EST. 1986
+            </span>
           </div>
-        ))}
-      </div>
+        </div>
 
-      {/* Phase tracker */}
-      <div className="dash-card p-6 mb-6">
-        <h2 className="font-heading font-bold text-bright text-sm uppercase tracking-widest mb-4">
-          Build Phase
-        </h2>
-        <div className="space-y-3">
-          {[
-            { phase: 'Phase 1 — Foundation',          done: true },
-            { phase: 'Phase 2 — Public Site Shell',   done: true },
-            { phase: 'Phase 3 — Content Pipeline',    done: false, active: true },
-            { phase: 'Phase 4 — Internal Dashboard',  done: false },
-            { phase: 'Phase 5 — Interactive Map',     done: false },
-            { phase: 'Phase 6 — YouTube System',      done: false },
-            { phase: 'Phase 7 — Revenue Intelligence',done: false },
-            { phase: 'Phase 8 — Launch Day (Nov 19 2027)', done: false },
-          ].map(p => (
-            <div key={p.phase} className="flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full shrink-0 ${
-                p.done ? 'bg-green-400' : p.active ? 'bg-gta-gold animate-pulse' : 'bg-dash-border'
-              }`} />
-              <span className={`text-sm ${
-                p.done ? 'text-quiet line-through' : p.active ? 'text-gta-gold font-semibold' : 'text-whisper'
-              }`}>
-                {p.phase}
-              </span>
-            </div>
-          ))}
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+          {/* Total Cash → Published articles */}
+          <div className="dash-vc-card">
+            <div className="dash-vc-label">TOTAL CA$H</div>
+            <div className="dash-vc-stat">{stats.published} ART</div>
+            <button
+              className="dash-vc-btn-cyan"
+              onClick={() => triggerMission(`${stats.published} ARTICLES SECURED`)}
+            >
+              COMPLETE MILESTONE
+            </button>
+          </div>
+
+          {/* Days to launch */}
+          <div className="dash-vc-card">
+            <div className="dash-vc-label">DAYS TO LAUNCH</div>
+            <div className="dash-vc-stat">{daysToLaunch}</div>
+            <button className="dash-vc-btn-cyan" onClick={pickupSound}>
+              PICKUP SOUND ONLY
+            </button>
+          </div>
+
+          {/* Queue */}
+          <div className="dash-vc-card">
+            <div className="dash-vc-label">HITL QUEUE</div>
+            <div className="dash-vc-stat">{stats.pending} PENDING</div>
+            <a href="/dashboard/queue">
+              <button className="dash-vc-btn-cyan" style={{ width: '100%' }}>
+                OPEN QUEUE
+              </button>
+            </a>
+          </div>
+
+          {/* Critical incidents */}
+          <div className="dash-vc-card">
+            <div className="dash-vc-label">CRITICAL INCIDENTS</div>
+            <div className="dash-vc-stat-error">{stats.errors} ERRORS</div>
+            <button className="dash-vc-btn-pink" onClick={triggerWasted}>
+              SIMULATE ERROR
+            </button>
+          </div>
+        </div>
+
+        {/* Phase tracker */}
+        <div className="dash-vc-card mb-5">
+          <div className="dash-vc-label mb-4">BUILD PHASE</div>
+          <div className="space-y-3">
+            {[
+              { phase: 'Phase 1 — Foundation',           done: true },
+              { phase: 'Phase 2 — Public Site Shell',    done: true },
+              { phase: 'Phase 3 — Content Pipeline',     done: false, active: true },
+              { phase: 'Phase 4 — Internal Dashboard',   done: false },
+              { phase: 'Phase 5 — Interactive Map',      done: false },
+              { phase: 'Phase 6 — YouTube System',       done: false },
+              { phase: 'Phase 7 — Revenue Intelligence', done: false },
+              { phase: 'Phase 8 — Launch Day Nov 19 2027', done: false },
+            ].map(p => (
+              <div key={p.phase} className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full shrink-0 ${
+                  p.done ? 'bg-green-400' : p.active ? 'animate-pulse' : 'bg-dash-border'
+                }`} style={p.active ? { background: '#00f0ff' } : {}} />
+                <span className={`text-sm font-heading ${
+                  p.done
+                    ? 'line-through text-whisper'
+                    : p.active
+                    ? 'font-semibold'
+                    : 'text-whisper'
+                }`} style={p.active ? { color: '#00f0ff' } : {}}>
+                  {p.phase}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Agent runs today */}
+        <div className="dash-vc-card">
+          <div className="dash-vc-label">AGENT RUNS — LAST 24H</div>
+          <div className="dash-vc-stat">{stats.agentRuns}</div>
+          <a href="/dashboard/agents">
+            <button className="dash-vc-btn-cyan" style={{ width: '100%' }}>
+              VIEW ROSTER
+            </button>
+          </a>
         </div>
       </div>
-
-      {/* Launch countdown */}
-      <div className="dash-card p-6">
-        <h2 className="font-heading font-bold text-bright text-sm uppercase tracking-widest mb-2">
-          Launch Target
-        </h2>
-        <div className="font-pricedown text-neon-pink text-2xl">November 19 2027</div>
-        <p className="text-quiet text-xs mt-1">GTA 6 launch day — map goes live, content at scale</p>
-      </div>
-    </div>
+    </>
   )
 }
