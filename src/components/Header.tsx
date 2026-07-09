@@ -4,55 +4,56 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const NAV = [
-  { label: 'News', href: '/news', live: true },
-  { label: 'Maps', href: '/maps', live: false },
-  { label: 'Vehicles', href: '/vehicles', live: false },
-  { label: 'Events', href: '/events', live: false },
-  { label: 'Guides', href: '/guides', live: true },
+  { label: 'News',    href: '/news' },
+  { label: 'Map',     href: '/map' },
+  { label: 'Guides',  href: '/guides' },
+  { label: 'Vehicles',href: '/vehicles' },
+  { label: 'Rumors',  href: '/rumors' },
 ]
 
 export function Header() {
   const [open, setOpen] = useState(false)
-  const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'Decoded Six'
 
   return (
     <header className="sticky top-0 z-50 bg-void/90 backdrop-blur-md border-b border-white/[0.06]">
       <div className="container">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-pink to-ice flex items-center justify-center text-white font-heading font-bold text-sm shrink-0">
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <div
+              className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-white font-heading font-black text-sm"
+              style={{ background: 'linear-gradient(135deg, #ec1272, #7c3aed)' }}
+            >
               D6
             </div>
-            <span className="font-heading font-bold text-xl tracking-wide text-bright group-hover:text-flame transition-colors">
-              {siteName}
+            <span className="font-heading font-extrabold text-[17px] tracking-tight text-bright">
+              Decoded Six
             </span>
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {NAV.map(n =>
-              n.live ? (
-                <Link
-                  key={n.label}
-                  href={n.href}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-quiet hover:text-bright hover:bg-white/5 transition-colors"
-                >
-                  {n.label}
-                </Link>
-              ) : (
-                <span
-                  key={n.label}
-                  className="relative px-4 py-2 rounded-lg text-sm font-medium text-whisper cursor-default select-none"
-                >
-                  {n.label}
-                  <span className="absolute -top-0.5 -right-0.5 text-[9px] bg-gold/20 text-gold px-1 py-px rounded uppercase tracking-wider leading-none">
-                    Soon
-                  </span>
-                </span>
-              )
-            )}
+            {NAV.map(n => (
+              <Link
+                key={n.label}
+                href={n.href}
+                className="px-4 py-2 text-sm font-medium text-quiet hover:text-bright transition-colors"
+              >
+                {n.label}
+              </Link>
+            ))}
           </nav>
+
+          {/* Subscribe CTA */}
+          <div className="hidden md:block">
+            <Link
+              href="/subscribe"
+              className="px-4 py-2 rounded-lg text-sm font-bold text-white"
+              style={{ background: '#ec1272' }}
+            >
+              Subscribe
+            </Link>
+          </div>
 
           {/* Mobile toggle */}
           <button
@@ -75,22 +76,27 @@ export function Header() {
             {NAV.map(n => (
               <Link
                 key={n.label}
-                href={n.live ? n.href : '#'}
-                className={`flex items-center justify-between px-4 py-3 text-sm font-medium ${n.live ? 'text-quiet hover:text-bright' : 'text-whisper'}`}
+                href={n.href}
+                className="flex items-center px-4 py-3 text-sm font-medium text-quiet hover:text-bright"
                 onClick={() => setOpen(false)}
               >
                 {n.label}
-                {!n.live && (
-                  <span className="text-[10px] bg-gold/20 text-gold px-1.5 py-0.5 rounded uppercase tracking-wider">
-                    Soon
-                  </span>
-                )}
               </Link>
             ))}
+            <div className="px-4 pt-3 pb-1">
+              <Link
+                href="/subscribe"
+                className="block w-full text-center py-2.5 rounded-lg text-sm font-bold text-white"
+                style={{ background: '#ec1272' }}
+              >
+                Subscribe
+              </Link>
+            </div>
           </div>
         )}
       </div>
-      <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, #FF2D6B44, #00d2ff44)' }} />
+      {/* 3px gradient divider bar */}
+      <div className="gradient-bar" />
     </header>
   )
 }

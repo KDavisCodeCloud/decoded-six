@@ -1,16 +1,17 @@
 import type { Metadata } from 'next'
-import { Rajdhani, Inter } from 'next/font/google'
+import { Archivo, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 
-const rajdhani = Rajdhani({
+const archivo = Archivo({
   subsets: ['latin'],
-  weight: ['600', '700'],
-  variable: '--font-rajdhani',
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: '--font-archivo',
 })
 
-const inter = Inter({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['400', '600', '700'],
+  variable: '--font-ibm-plex-mono',
 })
 
 const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'Decoded Six'
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${rajdhani.variable} ${inter.variable}`}>
+    <html lang="en" className={`${archivo.variable} ${ibmPlexMono.variable}`}>
       <body className="font-body antialiased bg-void text-bright">{children}</body>
     </html>
   )

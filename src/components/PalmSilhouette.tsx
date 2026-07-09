@@ -20,7 +20,7 @@ const PALMS: PalmSpec[] = [
 ]
 
 const BASE_Y = 420
-const SILHOUETTE = '#07050d'
+const SILHOUETTE = '#0a0a0f'
 
 function trunkPath({ baseX, height, lean, trunkWidth }: PalmSpec): string {
   const crownX = baseX + lean
@@ -108,12 +108,10 @@ export function PalmSilhouette({
     >
       <defs>
         <linearGradient id="vice-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#07050d" />
-          <stop offset="20%" stopColor="#1a0a2e" />
-          <stop offset="40%" stopColor="#4a0a3a" />
-          <stop offset="60%" stopColor="#8b1a4a" />
-          <stop offset="80%" stopColor="#e6358a" />
-          <stop offset="100%" stopColor="#FF2D6B" />
+          <stop offset="0%"   stopColor="#241436" />
+          <stop offset="45%"  stopColor="#5c1c52" />
+          <stop offset="72%"  stopColor="#c8446f" />
+          <stop offset="100%" stopColor="#f0975a" />
         </linearGradient>
         <filter id="vice-horizon-blur" x="-20%" y="-500%" width="140%" height="1100%">
           <feGaussianBlur stdDeviation="3" />
@@ -127,10 +125,10 @@ export function PalmSilhouette({
         y1={420 * 0.75}
         x2="1440"
         y2={420 * 0.75}
-        stroke="#FF2D6B"
+        stroke="#c8446f"
         strokeWidth="1"
         filter="url(#vice-horizon-blur)"
-        opacity="0.85"
+        opacity="0.6"
       />
 
       {PALMS.map((spec, i) => (

@@ -19,7 +19,9 @@ function calc(target: string): TimeLeft {
   }
 }
 
-export function Countdown({ targetDate, label }: { targetDate: string; label: string }) {
+const UNITS = ['Days', 'Hours', 'Min', 'Sec'] as const
+
+export function Countdown({ targetDate }: { targetDate: string }) {
   const [time, setTime] = useState<TimeLeft | null>(null)
 
   useEffect(() => {
@@ -33,37 +35,34 @@ export function Countdown({ targetDate, label }: { targetDate: string; label: st
   const launched = Object.values(time).every(v => v === 0)
   if (launched) {
     return (
-      <div className="text-center">
-        <span className="font-heading font-bold text-4xl gradient-text">LAUNCHED</span>
-      </div>
+      <span className="font-heading font-black text-4xl gradient-text">LAUNCHED</span>
     )
   }
 
-  const units = [
-    { label: 'Days',    value: time.days },
-    { label: 'Hours',   value: time.hours },
-    { label: 'Minutes', value: time.minutes },
-    { label: 'Seconds', value: time.seconds },
-  ]
+  const values = [time.days, time.hours, time.minutes, time.seconds]
 
   return (
-    <div>
-      <p className="text-whisper text-xs uppercase tracking-widest mb-3">{label}</p>
-      <div className="flex items-center gap-2">
-        {units.map(({ label, value }, i) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className="bg-raised border border-white/[0.06] rounded-xl px-4 py-3 text-center min-w-[64px]">
-              <div className="font-heading font-bold text-3xl text-bright tabular-nums leading-none">
-                {String(value).padStart(2, '0')}
-              </div>
-              <div className="text-whisper text-[10px] uppercase tracking-widest mt-1">{label}</div>
-            </div>
-            {i < units.length - 1 && (
-              <span className="text-whisper font-bold text-xl leading-none mb-4">:</span>
-            )}
-          </div>
-        ))}
-      </div>
+    <div className="flex items-center gap-2">
+      {UNITS.map((unit, i) => (
+        <div
+          key={unit}
+          className="flex flex-col items-center justify-center min-w-[64px] px-3 py-3 rounded-lg border"
+          style={{
+            background: '#15151c',
+            borderColor: 'rgba(255,255,255,0.10)',
+          }}
+        >
+          <span
+            className="font-heading font-extrabold text-[26px] leading-none tabular-nums"
+            style={{ color: i === 3 ? '#2fc4e8' : '#ffffff' }}
+          >
+            {String(values[i]).padStart(2, '0')}
+          </span>
+          <span className="font-ibm text-[9px] font-bold uppercase tracking-[0.12em] mt-1.5 text-[rgba(255,255,255,0.35)]">
+            {unit}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

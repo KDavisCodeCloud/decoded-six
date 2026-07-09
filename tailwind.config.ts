@@ -9,27 +9,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Public site
-        void: '#07050d',
-        panel: '#100c1a',
-        raised: '#18122a',
-        flame: '#e6358a',
-        ice: '#00d2ff',
-        gold: '#ffcc00',
-        bright: '#f0eef8',
-        quiet: '#9b94b8',
-        whisper: '#5a5270',
-        // Internal dashboard (Vice City surface)
-        'dash-bg': '#0D0014',
-        'gta-gold': '#C8A84B',
-        'neon-pink': '#FF2D6B',
-        'dash-panel': '#180025',
+        // Public site — Design Standard (locked)
+        void:    '#0a0a0f',
+        panel:   '#0f0f15',
+        raised:  '#15151c',
+        // Brand gradient solids: pink → purple → cyan
+        flame:   '#ec1272',
+        purple:  '#7c3aed',
+        ice:     '#2fc4e8',
+        gold:    '#f0975a',   // sunset/orange — unconfirmed rumor tag only
+        // Text scale
+        bright:  '#ffffff',
+        quiet:   'rgba(255,255,255,0.58)',
+        whisper: 'rgba(255,255,255,0.35)',
+        // Internal dashboard
+        'dash-bg':     '#0D0014',
+        'gta-gold':    '#C8A84B',
+        'neon-pink':   '#FF2D6B',
+        'dash-panel':  '#180025',
         'dash-border': '#2a0040',
       },
       fontFamily: {
-        heading: ['var(--font-rajdhani)', 'system-ui', 'sans-serif'],
-        body: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        pricedown: ['Pricedown', 'var(--font-rajdhani)', 'system-ui', 'sans-serif'],
+        heading:   ['var(--font-archivo)', 'system-ui', 'sans-serif'],
+        body:      ['var(--font-archivo)', 'system-ui', 'sans-serif'],
+        ibm:       ['var(--font-ibm-plex-mono)', 'monospace'],
+        pricedown: ['Pricedown', 'var(--font-archivo)', 'system-ui', 'sans-serif'],
       },
     },
   },
