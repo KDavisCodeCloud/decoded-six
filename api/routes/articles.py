@@ -6,6 +6,7 @@ only columns that actually exist there.
 """
 
 import os
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import create_client
@@ -51,3 +52,49 @@ def update_article(article_id: str, body: dict, _: None = Depends(require_api_ke
         raise HTTPException(status_code=400, detail="No valid fields to update")
     sb.table("articles").update(safe_body).eq("id", article_id).execute()
     return {"success": True}
+
+
+@router.get("/{article_id}/audit")
+def get_article_audit(article_id: str, _: None = Depends(require_api_key)):
+    """Most recent ds_seo (Session 13) + ds_aeo audit_log results for this article."""
+    sb = get_supabase()
+    result = (
+        sb.table("audit_log")
+        .select("agent_id,result,error,created_at")
+        .eq("article_id", article_id)
+        .in_("agent_id", ["ds_seo", "ds_aeo"])
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    rows = result.data or []
+    seo_entry = next((r for r in rows if r["agent_id"] == "ds_seo"), None)
+    aeo_entry = next((r for r in rows if r["agent_id"] == "ds_aeo"), None)
+
+    return {
+        "article_id": article_id,
+        "seo": _parse_audit_entry(seo_entry),
+        "aeo": _parse_audit_entry(aeo_entry),
+    }
+
+
+def _parse_audit_entry(entry: Optional[dict]) -> Optional[dict]:
+    """ds_seo/ds_aeo embed `passed:score=N` (or `failed:score=N`) in `result`
+    since audit_log has no dedicated score column — parse it back out here."""
+    if not entry:
+        return None
+    result = entry.get("result") or ""
+    passed = result.startswith("passed")
+    score: Optional[int] = None
+    if ":score=" in result:
+        try:
+            score = int(result.split(":score=")[1])
+        except ValueError:
+            score = None
+    issues = entry["error"].split("; ") if entry.get("error") else []
+    return {
+        "passed": passed,
+        "score": score,
+        "issues": issues,
+        "checked_at": entry.get("created_at"),
+    }

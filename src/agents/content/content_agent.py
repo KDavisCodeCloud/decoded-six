@@ -6,11 +6,13 @@ Triggered by n8n via POST /agents/decodedsix/content.
 
 Node pipeline (mirrors LangGraph pattern, no external graph dependency):
   topic_picker → [news_scraper] → writer → faq_generator → schema_generator
-  → internal_link_injector → [affiliate_link_injector] → validator → output_formatter
+  → internal_link_injector → [affiliate_link_injector] → validator
+  → output_formatter → seo_aeo_audit (ds_seo + ds_aeo, Session 13)
 
 DataSanitizationShield applied before any user-supplied data reaches the LLM.
-Every run writes to audit_log. Status always lands on 'pending_review' — never
-skips HITL.
+Every run writes to audit_log. Status lands on 'pending_review' by default,
+downgraded to 'needs_revision' by seo_aeo_audit if either score is below
+threshold — never skips HITL either way.
 """
 
 from __future__ import annotations
@@ -515,6 +517,52 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
     return state
 
 
+# ── Node 10: seo_aeo_audit (Session 13) ───────────────────────────────────────
+
+def _node_seo_aeo_audit(state: dict, sb: Any) -> dict:
+    """
+    Runs after output_formatter, against the now-real article_id — ds_seo and
+    ds_aeo both read committed columns (word_count, faq_pairs, schema_faq,
+    internal_links_used, external_citation) that only exist once the row is
+    inserted, so this can't run any earlier in the pipeline.
+
+    output_formatter already set status='pending_review'. If either audit
+    scores below the pass threshold, this downgrades status to
+    'needs_revision' and records why in hitl_notes. If both pass, the row is
+    left exactly as output_formatter set it — no extra write.
+    """
+    from src.agents.content.ds_aeo import audit_aeo
+    from src.agents.content.ds_seo import audit_seo
+
+    article_id = state["article_id"]
+
+    seo_result = audit_seo(article_id, supabase_client=sb)
+    aeo_result = audit_aeo(article_id, supabase_client=sb)
+
+    state["seo_result"] = seo_result
+    state["aeo_result"] = aeo_result
+
+    if seo_result["passed"] and aeo_result["passed"]:
+        return state
+
+    notes = (
+        f"SEO score {seo_result['score']}: {'; '.join(seo_result['issues']) or 'none'}\n"
+        f"AEO score {aeo_result['aeo_score']}: {'; '.join(aeo_result['issues']) or 'none'}"
+    )
+    update_result = (
+        sb.table("articles")
+        .update({"status": "needs_revision", "hitl_notes": notes})
+        .eq("id", article_id)
+        .execute()
+    )
+    if not update_result.data:
+        raise ContentAgentError("seo_aeo_audit", article_id,
+            RuntimeError("Failed to downgrade status to needs_revision"))
+
+    state["status"] = "needs_revision"
+    return state
+
+
 # ── Main agent entry point ────────────────────────────────────────────────────
 
 def run_content_agent(
@@ -569,12 +617,15 @@ def run_content_agent(
         state = _node_output_formatter(state, sb)
 
         article_id = state["article_id"]
+
+        state = _node_seo_aeo_audit(state, sb)
+
         _audit(sb, article_id, "content_agent_run", "success")
 
         return {
             "article_id": article_id,
             "slug": state["slug"],
-            "status": "pending_review",
+            "status": state.get("status", "pending_review"),
         }
 
     except ContentAgentError as exc:
