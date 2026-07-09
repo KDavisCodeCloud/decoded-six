@@ -1,19 +1,9 @@
-import dynamic from 'next/dynamic'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
+import { MapClientLoader } from '@/components/map/MapClientLoader'
 import { supabase } from '@/lib/supabase'
 import type { MapMarker, MapArea } from '@/lib/types'
-
-const LeafletMap = dynamic(
-  () => import('@/components/map/LeafletMap').then(m => m.LeafletMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex-1 rounded-xl bg-panel border border-white/[0.06] animate-pulse" />
-    ),
-  }
-)
 
 export const revalidate = 300
 
@@ -70,7 +60,7 @@ export default async function MapPage() {
         </div>
 
         <div className="flex-1" style={{ height: 'calc(100vh - 200px)', minHeight: 500 }}>
-          <LeafletMap markers={markers} areas={areas} />
+          <MapClientLoader markers={markers} areas={areas} />
         </div>
       </main>
       <Footer />
