@@ -8,7 +8,7 @@ import type { Article } from '@/lib/types'
 
 export const revalidate = 300
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://decodedsix.com'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thedecodedsix.com'
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
@@ -87,21 +87,42 @@ export default async function ArticlePage({
 
   const related = await getRelated(article.category, article.id)
 
-  const articleJsonLd = {
+  // Use agent-generated schema if available, otherwise build from article fields
+  const articleJsonLd = article.schema_article ?? {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
     headline: article.title,
     description: article.excerpt ?? undefined,
     datePublished: article.published_at,
-    // articles has no updated_at column (supabase/migrations/001_schema.sql) —
-    // created_at is the closest real signal available.
     dateModified: article.created_at,
-    author: { '@type': 'Organization', name: 'Decoded Six' },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Decoded Six',
-      url: siteUrl,
-    },
+    author: { '@type': 'Organization', name: 'DecodedSix Editorial Team' },
+    publisher: { '@type': 'Organization', name: 'Decoded Six', url: siteUrl },
+    url: `${siteUrl}/news/${slug}`,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteUrl}/news/${slug}` },
+  }
+
+  const faqJsonLd = article.schema_faq ?? (
+    article.faq_pairs && article.faq_pairs.length >= 3
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: article.faq_pairs.map(pair => ({
+            '@type': 'Question',
+            name: pair.question,
+            acceptedAnswer: { '@type': 'Answer', text: pair.answer },
+          })),
+        }
+      : null
+  )
+
+  const breadcrumbJsonLd = article.schema_breadcrumb ?? {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+      { '@type': 'ListItem', position: 2, name: 'News', item: `${siteUrl}/news` },
+      { '@type': 'ListItem', position: 3, name: article.title, item: `${siteUrl}/news/${slug}` },
+    ],
   }
 
   return (
@@ -109,6 +130,16 @@ export default async function ArticlePage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <Header />
 
@@ -151,11 +182,36 @@ export default async function ArticlePage({
         )}
 
         {article.content && (
-          <div className="text-quiet leading-loose space-y-4 text-base">
-            {article.content.split('\n\n').map((para, i) => (
-              <p key={i}>{para}</p>
-            ))}
-          </div>
+          article.agent_generated
+            ? (
+              // Agent-generated articles use HTML content — render directly
+              <div
+                className="prose-dsx text-quiet leading-loose text-base"
+                dangerouslySetInnerHTML={{ __html: article.content }}
+              />
+            )
+            : (
+              // Manually written articles use plain text with double-newline paragraphs
+              <div className="text-quiet leading-loose space-y-4 text-base">
+                {article.content.split('\n\n').map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
+            )
+        )}
+
+        {article.faq_pairs && article.faq_pairs.length > 0 && (
+          <section className="mt-10 border-t border-white/[0.06] pt-8">
+            <h2 className="font-heading font-bold text-2xl text-bright mb-6">Frequently Asked Questions</h2>
+            <div className="space-y-5">
+              {article.faq_pairs.map((pair, i) => (
+                <div key={i} className="border border-white/[0.06] rounded-xl p-5">
+                  <h3 className="font-heading font-bold text-base text-bright mb-2">{pair.question}</h3>
+                  <p className="text-quiet text-sm leading-relaxed">{pair.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         {article.agent_generated && article.source_url && (

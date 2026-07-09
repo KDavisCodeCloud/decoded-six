@@ -1,3 +1,14 @@
+export interface FaqPair {
+  question: string
+  answer: string
+}
+
+export interface AffiliateLink {
+  product_name: string
+  url: string
+  placement: string
+}
+
 export interface Article {
   id: string
   product_id: string
@@ -11,7 +22,24 @@ export interface Article {
   published_at: string
   created_at: string
   agent_generated: boolean
-  status: 'draft' | 'published' | 'archived'
+  status: 'draft' | 'published' | 'archived' | 'pending_review' | 'needs_revision'
+  ai_detect_score: number | null
+  // Agent-generated fields (005_articles_agent_fields.sql)
+  article_type: 'news' | 'evergreen' | 'conversion' | null
+  publish_date: string | null
+  faq_pairs: FaqPair[] | null
+  internal_links_used: string[] | null
+  external_citation: string | null
+  affiliate_links: AffiliateLink[] | null
+  schema_article: Record<string, unknown> | null
+  schema_faq: Record<string, unknown> | null
+  schema_breadcrumb: Record<string, unknown> | null
+  word_count: number | null
+  hitl_reviewer: string | null
+  hitl_reviewed_at: string | null
+  hitl_notes: string | null
+  page_views: number
+  affiliate_clicks: number
 }
 
 export interface MapMarker {

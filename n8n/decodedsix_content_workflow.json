@@ -1,0 +1,136 @@
+{
+  "name": "DSX-CA1 Content Agent — Tue/Thu/Sat",
+  "nodes": [
+    {
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 16 * * 2,4,6"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "set-article-type",
+      "name": "Set Article Type by Day",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "// Day of week: 2=Tuesday, 4=Thursday, 6=Saturday (UTC)\nconst day = new Date().getUTCDay();\nconst typeMap = { 2: 'news', 4: 'evergreen', 6: 'conversion' };\nconst articleType = typeMap[day] ?? 'news';\n\n// Publish date = tomorrow at 9am MST (UTC-7)\nconst publishDate = new Date();\npublishDate.setUTCDate(publishDate.getUTCDate() + 1);\npublishDate.setUTCHours(16, 0, 0, 0);\n\nreturn [{ json: { article_type: articleType, publish_date: publishDate.toISOString().split('T')[0] } }];"
+      }
+    },
+    {
+      "id": "fetch-news-rss",
+      "name": "Fetch News Topic (news type only)",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [680, 200],
+      "parameters": {
+        "url": "https://www.gamesradar.com/rss/gta-6/",
+        "options": {}
+      }
+    },
+    {
+      "id": "pick-news-topic",
+      "name": "Pick Latest News Headline",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst articleType = $('Set Article Type by Day').first().json.article_type;\nconst publishDate = $('Set Article Type by Day').first().json.publish_date;\n\nif (articleType !== 'news') {\n  return [{ json: { article_type: articleType, topic_seed: '', publish_date: publishDate } }];\n}\n\nconst latest = items[0]?.json ?? {};\nconst headline = latest.title || latest.headline || 'GTA 6 latest news';\nreturn [{ json: { article_type: articleType, topic_seed: headline, publish_date: publishDate } }];"
+      }
+    },
+    {
+      "id": "trigger-content-agent",
+      "name": "POST /agents/decodedsix/content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/agents/decodedsix/content",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "article_type",
+              "value": "={{ $json.article_type }}"
+            },
+            {
+              "name": "topic_seed",
+              "value": "={{ $json.topic_seed }}"
+            },
+            {
+              "name": "publish_date",
+              "value": "={{ $json.publish_date }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "check-response",
+      "name": "Check API Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nif (!response.success) {\n  throw new Error(`Content agent failed: ${JSON.stringify(response)}`);\n}\nreturn [{ json: { status: 'queued', message: 'DSX-CA1 running in background — article will appear in HITL queue when ready' } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{ "node": "Set Article Type by Day", "type": "main", "index": 0 }]]
+    },
+    "Set Article Type by Day": {
+      "main": [[{ "node": "Fetch News Topic (news type only)", "type": "main", "index": 0 }]]
+    },
+    "Fetch News Topic (news type only)": {
+      "main": [[{ "node": "Pick Latest News Headline", "type": "main", "index": 0 }]]
+    },
+    "Pick Latest News Headline": {
+      "main": [[{ "node": "POST /agents/decodedsix/content", "type": "main", "index": 0 }]]
+    },
+    "POST /agents/decodedsix/content": {
+      "main": [[{ "node": "Check API Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["decodedsix", "content-agent", "dsx-ca1"],
+  "notes": "Triggers Tue/Thu/Sat at 9am MST (16:00 UTC). Day maps to article_type: Tue=news, Thu=evergreen, Sat=conversion. News type fetches latest headline from GamesRadar RSS. Evergreen and conversion use the agent's built-in keyword/affiliate lists. The FastAPI endpoint runs DSX-CA1 in the background — article appears in /dashboard/queue when complete with status=pending_review. Env vars required: DECODEDSIX_API_URL (FastAPI base URL), DECODEDSIX_API_KEY."
+}

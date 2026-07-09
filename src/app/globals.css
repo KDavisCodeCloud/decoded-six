@@ -56,6 +56,20 @@
            hover:bg-neon-pink/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold;
   }
 
+  /* Agent-generated article HTML content */
+  .prose-dsx h2 { @apply font-heading font-bold text-2xl text-bright mt-10 mb-4; }
+  .prose-dsx h3 { @apply font-heading font-bold text-lg text-bright mt-7 mb-3; }
+  .prose-dsx p  { @apply text-quiet leading-loose mb-4; }
+  .prose-dsx ul { @apply list-disc list-inside space-y-1 text-quiet mb-4 pl-2; }
+  .prose-dsx ol { @apply list-decimal list-inside space-y-1 text-quiet mb-4 pl-2; }
+  .prose-dsx a  { @apply text-flame hover:underline; }
+  .prose-dsx strong { @apply text-bright font-semibold; }
+  .prose-dsx table { @apply w-full border-collapse text-sm mb-6; }
+  .prose-dsx th  { @apply text-left px-3 py-2 text-quiet font-semibold border-b border-white/[0.08]; }
+  .prose-dsx td  { @apply px-3 py-2 text-quiet border-b border-white/[0.04]; }
+  .prose-dsx section.faq { @apply mt-10 border-t border-white/[0.06] pt-8; }
+  .prose-dsx section.faq h2 { @apply text-2xl mb-6; }
+
   /* Miami Vice hero redesign */
   .vice-divider {
     height: 1px;
