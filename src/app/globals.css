@@ -55,4 +55,16 @@
     @apply bg-neon-pink/15 text-neon-pink border border-neon-pink/30
            hover:bg-neon-pink/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold;
   }
+
+  /* Miami Vice hero redesign */
+  .vice-divider {
+    height: 1px;
+    background: linear-gradient(90deg, #FF2D6B33 0%, #FF2D6B88 30%, #00d2ff55 70%, transparent 100%);
+    border: none;
+  }
+
+  .hero-vignette {
+    background: linear-gradient(to right, #07050d 0%, #07050d 35%, #07050dcc 55%, transparent 80%),
+                linear-gradient(to bottom, #07050d 0%, transparent 20%, transparent 70%, #07050d 100%);
+  }
 }

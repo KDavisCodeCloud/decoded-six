@@ -4,6 +4,7 @@ import { Footer } from '@/components/Footer'
 import { Countdown } from '@/components/Countdown'
 import { ArticleCard } from '@/components/ArticleCard'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
+import { PalmSilhouette } from '@/components/PalmSilhouette'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -19,10 +20,10 @@ async function getLatest(): Promise<Article[]> {
 }
 
 const COMING_SOON = [
-  { icon: '🗺️', label: 'Interactive Map',  desc: 'Every location, mission, and collectible plotted.' },
-  { icon: '🚗', label: 'Vehicle Database', desc: 'Stats, top speeds, and money-making rankings.' },
-  { icon: '📅', label: 'Weekly Events',    desc: 'GTA Online bonuses and discounts updated every Thursday.' },
-  { icon: '💰', label: 'Money Guide',      desc: 'Fastest passive income methods ranked and updated.' },
+  { icon: '🗺️', label: 'Interactive Map',  desc: 'Every location, mission, and collectible plotted.', accent: 'border-l-ice' },
+  { icon: '🚗', label: 'Vehicle Database', desc: 'Stats, top speeds, and money-making rankings.', accent: 'border-l-[#f5a623]' },
+  { icon: '📅', label: 'Weekly Events',    desc: 'GTA Online bonuses and discounts updated every Thursday.', accent: 'border-l-gta-gold' },
+  { icon: '💰', label: 'Money Guide',      desc: 'Fastest passive income methods ranked and updated.', accent: 'border-l-[#3fd17a]' },
 ]
 
 export default async function HomePage() {
@@ -30,42 +31,47 @@ export default async function HomePage() {
   const [featured, ...rest] = articles
 
   const launchDate = process.env.NEXT_PUBLIC_LAUNCH_DATE || '2027-03-01'
-  const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'Decoded Six'
 
   return (
     <>
       <Header />
 
       {/* Hero */}
-      <section className="relative py-20 md:py-28 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-flame/8 rounded-full blur-3xl" />
-          <div className="absolute top-1/3 left-1/3 w-[500px] h-[300px] bg-ice/5 rounded-full blur-3xl" />
+      <section className="relative min-h-[85vh] flex items-end overflow-hidden">
+        <div className="absolute inset-0">
+          <PalmSilhouette className="absolute inset-0 w-full h-full" />
         </div>
+        <div className="hero-vignette absolute inset-0 pointer-events-none" />
+        <div
+          className="absolute inset-x-0 h-px pointer-events-none"
+          style={{ top: '65%', background: 'linear-gradient(90deg, transparent, #FF2D6B, #00d2ff, transparent)' }}
+        />
 
-        <div className="container relative">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1.5 h-5 bg-flame rounded-full" />
-              <span className="text-whisper text-xs uppercase tracking-widest font-medium">
-                {siteName} &mdash; GTA 6 Intelligence
-              </span>
-            </div>
-
-            <h1 className="font-heading font-bold text-5xl md:text-7xl text-bright leading-[0.95] tracking-tight mb-6">
-              THE DEFINITIVE<br />
-              <span className="gradient-text">GTA 6 SOURCE</span>
+        <div className="container relative pb-16 md:pb-24">
+          <div className="max-w-2xl">
+            <h1 className="font-heading font-bold text-7xl md:text-[9rem] leading-[0.9] tracking-tight">
+              <span className="block text-bright">VICE CITY</span>
+              <span className="block gradient-text">DECODED</span>
             </h1>
 
-            <p className="text-quiet text-lg md:text-xl mb-10 max-w-xl leading-relaxed">
-              The fastest GTA 6 coverage on the internet. News, confirmed locations,
-              vehicle stats, and weekly event digests — all in one place.
+            <p className="text-quiet text-lg max-w-md mt-6">
+              GTA 6 news, confirmed locations, vehicle stats, and weekly events.
             </p>
 
-            <Countdown targetDate={launchDate} label="PC Launch Countdown" />
+            <div className="mt-8">
+              <Countdown targetDate={launchDate} label="PC Launch Countdown" />
+            </div>
           </div>
         </div>
       </section>
+
+      {/* Intel ticker */}
+      <div className="w-full py-2.5 px-6 bg-panel border-l-2 border-neon-pink">
+        <p className="text-xs uppercase">
+          <span className="font-mono text-neon-pink tracking-widest">GTA 6 INTEL</span>
+          <span className="text-whisper tracking-widest"> &middot; PC LAUNCH &middot; CONFIRMED LOCATIONS &middot; VEHICLE DATABASE &middot; WEEKLY EVENTS</span>
+        </p>
+      </div>
 
       <div className="container pb-20">
         {/* Featured */}
@@ -114,6 +120,8 @@ export default async function HomePage() {
           </section>
         )}
 
+        <div className="vice-divider my-12" />
+
         {/* Coming soon */}
         <section>
           <div className="flex items-center gap-3 mb-5">
@@ -126,7 +134,7 @@ export default async function HomePage() {
             {COMING_SOON.map(item => (
               <div
                 key={item.label}
-                className="bg-panel border border-white/[0.04] rounded-xl p-5 opacity-70"
+                className={`bg-panel border border-white/[0.04] border-l-2 ${item.accent} rounded-xl p-5`}
               >
                 <div className="text-2xl mb-3">{item.icon}</div>
                 <div className="font-heading font-bold text-bright mb-1">{item.label}</div>
@@ -138,6 +146,8 @@ export default async function HomePage() {
             ))}
           </div>
         </section>
+
+        <div className="vice-divider my-12" />
 
         {/* Interactive map */}
         <section className="mt-16">

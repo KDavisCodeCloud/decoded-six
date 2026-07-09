@@ -8,7 +8,7 @@ const NAV = [
   { label: 'Maps', href: '/maps', live: false },
   { label: 'Vehicles', href: '/vehicles', live: false },
   { label: 'Events', href: '/events', live: false },
-  { label: 'Guides', href: '/guides', live: false },
+  { label: 'Guides', href: '/guides', live: true },
 ]
 
 export function Header() {
@@ -21,7 +21,7 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-flame to-ice flex items-center justify-center text-white font-heading font-bold text-sm shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-pink to-ice flex items-center justify-center text-white font-heading font-bold text-sm shrink-0">
               D6
             </div>
             <span className="font-heading font-bold text-xl tracking-wide text-bright group-hover:text-flame transition-colors">
@@ -90,6 +90,7 @@ export function Header() {
           </div>
         )}
       </div>
+      <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, #FF2D6B44, #00d2ff44)' }} />
     </header>
   )
 }
