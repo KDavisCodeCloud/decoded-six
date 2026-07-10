@@ -58,6 +58,7 @@ async def trigger_content_agent(
 @router.post("/publish/{article_id}", response_model=PublishResponse)
 async def publish_article(
     article_id: str,
+    background_tasks: BackgroundTasks,
     _: None = Depends(require_api_key),
 ) -> PublishResponse:
     """
@@ -72,7 +73,7 @@ async def publish_article(
             os.environ["SUPABASE_SERVICE_ROLE_KEY"],
         )
 
-        check = sb.table("articles").select("id, status").eq("id", article_id).single().execute()
+        check = sb.table("articles").select("id, status, slug").eq("id", article_id).single().execute()
         if not check.data:
             raise HTTPException(status_code=404, detail="Article not found")
 
@@ -97,12 +98,35 @@ async def publish_article(
             "result": "success",
         }).execute()
 
+        # Fire the n8n distribution webhook — non-blocking, never fails the
+        # publish response even if N8N_POST_APPROVAL_WEBHOOK_URL is unset or
+        # unreachable.
+        background_tasks.add_task(_fire_distribution_webhook, article_id, check.data["slug"])
+
         return PublishResponse(success=True, article_id=article_id, published_at=now)
 
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _fire_distribution_webhook(article_id: str, slug: str) -> None:
+    url = os.getenv("N8N_POST_APPROVAL_WEBHOOK_URL")
+    if not url:
+        return
+    try:
+        import httpx
+
+        httpx.post(
+            url,
+            json={"article_id": article_id, "slug": slug, "event": "article_approved"},
+            timeout=5.0,
+        )
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).error("[dsx-publish] webhook fire failed: %s", exc)
 
 
 def _run_agent(article_type: str, topic_seed: str, publish_date: Optional[str]) -> None:

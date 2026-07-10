@@ -1,0 +1,142 @@
+{
+  "name": "DecodedSix \u2014 HITL Notification",
+  "nodes": [
+    {
+      "id": "4b14b70c-cc20-4fd5-b668-dc29aadce790",
+      "name": "Webhook \u2014 HITL Article",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "decodedsix/hitl",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "0aaa556c-a04c-4e36-9ada-783816461ccd"
+    },
+    {
+      "id": "d87f81b4-9aa2-4464-8c3c-0bf8eeac5624",
+      "name": "Get Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/api/articles/{{ $json.body.record.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "39529d1c-4376-4252-9726-1af3f7d0989a",
+      "name": "Slack \u2014 HITL Review Needed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#decodedsix-hitl"
+        },
+        "text": "=\ud83d\udc40 Article needs review\nTitle: {{ $json.title }}\nCategory: {{ $json.category }}\nDetection score: {{ $json.metadata.detection_score ?? 'not run' }}%\nDashboard: {{ $env.DECODEDSIX_DASHBOARD_URL }}/dashboard/queue",
+        "otherOptions": {}
+      },
+      "webhookId": null
+    },
+    {
+      "id": "8a80f7da-4b78-4f0c-8a03-f61c71670321",
+      "name": "Mark HITL Notified",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/api/articles/{{ $json.body.record.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"hitl_notified\": true\n}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook \u2014 HITL Article": {
+      "main": [
+        [
+          {
+            "node": "Get Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Article": {
+      "main": [
+        [
+          {
+            "node": "Slack \u2014 HITL Review Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack \u2014 HITL Review Needed": {
+      "main": [
+        [
+          {
+            "node": "Mark HITL Notified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "a3818340-6525-4fb7-a3a8-4c314ce634c5",
+  "meta": {
+    "instanceId": "decodedsix-self-hosted"
+  },
+  "id": "a8c6ba8e-388d-4cde-991c-dadd54d89b6b",
+  "tags": []
+}

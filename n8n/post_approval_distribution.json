@@ -1,0 +1,113 @@
+{
+  "name": "DecodedSix — Post-Approval Distribution",
+  "nodes": [
+    {
+      "id": "61d2bc3a-9c3a-4dce-8974-d0d7f4d78e3c",
+      "name": "Webhook — Post Approval",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "decodedsix-post-approval",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "179d2f7b-49c7-4ce1-b53c-70761dd5fd9d"
+    },
+    {
+      "id": "32b87ac3-e391-48bb-a807-88faf93f9113",
+      "name": "POST /api/distribute/linkedin",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/api/distribute/linkedin",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"article_id\": \"{{ $json.body.article_id }}\"\n}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "3922a376-5cdd-468b-908f-5b3de8badc64",
+      "name": "POST /api/distribute/reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/api/distribute/reddit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"article_id\": \"{{ $('Webhook — Post Approval').first().json.body.article_id }}\",\n  \"subreddit\": \"GTA6\"\n}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook — Post Approval": {
+      "main": [
+        [
+          {
+            "node": "POST /api/distribute/linkedin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /api/distribute/linkedin": {
+      "main": [
+        [
+          {
+            "node": "POST /api/distribute/reddit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "26051fa9-c5b6-48f5-8c2a-e902795a6530",
+  "meta": {
+    "instanceId": "decodedsix-self-hosted"
+  },
+  "id": "07b8ad22-0309-4e1a-b9f2-447f687fabc3",
+  "tags": []
+}

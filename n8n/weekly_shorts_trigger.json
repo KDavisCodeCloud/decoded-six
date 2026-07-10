@@ -1,0 +1,184 @@
+{
+  "name": "DecodedSix \u2014 Weekly Shorts Trigger",
+  "nodes": [
+    {
+      "id": "3a974f29-6fe6-41f4-bdea-2005393ed72a",
+      "name": "Schedule Trigger \u2014 Tue 9AM ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 14 * * 2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fa26c731-e5c1-4607-a408-da85c09b61aa",
+      "name": "Generate Weekly Short",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/api/shorts/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"week\": \"{{ $now.format('YYYY-[W]WW') }}\"\n}"
+      }
+    },
+    {
+      "id": "9fb1aa10-ee57-44be-90e4-28ffaf577625",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "033c604d-e6d5-40b4-8a71-b48b7a903418",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b9c532e4-eaf2-4dad-ab7b-4aabcb3fd71b",
+      "name": "Slack \u2014 Short Queued",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        -80
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#decodedsix-content"
+        },
+        "text": "=\ud83c\udfac Weekly short queued for week {{ $json.week }}",
+        "otherOptions": {}
+      },
+      "webhookId": null
+    },
+    {
+      "id": "ee8ec390-b793-45de-a88a-8adcb9d4c063",
+      "name": "Slack \u2014 Trigger Failed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        80
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#decodedsix-alerts"
+        },
+        "text": "=\ud83d\udea8 Shorts trigger failed: {{ $json.error }}",
+        "otherOptions": {}
+      },
+      "webhookId": null
+    }
+  ],
+  "connections": {
+    "Schedule Trigger \u2014 Tue 9AM ET": {
+      "main": [
+        [
+          {
+            "node": "Generate Weekly Short",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Weekly Short": {
+      "main": [
+        [
+          {
+            "node": "Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success?": {
+      "main": [
+        [
+          {
+            "node": "Slack \u2014 Short Queued",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack \u2014 Trigger Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "8c24935c-3423-44f2-89fb-de5e3cb20cd1",
+  "meta": {
+    "instanceId": "decodedsix-self-hosted"
+  },
+  "id": "148880ea-5a71-48a4-a387-2fad84aadac9",
+  "tags": []
+}

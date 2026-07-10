@@ -1,0 +1,218 @@
+{
+  "name": "DecodedSix \u2014 Daily Content Cron",
+  "nodes": [
+    {
+      "id": "87326633-fdd6-4a07-9202-1afc0709d47a",
+      "name": "Schedule Trigger \u2014 6AM ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 11 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4fd0cbd3-d041-4974-944f-f786b15c11e8",
+      "name": "Set Topic",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f862039a-9f7f-49cf-abd4-51276c5e2c51",
+              "name": "topic",
+              "value": "={{ [\"GTA 6 Vice City location details\", \"GTA 6 character and story rumors\", \"GTA 6 online multiplayer features\", \"GTA 6 release date and pricing news\", \"GTA 6 gameplay mechanics leaked details\"][$now.format('d') % 5] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "08bdacbc-8074-436b-a457-0b6e0c646f2a",
+      "name": "Run Content Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/api/pipeline/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"topic\": \"{{ $json.topic }}\",\n  \"category\": \"news\"\n}"
+      }
+    },
+    {
+      "id": "011756a3-53c9-45e7-9917-11ada4ff8a24",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1c7b378e-a4de-4ec4-9ab7-c29e16d1814b",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "89ccc684-8029-416b-a6e5-fdb8beaee452",
+      "name": "Slack \u2014 Draft Queued",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -80
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#decodedsix-content"
+        },
+        "text": "=\u2705 Draft queued: {{ $json.article_id }}",
+        "otherOptions": {}
+      },
+      "webhookId": null
+    },
+    {
+      "id": "68389c1a-9116-48a1-895b-a564bfbc48be",
+      "name": "Slack \u2014 Pipeline Failed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        80
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#decodedsix-alerts"
+        },
+        "text": "=\ud83d\udea8 Content pipeline failed: {{ $json.error }}",
+        "otherOptions": {}
+      },
+      "webhookId": null
+    }
+  ],
+  "connections": {
+    "Schedule Trigger \u2014 6AM ET": {
+      "main": [
+        [
+          {
+            "node": "Set Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Topic": {
+      "main": [
+        [
+          {
+            "node": "Run Content Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Content Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success?": {
+      "main": [
+        [
+          {
+            "node": "Slack \u2014 Draft Queued",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack \u2014 Pipeline Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "3bbc0792-b322-4616-b09c-107ce03da100",
+  "meta": {
+    "instanceId": "decodedsix-self-hosted"
+  },
+  "id": "3aaa0f07-531c-4f19-98fe-a92f4c0aa17e",
+  "tags": []
+}

@@ -1,0 +1,73 @@
+{
+  "name": "DecodedSix — Daily Map Scrape",
+  "nodes": [
+    {
+      "id": "0eb4c73d-cb6c-4ab3-bd97-1edfebca807f",
+      "name": "Schedule Trigger — 8AM MST",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 15 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ca5f5fb5-a171-4065-b1f0-94268ed21701",
+      "name": "Run Map Scrape",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/api/map/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger — 8AM MST": {
+      "main": [
+        [
+          {
+            "node": "Run Map Scrape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "00561689-07a0-4c70-a3b1-14ab2a7d5216",
+  "meta": {
+    "instanceId": "decodedsix-self-hosted"
+  },
+  "id": "b132d3fe-d401-47d7-bcf1-b3bd940e88e7",
+  "tags": []
+}
