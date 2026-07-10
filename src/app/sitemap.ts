@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { supabase } from '@/lib/supabase'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://decodedsix.com'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thedecodedsix.com'
 
 const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy']
 

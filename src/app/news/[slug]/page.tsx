@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
+import { NewsletterSignup } from '@/components/NewsletterSignup'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
@@ -223,6 +224,10 @@ export default async function ArticlePage({
           </div>
         )}
       </article>
+
+      <div className="container max-w-3xl mb-14">
+        <NewsletterSignup variant="article" />
+      </div>
 
       {related.length > 0 && (
         <div className="container pb-20 max-w-3xl">
