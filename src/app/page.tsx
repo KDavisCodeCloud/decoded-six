@@ -57,11 +57,6 @@ export default async function HomePage() {
         {/* Right: sunset panel with palm silhouette */}
         <div className="absolute right-0 top-0 bottom-0 w-[45%] overflow-hidden">
           <PalmSilhouette className="w-full h-full" />
-          <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
-            <span className="font-ibm text-[10px] text-white/30 bg-black/40 px-2.5 py-1 rounded">
-              PHOTO: skyline at sunset
-            </span>
-          </div>
         </div>
 
         {/* Fade: left bg bleeds into right panel */}
