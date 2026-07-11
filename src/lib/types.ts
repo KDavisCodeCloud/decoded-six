@@ -42,6 +42,24 @@ export interface Article {
   affiliate_clicks: number
 }
 
+export interface HitlQueueItem {
+  id: string
+  product_id: string
+  article_id: string
+  status: 'pending' | 'approved' | 'rejected' | 'held'
+  action: string | null
+  notes: string | null
+  resolved_at: string | null
+  created_at: string
+  // GET /api/hitl-queue joins .select("*, articles(title, slug, article_type)") —
+  // only these three columns come through, not the full Article shape.
+  articles: {
+    title: string
+    slug: string
+    article_type: 'news' | 'evergreen' | 'conversion' | null
+  } | null
+}
+
 export interface MapMarker {
   id: string
   name: string
