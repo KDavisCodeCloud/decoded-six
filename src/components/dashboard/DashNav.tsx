@@ -5,17 +5,19 @@ import { usePathname } from 'next/navigation'
 import SoundToggle from './SoundToggle'
 
 const NAV = [
-  { href: '/dashboard',        label: 'Overview',  icon: '⬡' },
-  { href: '/dashboard/queue',  label: 'HITL Queue', icon: '📋' },
-  { href: '/dashboard/gates',  label: 'Gates',     icon: '🎯' },
-  { href: '/dashboard/agents', label: 'Agents',    icon: '🤖' },
+  { href: '/dashboard',         label: 'Overview',   icon: '⬡' },
+  { href: '/dashboard/queue',   label: 'HITL Queue', icon: '📋' },
+  { href: '/dashboard/gates',   label: 'Gates',      icon: '🎯' },
+  { href: '/dashboard/agents',  label: 'Agents',     icon: '🤖' },
+  { href: '/dashboard/content', label: 'Content',    icon: '📝' },
 ]
 
 interface DashNavProps {
   userEmail?: string | null
+  pendingCount?: number
 }
 
-export default function DashNav({ userEmail }: DashNavProps) {
+export default function DashNav({ userEmail, pendingCount = 0 }: DashNavProps) {
   const pathname = usePathname()
 
   return (
@@ -42,7 +44,12 @@ export default function DashNav({ userEmail }: DashNavProps) {
               }`}
             >
               <span className="text-base leading-none">{item.icon}</span>
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.href === '/dashboard/queue' && pendingCount > 0 && (
+                <span className="text-[10px] font-bold bg-neon-pink/20 text-neon-pink rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {pendingCount}
+                </span>
+              )}
             </Link>
           )
         })}

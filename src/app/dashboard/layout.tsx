@@ -12,6 +12,7 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   let userEmail: string | null = null
+  let pendingCount = 0
 
   const hasSupabase =
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -22,11 +23,21 @@ export default async function DashboardLayout({
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect('/login')
     userEmail = user.email ?? null
+
+    // Matches the query shape in dashboard/queue/page.tsx (product_id
+    // 'gta-hub', status 'pending_review') — that page is the live,
+    // actively-used source of truth for what counts as "in the queue".
+    const { count } = await supabase
+      .from('articles')
+      .select('id', { count: 'exact', head: true })
+      .eq('product_id', 'gta-hub')
+      .eq('status', 'pending_review')
+    pendingCount = count ?? 0
   }
 
   return (
     <div className="flex min-h-screen bg-dash-bg text-bright">
-      <DashNav userEmail={userEmail} />
+      <DashNav userEmail={userEmail} pendingCount={pendingCount} />
       <main className="flex-1 overflow-auto">
         {children}
       </main>

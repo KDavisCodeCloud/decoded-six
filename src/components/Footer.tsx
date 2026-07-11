@@ -15,7 +15,9 @@ export function Footer() {
           </div>
           <nav className="flex items-center gap-6 text-sm text-whisper">
             <Link href="/news" className="hover:text-quiet transition-colors">News</Link>
-            <Link href="#" className="hover:text-quiet transition-colors">Privacy</Link>
+            <Link href="/guides" className="hover:text-quiet transition-colors">Guides</Link>
+            <Link href="/about" className="hover:text-quiet transition-colors">About</Link>
+            <Link href="/privacy" className="hover:text-quiet transition-colors">Privacy</Link>
             <Link href="#" className="hover:text-quiet transition-colors">Contact</Link>
           </nav>
         </div>

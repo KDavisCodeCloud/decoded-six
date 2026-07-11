@@ -16,7 +16,7 @@ Tuesday Sessions: Son (GTA content + approvals)
 - [ ] docs/VOICE.md created and complete
 - [ ] docs/ARCHITECTURE.md created and complete
 - [ ] .claude/product-marketing-context.md created
-- [ ] Next.js upgraded to 15 (currently 14)
+- [x] Next.js upgraded to 15
 - [ ] Supabase project created (isolated — not shared with other products)
 - [ ] migrations/001 through 006 run clean
 - [ ] Vercel project created and linked to decodedsix.com
