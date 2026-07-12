@@ -59,6 +59,15 @@ const components: Components = {
     return <strong className="text-bright font-semibold">{children}</strong>
   },
   em({ children }) {
+    // Credit lines like "*Image credit: Rockstar Games*" render tight under figures
+    const text = typeof children === 'string' ? children : ''
+    if (text.toLowerCase().startsWith('image credit')) {
+      return (
+        <em className="block text-xs text-center text-whisper not-italic -mt-5 mb-6 opacity-70">
+          {children}
+        </em>
+      )
+    }
     return <em className="italic text-quiet">{children}</em>
   },
   a({ href, children }) {

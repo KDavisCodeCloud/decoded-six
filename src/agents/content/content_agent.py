@@ -306,14 +306,19 @@ def _node_image_fetcher(state: dict) -> dict:
 def _node_writer(state: dict, anthropic_client: Any) -> dict:
     """
     Drafts the full article body using claude-sonnet-4-6.
-    Outputs clean markdown (not HTML) so react-markdown can render it properly.
+    Outputs clean markdown so react-markdown can render it properly.
+    Embeds 2-4 official Rockstar press images at natural section breaks.
     """
+    from src.agents.content.rockstar_images import (
+        extract_article_keywords,
+        get_images_by_tags,
+    )
+
     voice = _voice_context()
     article_type = state["article_type"]
     topic = state["topic"]
     scraped = state.get("scraped_context", "")
     affiliate_products = state.get("affiliate_products", [])
-    hero_image_url = state.get("hero_image_url")
 
     type_instructions = {
         "news": (
@@ -336,24 +341,29 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         ),
     }
 
-    image_instruction = ""
-    if hero_image_url:
-        image_instruction = (
-            f"\n\nYou have one official press image available: {hero_image_url}\n"
-            "Embed it near the top of the article (after the first paragraph) using markdown:\n"
-            f"![Courtesy of Rockstar Games]({hero_image_url})\n"
-            "Then embed 1–2 additional images at natural section breaks using the same syntax "
-            "with descriptive captions. Only use publicly available official URLs you are "
-            "confident exist (Rockstar Newswire, Take-Two press kit, or GTABase CDN). "
-            "If unsure of a URL, omit the extra images rather than guess."
-        )
-    else:
-        image_instruction = (
-            "\n\nEmbed 1–2 images at natural section breaks using markdown image syntax: "
-            "![Descriptive caption](url). Only use publicly available official URLs you are "
-            "confident exist (Rockstar Newswire, Take-Two press kit). "
-            "If unsure, omit rather than guess."
-        )
+    # Select contextually relevant images from the official Rockstar press kit
+    keywords = extract_article_keywords(topic, article_type, scraped)
+    press_images = get_images_by_tags(keywords, limit=4)
+
+    img_list_lines = "\n".join(
+        f"  - Caption: \"{img['caption']}\"  →  {img['url']}"
+        for img in press_images
+    )
+    image_instruction = (
+        "\n\nIMAGE EMBEDDING RULES — You MUST embed 2–4 images in this article.\n"
+        "Use this exact markdown syntax for each image (two lines, no blank line between them):\n\n"
+        "![Caption text here](image_url)\n"
+        "*Image credit: Rockstar Games*\n\n"
+        "Placement rules:\n"
+        "- Place the FIRST image after the intro paragraph (before the first ## section heading).\n"
+        "- Place subsequent images at natural section breaks — after introducing a location, "
+        "character, or feature, NEVER back-to-back with no text between them.\n"
+        "- Match image to content: Vice City article → use a Vice City image; "
+        "character article → use that character's image; Ultimate Edition → use edition images.\n\n"
+        "Available official Rockstar press images for this article:\n"
+        + img_list_lines
+        + "\n\nUse these exact URLs. Do not invent or modify image URLs."
+    )
 
     context_block = f"\n\nRecent related content for context:\n{scraped}" if scraped else ""
 
