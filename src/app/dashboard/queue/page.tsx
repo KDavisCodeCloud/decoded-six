@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
-// createClient kept for fetchQueue — only review actions go through the server API route
 import { soundManager, SoundEvents } from '@/lib/sounds'
 import type { Article } from '@/lib/types'
 
@@ -21,26 +20,205 @@ const TYPE_CLASS: Record<string, string> = {
   conversion: 'border-neon-pink/30 text-neon-pink',
 }
 
+const CAT_BADGE: Record<string, string> = {
+  news: 'bg-ice/15 text-ice',
+  rumor: 'bg-flame/15 text-flame',
+  guide: 'bg-gta-gold/15 text-gta-gold',
+}
+
+function stripFaq(html: string) {
+  return html
+    .replace(/<section\s[^>]*class=['"][^'"]*\bfaq\b[^'"]*['"][^>]*>[\s\S]*?<\/section>/gi, '')
+    .trim()
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  })
+}
+
+// Full-screen WYSIWYG preview — mirrors the public article page
+function ArticlePreview({
+  article,
+  processing,
+  onApprove,
+  onReject,
+  onRevise,
+  onClose,
+}: {
+  article: Article
+  processing: boolean
+  onApprove: () => void
+  onReject: () => void
+  onRevise: (notes: string) => void
+  onClose: () => void
+}) {
+  const [revisionMode, setRevisionMode] = useState(false)
+  const [notes, setNotes] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-50 bg-void overflow-y-auto">
+      {/* Sticky action bar */}
+      <div className="sticky top-0 z-10 bg-[#0a0a0f]/95 backdrop-blur-sm border-b border-white/[0.06] px-6 py-3 flex items-center justify-between gap-4">
+        <span className="text-xs font-mono text-whisper uppercase tracking-widest">
+          Preview — {article.word_count?.toLocaleString()} words
+        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {revisionMode ? (
+            <>
+              <input
+                autoFocus
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="What needs to change?"
+                className="text-xs bg-transparent border border-gta-gold/40 rounded-lg px-3 py-1.5 text-quiet placeholder:text-whisper focus:outline-none w-64"
+              />
+              <button
+                onClick={() => { if (notes.trim()) { onRevise(notes); setRevisionMode(false) } }}
+                disabled={!notes.trim() || processing}
+                className="text-xs px-3 py-1.5 rounded-lg bg-gta-gold/20 text-gta-gold border border-gta-gold/30 hover:bg-gta-gold/30 disabled:opacity-40 transition-colors"
+              >
+                Send for Revision
+              </button>
+              <button
+                onClick={() => setRevisionMode(false)}
+                className="text-xs px-3 py-1.5 border border-dash-border text-quiet rounded-lg hover:text-bright transition-colors"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onApprove}
+                disabled={processing}
+                className="text-xs px-4 py-1.5 rounded-lg bg-[#3fd17a]/20 text-[#3fd17a] border border-[#3fd17a]/40 hover:bg-[#3fd17a]/30 disabled:opacity-40 transition-colors font-semibold"
+              >
+                ✓ Approve
+              </button>
+              <button
+                onClick={() => setRevisionMode(true)}
+                disabled={processing}
+                className="text-xs px-4 py-1.5 rounded-lg border border-gta-gold/40 text-gta-gold hover:bg-gta-gold/10 transition-colors"
+              >
+                Revise
+              </button>
+              <button
+                onClick={onReject}
+                disabled={processing}
+                className="text-xs px-4 py-1.5 rounded-lg bg-neon-pink/10 text-neon-pink border border-neon-pink/30 hover:bg-neon-pink/20 disabled:opacity-40 transition-colors"
+              >
+                ✕ Reject
+              </button>
+            </>
+          )}
+          <button
+            onClick={onClose}
+            className="text-xs px-3 py-1.5 border border-dash-border text-quiet rounded-lg hover:text-bright transition-colors ml-2"
+          >
+            ← Back to queue
+          </button>
+        </div>
+      </div>
+
+      {/* Article body — same structure as public news/[slug]/page.tsx */}
+      <article className="max-w-3xl mx-auto px-4 py-10">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${CAT_BADGE[article.category] ?? 'bg-white/10 text-quiet'}`}>
+              {article.category}
+            </span>
+            {article.article_type && (
+              <span className={`text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border ${TYPE_CLASS[article.article_type] ?? 'border-quiet/30 text-quiet'}`}>
+                {TYPE_LABEL[article.article_type] ?? article.article_type}
+              </span>
+            )}
+            {article.status === 'needs_revision' && (
+              <span className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-neon-pink/30 text-neon-pink">
+                Needs Revision
+              </span>
+            )}
+          </div>
+
+          <h1 className="font-heading font-bold text-4xl md:text-5xl text-bright leading-tight mb-4">
+            {article.title}
+          </h1>
+
+          <div className="flex items-center gap-4 text-whisper text-sm flex-wrap">
+            <time dateTime={article.created_at}>{fmtDate(article.created_at)}</time>
+            {article.external_citation && (
+              <a
+                href={article.external_citation}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-flame hover:underline"
+              >
+                Source →
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div className="h-px bg-white/[0.06] mb-8" />
+
+        {article.hitl_notes && (
+          <div className="mb-6 text-xs text-neon-pink bg-neon-pink/5 border border-neon-pink/20 rounded p-3">
+            <span className="font-bold">Revision notes:</span> {article.hitl_notes}
+          </div>
+        )}
+
+        {article.excerpt && (
+          <p className="text-xl text-quiet leading-relaxed mb-8 font-medium">
+            {article.excerpt}
+          </p>
+        )}
+
+        {article.content && (
+          <div
+            className="prose-dsx text-quiet leading-loose text-base"
+            dangerouslySetInnerHTML={{ __html: stripFaq(article.content) }}
+          />
+        )}
+
+        {article.faq_pairs && article.faq_pairs.length > 0 && (
+          <section className="mt-10 border-t border-white/[0.06] pt-8">
+            <h2 className="font-heading font-bold text-2xl text-bright mb-6">
+              Frequently Asked Questions
+            </h2>
+            <div className="space-y-5">
+              {article.faq_pairs.map((pair, i) => (
+                <div key={i} className="border border-white/[0.06] rounded-xl p-5">
+                  <h3 className="font-heading font-bold text-base text-bright mb-2">{pair.question}</h3>
+                  <p className="text-quiet text-sm leading-relaxed">{pair.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </article>
+    </div>
+  )
+}
+
 export default function QueuePage() {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [overlay, setOverlay] = useState<{ type: OverlayType; reward?: string } | null>(null)
   const [processing, setProcessing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [previewOpen, setPreviewOpen] = useState<string | null>(null)
+  const [previewArticle, setPreviewArticle] = useState<Article | null>(null)
   const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({})
   const [statusFilter, setStatusFilter] = useState<'all' | QueueStatus>('all')
 
   async function fetchQueue() {
     const supabase = createClient()
-    let query = supabase
+    const { data } = await supabase
       .from('articles')
       .select('*')
       .eq('product_id', 'gta-hub')
       .in('status', ['pending_review', 'needs_revision'])
       .order('created_at', { ascending: true })
-
-    const { data } = await query
     setArticles((data as Article[]) ?? [])
     setLoading(false)
   }
@@ -48,8 +226,6 @@ export default function QueuePage() {
   useEffect(() => {
     fetchQueue()
     const supabase = createClient()
-    // Live queue: auto-refresh when articles table changes so new articles
-    // appear without needing the Refresh button
     const channel = supabase
       .channel('queue-realtime')
       .on('postgres_changes', {
@@ -82,6 +258,7 @@ export default function QueuePage() {
       soundManager.play(SoundEvents.ARTICLE_APPROVED)
       setOverlay({ type: 'mission-passed', reward: 'ARTICLE SECURED' })
       setArticles(prev => prev.filter(a => a.id !== article.id))
+      setPreviewArticle(null)
     } catch (err) {
       console.error('Approve failed:', err)
     } finally {
@@ -89,9 +266,8 @@ export default function QueuePage() {
     }
   }, [])
 
-  const handleRevision = useCallback(async (article: Article) => {
-    const notes = revisionNotes[article.id]?.trim()
-    if (!notes) return
+  const handleRevision = useCallback(async (article: Article, notes: string) => {
+    if (!notes.trim()) return
     setProcessing(article.id)
     try {
       await callReview(article.id, 'revise', notes)
@@ -100,12 +276,13 @@ export default function QueuePage() {
       ))
       setRevisionNotes(prev => { const n = { ...prev }; delete n[article.id]; return n })
       setExpanded(null)
+      setPreviewArticle(null)
     } catch (err) {
       console.error('Revision failed:', err)
     } finally {
       setProcessing(null)
     }
-  }, [revisionNotes])
+  }, [])
 
   const handleReject = useCallback(async (article: Article) => {
     setProcessing(article.id)
@@ -114,6 +291,7 @@ export default function QueuePage() {
       soundManager.play(SoundEvents.ARTICLE_REJECTED_SOFT, { volume: 0.4 })
       setOverlay({ type: 'wasted' })
       setArticles(prev => prev.filter(a => a.id !== article.id))
+      setPreviewArticle(null)
     } catch (err) {
       console.error('Reject failed:', err)
     } finally {
@@ -131,6 +309,18 @@ export default function QueuePage() {
   return (
     <>
       <GTAOverlay type={overlay?.type ?? null} reward={overlay?.reward} onDismiss={() => setOverlay(null)} />
+
+      {/* Full-screen article preview */}
+      {previewArticle && (
+        <ArticlePreview
+          article={previewArticle}
+          processing={processing === previewArticle.id}
+          onApprove={() => handleApprove(previewArticle)}
+          onReject={() => handleReject(previewArticle)}
+          onRevise={(notes) => handleRevision(previewArticle, notes)}
+          onClose={() => setPreviewArticle(null)}
+        />
+      )}
 
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
@@ -217,7 +407,7 @@ export default function QueuePage() {
                   </h3>
 
                   {article.excerpt && (
-                    <p className="text-quiet text-sm leading-relaxed mb-2">
+                    <p className="text-quiet text-sm leading-relaxed mb-3">
                       {article.excerpt}
                     </p>
                   )}
@@ -240,25 +430,11 @@ export default function QueuePage() {
                   )}
 
                   <button
-                    onClick={() => setPreviewOpen(previewOpen === article.id ? null : article.id)}
-                    className="text-xs text-gta-gold hover:text-gta-gold/80 underline underline-offset-2 transition-colors"
+                    onClick={() => setPreviewArticle(article)}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-gta-gold/40 text-gta-gold hover:bg-gta-gold/10 transition-colors"
                   >
-                    {previewOpen === article.id ? 'Hide article' : 'Read full article'}
+                    Preview Article →
                   </button>
-
-                  {previewOpen === article.id && article.content && (
-                    <div className="mt-4 pt-4 border-t border-dash-border">
-                      <div
-                        className="prose-dsx text-quiet leading-loose text-sm max-h-[600px] overflow-y-auto pr-2"
-                        dangerouslySetInnerHTML={{
-                          __html: article.content.replace(
-                            /<section\s[^>]*class=['"][^'"]*\bfaq\b[^'"]*['"][^>]*>[\s\S]*?<\/section>/gi,
-                            ''
-                          ).trim()
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex flex-col gap-2 shrink-0">
@@ -296,7 +472,7 @@ export default function QueuePage() {
                     className="w-full bg-transparent border border-dash-border rounded-lg p-3 text-sm text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 resize-none"
                   />
                   <button
-                    onClick={() => handleRevision(article)}
+                    onClick={() => handleRevision(article, revisionNotes[article.id] ?? '')}
                     disabled={!revisionNotes[article.id]?.trim() || processing === article.id}
                     className="mt-2 text-xs px-4 py-2 rounded-lg bg-gta-gold/20 text-gta-gold border border-gta-gold/30 hover:bg-gta-gold/30 disabled:opacity-40 transition-colors"
                   >
@@ -305,25 +481,11 @@ export default function QueuePage() {
                 </div>
               )}
 
-              {article.faq_pairs && article.faq_pairs.length > 0 && (
-                <details className="mt-3 pt-3 border-t border-dash-border">
-                  <summary className="text-xs text-whisper cursor-pointer hover:text-quiet">
-                    {article.faq_pairs.length} FAQ pairs · {article.internal_links_used?.length ?? 0} internal links
-                  </summary>
-                  <div className="mt-2 space-y-2">
-                    {article.faq_pairs.map((faq, i) => (
-                      <div key={i} className="text-xs">
-                        <div className="text-quiet font-medium">Q: {faq.question}</div>
-                        <div className="text-whisper mt-0.5">A: {faq.answer}</div>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-
               <div className="mt-3 pt-3 border-t border-dash-border text-xs text-whisper">
                 Created {new Date(article.created_at).toLocaleString()}
                 {article.publish_date && ` · Scheduled ${article.publish_date}`}
+                {article.faq_pairs && ` · ${article.faq_pairs.length} FAQ pairs`}
+                {article.internal_links_used && ` · ${article.internal_links_used.length} internal links`}
               </div>
             </div>
           ))}
