@@ -294,23 +294,47 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
 
     user = f"Article type: {article_type}\nTopic: {topic}\n\nWrite the article now."
 
-    response = anthropic_client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        temperature=0.7,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    raw = "".join(b.text for b in response.content if b.type == "text")
+    raw = ""
+    parsed = None
+    for attempt in range(2):
+        if attempt == 0:
+            messages = [{"role": "user", "content": user}]
+            temp = 0.7
+        else:
+            # Send broken output back — ask Claude to fix JSON only, not regenerate
+            messages = [
+                {"role": "user", "content": user},
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": (
+                    "The JSON you returned has a syntax error. "
+                    "Fix ONLY the JSON syntax without changing any content. "
+                    "Replace every double-quoted HTML attribute value with single quotes "
+                    "(e.g. href='url' not href=\"url\"). "
+                    "Return the corrected JSON only, no commentary."
+                )},
+            ]
+            temp = 0.0
 
-    cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.MULTILINE).strip()
+        response = anthropic_client.messages.create(
+            model=MODEL,
+            max_tokens=4096,
+            temperature=temp,
+            system=system,
+            messages=messages,
+        )
+        raw = "".join(b.text for b in response.content if b.type == "text")
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.MULTILINE).strip()
 
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        raise ContentAgentError("writer", None, ValueError(f"LLM returned invalid JSON: {e} — raw[:300]: {raw[:300]}"))
+        try:
+            parsed = json.loads(cleaned)
+            if attempt > 0:
+                log.info("[%s] writer JSON fixed on retry %d", AGENT_ID, attempt)
+            break
+        except json.JSONDecodeError as e:
+            if attempt == 1:
+                raise ContentAgentError("writer", None, ValueError(f"LLM returned invalid JSON after 2 attempts: {e}"))
 
     for field in ("title", "slug", "excerpt", "content_html"):
         if field not in parsed:
@@ -747,8 +771,8 @@ def run_content_agent(
     try:
         state = _node_topic_picker(state)
         state = _node_news_scraper(state)
-        state = _node_image_fetcher(state)
         state = _node_writer(state, ai)
+        state = _node_image_fetcher(state)
         state = _node_faq_generator(state, ai)
         state = _node_schema_generator(state)
         state = _node_internal_link_injector(state, sb)
