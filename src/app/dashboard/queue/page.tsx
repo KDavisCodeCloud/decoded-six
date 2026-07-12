@@ -1,12 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { soundManager, SoundEvents } from '@/lib/sounds'
-import type { Article } from '@/lib/types'
-
-type QueueStatus = 'pending_review' | 'needs_revision'
+import type { HitlQueueItem } from '@/lib/types'
 
 const TYPE_LABEL: Record<string, string> = {
   news: 'NEWS',
@@ -20,92 +17,118 @@ const TYPE_CLASS: Record<string, string> = {
   conversion: 'border-neon-pink/30 text-neon-pink',
 }
 
+// NEXT_PUBLIC_-prefixed because this is a 'use client' component — Next.js
+// strips non-NEXT_PUBLIC_ vars from the browser bundle, so the server-only
+// DECODEDSIX_API_URL/DECODEDSIX_API_KEY (used by n8n, see n8n/README.md)
+// aren't reachable here. See .env.example.
+const API_URL = process.env.NEXT_PUBLIC_DECODEDSIX_API_URL
+const API_KEY = process.env.NEXT_PUBLIC_DECODEDSIX_API_KEY
+
+function apiHeaders(): HeadersInit {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' }
+  if (API_KEY) headers.Authorization = `Bearer ${API_KEY}`
+  return headers
+}
+
 export default function QueuePage() {
-  const [articles, setArticles] = useState<Article[]>([])
+  const [items, setItems] = useState<HitlQueueItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [overlay, setOverlay] = useState<{ type: OverlayType; reward?: string } | null>(null)
   const [processing, setProcessing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({})
-  const [statusFilter, setStatusFilter] = useState<'all' | QueueStatus>('all')
+  const [holdNotes, setHoldNotes] = useState<Record<string, string>>({})
 
-  async function fetchQueue() {
-    const supabase = createClient()
-    let query = supabase
-      .from('articles')
-      .select('*')
-      .eq('product_id', 'gta-hub')
-      .in('status', ['pending_review', 'needs_revision'])
-      .order('created_at', { ascending: true })
-
-    const { data } = await query
-    setArticles((data as Article[]) ?? [])
-    setLoading(false)
-  }
-
-  useEffect(() => { fetchQueue() }, [])
-
-  const handleApprove = useCallback(async (article: Article) => {
-    setProcessing(article.id)
+  const fetchQueue = useCallback(async () => {
+    if (!API_URL) {
+      setError('NEXT_PUBLIC_DECODEDSIX_API_URL is not configured')
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setError(null)
     try {
-      const apiKey = process.env.NEXT_PUBLIC_DECODEDSIX_API_KEY
-      if (apiKey) {
-        // Call FastAPI publish endpoint to set published_at + status=published
-        const res = await fetch(`/agents/decodedsix/publish/${article.id}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}` },
-        })
-        if (!res.ok) throw new Error(await res.text())
-      } else {
-        // Fallback: direct Supabase update (dashboard-only, no FastAPI running)
-        const supabase = createClient()
-        await supabase
-          .from('articles')
-          .update({ status: 'published', published_at: new Date().toISOString() })
-          .eq('id', article.id)
-      }
-      soundManager.play(SoundEvents.ARTICLE_APPROVED)
-      setOverlay({ type: 'mission-passed', reward: 'ARTICLE SECURED' })
-      setArticles(prev => prev.filter(a => a.id !== article.id))
+      const res = await fetch(`${API_URL}/api/hitl-queue`, { headers: apiHeaders() })
+      if (!res.ok) throw new Error(await res.text())
+      const data: HitlQueueItem[] = await res.json()
+      setItems(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load queue')
     } finally {
-      setProcessing(null)
+      setLoading(false)
     }
   }, [])
 
-  const handleRevision = useCallback(async (article: Article) => {
-    const notes = revisionNotes[article.id]?.trim()
-    if (!notes) return
-    setProcessing(article.id)
-    const supabase = createClient()
-    await supabase
-      .from('articles')
-      .update({ status: 'needs_revision', hitl_notes: notes, hitl_reviewer: 'owner' })
-      .eq('id', article.id)
-    setArticles(prev => prev.map(a => a.id === article.id ? { ...a, status: 'needs_revision', hitl_notes: notes } : a))
-    setRevisionNotes(prev => { const n = { ...prev }; delete n[article.id]; return n })
-    setExpanded(null)
-    setProcessing(null)
-  }, [revisionNotes])
+  useEffect(() => { fetchQueue() }, [fetchQueue])
 
-  const handleReject = useCallback(async (article: Article) => {
-    setProcessing(article.id)
-    const supabase = createClient()
-    await supabase
-      .from('articles')
-      .update({ status: 'archived' })
-      .eq('id', article.id)
-    soundManager.play(SoundEvents.ARTICLE_REJECTED_SOFT, { volume: 0.4 })
-    setOverlay({ type: 'wasted' })
-    setArticles(prev => prev.filter(a => a.id !== article.id))
-    setProcessing(null)
+  // PATCH /api/hitl-queue/{id} — the sole write path for approve/reject/hold.
+  // Approving ALSO fires the separate FastAPI publish endpoint first: the
+  // hitl_queue PATCH only ever touches the hitl_queue row (see
+  // api/routes/hitl_queue.py's update_hitl_queue_item — it never writes to
+  // `articles`), so without this the article itself would never actually go
+  // live. Preserved from the pre-hitl_queue flow rather than dropped, since
+  // dropping it would silently break publishing.
+  const patchQueueItem = useCallback(async (id: string, body: { status: string; action: string; notes?: string }) => {
+    const res = await fetch(`${API_URL}/api/hitl-queue/${id}`, {
+      method: 'PATCH',
+      headers: apiHeaders(),
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) throw new Error(await res.text())
   }, [])
 
-  const visible = statusFilter === 'all'
-    ? articles
-    : articles.filter(a => a.status === statusFilter)
+  const handleApprove = useCallback(async (item: HitlQueueItem) => {
+    setProcessing(item.id)
+    try {
+      const publishRes = await fetch(`${API_URL}/agents/decodedsix/publish/${item.article_id}`, {
+        method: 'POST',
+        headers: apiHeaders(),
+      })
+      if (!publishRes.ok) throw new Error(await publishRes.text())
 
-  const pending = articles.filter(a => a.status === 'pending_review').length
-  const revision = articles.filter(a => a.status === 'needs_revision').length
+      await patchQueueItem(item.id, { status: 'approved', action: 'approve' })
+
+      soundManager.play(SoundEvents.ARTICLE_APPROVED)
+      setOverlay({ type: 'mission-passed', reward: 'ARTICLE SECURED' })
+      setItems(prev => prev.filter(i => i.id !== item.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Approve failed')
+    } finally {
+      setProcessing(null)
+    }
+  }, [patchQueueItem])
+
+  const handleHold = useCallback(async (item: HitlQueueItem) => {
+    const notes = holdNotes[item.id]?.trim()
+    if (!notes) return
+    setProcessing(item.id)
+    try {
+      await patchQueueItem(item.id, { status: 'held', action: 'hold', notes })
+      // status='held' — GET /api/hitl-queue only returns status='pending'
+      // rows, so this item drops out of the visible queue once held.
+      setItems(prev => prev.filter(i => i.id !== item.id))
+      setHoldNotes(prev => { const n = { ...prev }; delete n[item.id]; return n })
+      setExpanded(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Hold failed')
+    } finally {
+      setProcessing(null)
+    }
+  }, [holdNotes, patchQueueItem])
+
+  const handleReject = useCallback(async (item: HitlQueueItem) => {
+    setProcessing(item.id)
+    try {
+      await patchQueueItem(item.id, { status: 'rejected', action: 'reject' })
+      soundManager.play(SoundEvents.ARTICLE_REJECTED_SOFT, { volume: 0.4 })
+      setOverlay({ type: 'wasted' })
+      setItems(prev => prev.filter(i => i.id !== item.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Reject failed')
+    } finally {
+      setProcessing(null)
+    }
+  }, [patchQueueItem])
 
   return (
     <>
@@ -116,39 +139,28 @@ export default function QueuePage() {
           <div>
             <h1 className="font-pricedown text-gta-gold text-3xl leading-none">HITL QUEUE</h1>
             <p className="text-quiet text-sm mt-1">
-              {loading ? 'Loading...' : `${pending} pending review · ${revision} needs revision`}
+              {loading ? 'Loading...' : `${items.length} pending review`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1">
-              {(['all', 'pending_review', 'needs_revision'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setStatusFilter(f)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                    statusFilter === f
-                      ? 'border-gta-gold/60 text-gta-gold bg-gta-gold/10'
-                      : 'border-dash-border text-quiet hover:text-bright'
-                  }`}
-                >
-                  {f === 'all' ? 'All' : f === 'pending_review' ? 'Pending' : 'Needs Revision'}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={fetchQueue}
-              className="text-xs text-quiet hover:text-bright border border-dash-border rounded-lg px-3 py-2 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
+          <button
+            onClick={fetchQueue}
+            className="text-xs text-quiet hover:text-bright border border-dash-border rounded-lg px-3 py-2 transition-colors"
+          >
+            Refresh
+          </button>
         </div>
+
+        {error && (
+          <div className="dash-card p-4 mb-4 border-l-2 border-l-neon-pink text-neon-pink text-sm">
+            {error}
+          </div>
+        )}
 
         {loading && (
           <div className="dash-card p-8 text-center text-quiet text-sm">Loading queue...</div>
         )}
 
-        {!loading && visible.length === 0 && (
+        {!loading && items.length === 0 && !error && (
           <div className="dash-card p-12 text-center">
             <div className="text-4xl mb-4">✅</div>
             <h2 className="font-heading font-bold text-bright mb-2">Queue is empty</h2>
@@ -157,86 +169,49 @@ export default function QueuePage() {
         )}
 
         <div className="space-y-4">
-          {visible.map(article => (
-            <div key={article.id} className={`dash-card p-6 ${
-              article.status === 'needs_revision' ? 'border-l-2 border-l-neon-pink' : ''
-            }`}>
+          {items.map(item => (
+            <div key={item.id} className="dash-card p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    {article.article_type && (
+                    {item.articles?.article_type && (
                       <span className={`text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border ${
-                        TYPE_CLASS[article.article_type] ?? 'border-quiet/30 text-quiet'
+                        TYPE_CLASS[item.articles.article_type] ?? 'border-quiet/30 text-quiet'
                       }`}>
-                        {TYPE_LABEL[article.article_type] ?? article.article_type}
+                        {TYPE_LABEL[item.articles.article_type] ?? item.articles.article_type}
                       </span>
-                    )}
-                    <span className={`text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border ${
-                      article.category === 'news'  ? 'border-ice/30 text-ice' :
-                      article.category === 'guide' ? 'border-gta-gold/30 text-gta-gold' :
-                      'border-quiet/30 text-quiet'
-                    }`}>
-                      {article.category}
-                    </span>
-                    {article.status === 'needs_revision' && (
-                      <span className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-neon-pink/30 text-neon-pink">
-                        Needs Revision
-                      </span>
-                    )}
-                    {article.word_count && (
-                      <span className="text-[10px] text-whisper font-mono">{article.word_count.toLocaleString()} words</span>
-                    )}
-                    {article.agent_generated && (
-                      <span className="text-[10px] text-whisper">🤖 agent</span>
                     )}
                   </div>
 
                   <h3 className="font-heading font-bold text-bright text-base mb-2 leading-snug">
-                    {article.title}
+                    {item.articles?.title ?? '(article not found)'}
                   </h3>
 
-                  {article.excerpt && (
-                    <p className="text-quiet text-sm leading-relaxed line-clamp-2 mb-2">
-                      {article.excerpt}
-                    </p>
-                  )}
-
-                  {article.hitl_notes && (
+                  {item.notes && (
                     <div className="text-xs text-neon-pink bg-neon-pink/5 border border-neon-pink/20 rounded p-2 mb-2">
-                      <span className="font-bold">Revision notes:</span> {article.hitl_notes}
+                      <span className="font-bold">Notes:</span> {item.notes}
                     </div>
-                  )}
-
-                  {article.external_citation && (
-                    <a
-                      href={article.external_citation}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-ice hover:underline block truncate"
-                    >
-                      Source: {article.external_citation}
-                    </a>
                   )}
                 </div>
 
                 <div className="flex flex-col gap-2 shrink-0">
                   <button
-                    onClick={() => handleApprove(article)}
-                    disabled={processing === article.id}
+                    onClick={() => handleApprove(item)}
+                    disabled={processing === item.id}
                     className="dash-btn-approve disabled:opacity-40"
                   >
                     Approve
                   </button>
                   <button
-                    onClick={() => setExpanded(expanded === article.id ? null : article.id)}
-                    disabled={processing === article.id}
+                    onClick={() => setExpanded(expanded === item.id ? null : item.id)}
+                    disabled={processing === item.id}
                     className="text-xs px-3 py-1.5 rounded-lg border border-gta-gold/40 text-gta-gold hover:bg-gta-gold/10 transition-colors"
                   >
-                    {expanded === article.id ? 'Cancel' : 'Revise'}
+                    {expanded === item.id ? 'Cancel' : 'Hold'}
                   </button>
                   <button
-                    onClick={() => handleReject(article)}
-                    disabled={processing === article.id}
+                    onClick={() => handleReject(item)}
+                    disabled={processing === item.id}
                     className="dash-btn-reject disabled:opacity-40"
                   >
                     Reject
@@ -244,44 +219,27 @@ export default function QueuePage() {
                 </div>
               </div>
 
-              {expanded === article.id && (
+              {expanded === item.id && (
                 <div className="mt-4 pt-4 border-t border-dash-border">
                   <textarea
-                    value={revisionNotes[article.id] ?? ''}
-                    onChange={e => setRevisionNotes(prev => ({ ...prev, [article.id]: e.target.value }))}
-                    placeholder="What needs to change? Be specific — the agent reads this on the next run."
+                    value={holdNotes[item.id] ?? ''}
+                    onChange={e => setHoldNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                    placeholder="Why is this on hold? Be specific — the agent reads this on the next run."
                     rows={3}
                     className="w-full bg-transparent border border-dash-border rounded-lg p-3 text-sm text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 resize-none"
                   />
                   <button
-                    onClick={() => handleRevision(article)}
-                    disabled={!revisionNotes[article.id]?.trim() || processing === article.id}
+                    onClick={() => handleHold(item)}
+                    disabled={!holdNotes[item.id]?.trim() || processing === item.id}
                     className="mt-2 text-xs px-4 py-2 rounded-lg bg-gta-gold/20 text-gta-gold border border-gta-gold/30 hover:bg-gta-gold/30 disabled:opacity-40 transition-colors"
                   >
-                    Send for Revision
+                    Put on Hold
                   </button>
                 </div>
               )}
 
-              {article.faq_pairs && article.faq_pairs.length > 0 && (
-                <details className="mt-3 pt-3 border-t border-dash-border">
-                  <summary className="text-xs text-whisper cursor-pointer hover:text-quiet">
-                    {article.faq_pairs.length} FAQ pairs · {article.internal_links_used?.length ?? 0} internal links
-                  </summary>
-                  <div className="mt-2 space-y-2">
-                    {article.faq_pairs.map((faq, i) => (
-                      <div key={i} className="text-xs">
-                        <div className="text-quiet font-medium">Q: {faq.question}</div>
-                        <div className="text-whisper mt-0.5">A: {faq.answer}</div>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-
               <div className="mt-3 pt-3 border-t border-dash-border text-xs text-whisper">
-                Created {new Date(article.created_at).toLocaleString()}
-                {article.publish_date && ` · Scheduled ${article.publish_date}`}
+                Created {new Date(item.created_at).toLocaleString()}
               </div>
             </div>
           ))}
