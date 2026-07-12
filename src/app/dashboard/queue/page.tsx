@@ -27,6 +27,7 @@ export default function QueuePage() {
   const [overlay, setOverlay] = useState<{ type: OverlayType; reward?: string } | null>(null)
   const [processing, setProcessing] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState<string | null>(null)
   const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({})
   const [statusFilter, setStatusFilter] = useState<'all' | QueueStatus>('all')
 
@@ -216,7 +217,7 @@ export default function QueuePage() {
                   </h3>
 
                   {article.excerpt && (
-                    <p className="text-quiet text-sm leading-relaxed line-clamp-2 mb-2">
+                    <p className="text-quiet text-sm leading-relaxed mb-2">
                       {article.excerpt}
                     </p>
                   )}
@@ -232,10 +233,31 @@ export default function QueuePage() {
                       href={article.external_citation}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-ice hover:underline block truncate"
+                      className="text-xs text-ice hover:underline block truncate mb-3"
                     >
                       Source: {article.external_citation}
                     </a>
+                  )}
+
+                  <button
+                    onClick={() => setPreviewOpen(previewOpen === article.id ? null : article.id)}
+                    className="text-xs text-gta-gold hover:text-gta-gold/80 underline underline-offset-2 transition-colors"
+                  >
+                    {previewOpen === article.id ? 'Hide article' : 'Read full article'}
+                  </button>
+
+                  {previewOpen === article.id && article.content && (
+                    <div className="mt-4 pt-4 border-t border-dash-border">
+                      <div
+                        className="prose-dsx text-quiet leading-loose text-sm max-h-[600px] overflow-y-auto pr-2"
+                        dangerouslySetInnerHTML={{
+                          __html: article.content.replace(
+                            /<section\s[^>]*class=['"][^'"]*\bfaq\b[^'"]*['"][^>]*>[\s\S]*?<\/section>/gi,
+                            ''
+                          ).trim()
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
 
