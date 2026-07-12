@@ -240,6 +240,8 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         '"title", "slug", "excerpt", "content_html", "external_citation". '
         "content_html must be full article HTML with H2/H3 tags, <p> tags, and "
         "a <section class='faq'> block containing the FAQ questions/answers. "
+        "CRITICAL: Use single quotes for ALL HTML attributes inside content_html "
+        "(e.g. <a href='url'> not <a href=\"url\">) so the JSON remains valid. "
         "No markdown fences or commentary outside the JSON."
         + context_block
     )
