@@ -16,6 +16,14 @@ function truncate(text: string, maxLength: number): string {
   return `${text.slice(0, maxLength - 1).trimEnd()}…`
 }
 
+// Agent HTML embeds a <section class="faq"> that we render separately from
+// faq_pairs so it shows with the card design once, not twice.
+function stripFaqSection(html: string): string {
+  return html
+    .replace(/<section\s[^>]*class=['"][^'"]*\bfaq\b[^'"]*['"][^>]*>[\s\S]*?<\/section>/gi, '')
+    .trim()
+}
+
 async function getArticle(slug: string): Promise<Article | null> {
   const { data } = await supabase
     .from('articles')
@@ -195,10 +203,11 @@ export default async function ArticlePage({
         {article.content && (
           article.agent_generated
             ? (
-              // Agent-generated articles use HTML content — render directly
+              // Agent HTML — strip embedded <section class="faq"> so it doesn't
+              // appear twice alongside the faq_pairs card rendering below.
               <div
                 className="prose-dsx text-quiet leading-loose text-base"
-                dangerouslySetInnerHTML={{ __html: article.content }}
+                dangerouslySetInnerHTML={{ __html: stripFaqSection(article.content) }}
               />
             )
             : (
@@ -225,11 +234,11 @@ export default async function ArticlePage({
           </section>
         )}
 
-        {article.agent_generated && article.source_url && (
+        {article.agent_generated && article.external_citation && (
           <div className="mt-10 p-4 bg-panel rounded-lg border border-white/[0.06] text-whisper text-sm">
-            This article was compiled from publicly available sources.{' '}
-            <a href={article.source_url} target="_blank" rel="noopener noreferrer" className="text-flame hover:underline">
-              Read the original.
+            This article references publicly available reporting.{' '}
+            <a href={article.external_citation} target="_blank" rel="noopener noreferrer" className="text-flame hover:underline">
+              View source &rarr;
             </a>
           </div>
         )}

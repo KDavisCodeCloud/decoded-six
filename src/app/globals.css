@@ -147,13 +147,19 @@
   .prose-dsx p  { @apply text-quiet leading-loose mb-4; }
   .prose-dsx ul { @apply list-disc list-inside space-y-1 text-quiet mb-4 pl-2; }
   .prose-dsx ol { @apply list-decimal list-inside space-y-1 text-quiet mb-4 pl-2; }
+  .prose-dsx li { @apply text-quiet; }
   .prose-dsx a  { @apply text-flame hover:underline; }
   .prose-dsx strong { @apply text-bright font-semibold; }
+  .prose-dsx em { @apply italic text-quiet; }
+  .prose-dsx hr { @apply border-0 border-t border-white/[0.06] my-8; }
+  .prose-dsx blockquote { @apply border-l-4 border-flame pl-4 italic text-quiet my-6; }
+  .prose-dsx code { @apply font-mono text-sm bg-white/[0.06] text-flame px-1.5 py-0.5 rounded; }
+  .prose-dsx pre { @apply bg-white/[0.04] border border-white/[0.06] rounded-lg p-4 overflow-x-auto my-6; }
+  .prose-dsx pre code { @apply bg-transparent p-0 text-quiet; }
   .prose-dsx table { @apply w-full border-collapse text-sm mb-6; }
   .prose-dsx th  { @apply text-left px-3 py-2 text-quiet font-semibold border-b border-white/[0.08]; }
   .prose-dsx td  { @apply px-3 py-2 text-quiet border-b border-white/[0.04]; }
-  .prose-dsx section.faq { @apply mt-10 border-t border-white/[0.06] pt-8; }
-  .prose-dsx section.faq h2 { @apply text-2xl mb-6; }
+  /* FAQ section inside HTML is stripped before render — rendered from faq_pairs instead */
 
   .vice-divider {
     height: 1px;
