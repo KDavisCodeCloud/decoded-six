@@ -159,6 +159,9 @@
   .prose-dsx table { @apply w-full border-collapse text-sm mb-6; }
   .prose-dsx th  { @apply text-left px-3 py-2 text-quiet font-semibold border-b border-white/[0.08]; }
   .prose-dsx td  { @apply px-3 py-2 text-quiet border-b border-white/[0.04]; }
+  .prose-dsx figure.article-image { @apply my-8; }
+  .prose-dsx figure.article-image img { @apply w-full rounded-xl object-cover; max-height: 480px; }
+  .prose-dsx figure.article-image figcaption { @apply text-xs text-whisper mt-2 text-center; }
   /* FAQ section inside HTML is stripped before render — rendered from faq_pairs instead */
 
   .vice-divider {

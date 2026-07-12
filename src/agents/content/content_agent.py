@@ -184,6 +184,52 @@ def _node_news_scraper(state: dict) -> dict:
     return state
 
 
+# ── Node 2b: image_fetcher ────────────────────────────────────────────────────
+
+def _node_image_fetcher(state: dict) -> dict:
+    """
+    Fetches the og:image from the article's source/citation URL.
+    Skips gracefully if the URL is unreachable or yields no image.
+    Result stored in state['hero_image_url'].
+    """
+    url = state.get("external_citation", "") or state.get("topic_seed", "")
+
+    # Only attempt if we have an actual URL
+    if not url or not url.startswith("http"):
+        state["hero_image_url"] = None
+        return state
+
+    try:
+        import httpx
+        response = httpx.get(
+            url, timeout=8, follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; DecodedSixBot/1.0)"},
+        )
+        html = response.text
+
+        # Try property="og:image" (content before or after)
+        patterns = [
+            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+            r'<meta[^>]+name=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+        ]
+        image_url = None
+        for pattern in patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                image_url = match.group(1).strip()
+                break
+
+        state["hero_image_url"] = image_url
+        log.info("[%s] image_fetcher: %s", AGENT_ID, image_url or "none found")
+
+    except Exception as exc:
+        log.warning("[%s] image_fetcher failed (non-blocking): %s", AGENT_ID, exc)
+        state["hero_image_url"] = None
+
+    return state
+
+
 # ── Node 3: writer ────────────────────────────────────────────────────────────
 
 def _node_writer(state: dict, anthropic_client: Any) -> dict:
@@ -280,10 +326,32 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
     state["title"] = parsed["title"]
     state["slug"] = slug
     state["excerpt"] = parsed["excerpt"][:160]
-    state["content_html"] = parsed["content_html"]
     state["external_citation"] = parsed.get("external_citation", "")
     state["word_count"] = word_count
 
+    # Inject hero image after first paragraph if image_fetcher found one
+    content_html = parsed["content_html"]
+    hero_url = state.get("hero_image_url")
+    if hero_url:
+        source_url = state.get("external_citation") or ""
+        source_label = (
+            "Rockstar Games" if "rockstargames" in source_url else
+            "Take-Two Interactive" if "take2games" in source_url else
+            "Official Source"
+        )
+        figure = (
+            f"<figure class='article-image'>"
+            f"<img src='{hero_url}' alt='{state['title']}' loading='lazy'>"
+            f"<figcaption>Image via <a href='{source_url}'>{source_label}</a></figcaption>"
+            f"</figure>"
+        )
+        first_p_end = content_html.find("</p>")
+        if first_p_end != -1:
+            content_html = content_html[:first_p_end + 4] + figure + content_html[first_p_end + 4:]
+        else:
+            content_html = figure + content_html
+
+    state["content_html"] = content_html
     return state
 
 
@@ -679,6 +747,7 @@ def run_content_agent(
     try:
         state = _node_topic_picker(state)
         state = _node_news_scraper(state)
+        state = _node_image_fetcher(state)
         state = _node_writer(state, ai)
         state = _node_faq_generator(state, ai)
         state = _node_schema_generator(state)
