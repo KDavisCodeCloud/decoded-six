@@ -34,6 +34,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     site: '@decodedsix',
+    title: `${siteName} | GTA 6 News, Maps & Guides`,
+    description: 'The definitive independent source for GTA 6 news, rumors, interactive maps, vehicle stats, and weekly event guides.',
   },
   robots: {
     index: true,

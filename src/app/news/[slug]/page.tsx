@@ -59,9 +59,19 @@ export async function generateMetadata({
       title: article.title,
       description,
       type: 'article',
+      url: `${siteUrl}/news/${slug}`,
+      siteName: 'Decoded Six',
       publishedTime: article.published_at,
-      // No image_url column on articles (checked supabase/migrations/001_schema.sql) —
-      // omitted rather than referencing a field that doesn't exist on Article.
+      modifiedTime: article.created_at,
+      authors: ['DecodedSix Editorial Team'],
+      section: article.category,
+      // og:image is auto-populated by Next.js from opengraph-image.tsx in this directory
+    },
+    twitter: {
+      card: 'summary_large_image',
+      site: '@decodedsix',
+      title: article.title,
+      description,
     },
   }
 }
