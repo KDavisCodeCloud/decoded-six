@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
+// createClient kept for fetchQueue — only review actions go through the server API route
 import { soundManager, SoundEvents } from '@/lib/sounds'
 import type { Article } from '@/lib/types'
 
@@ -45,28 +46,28 @@ export default function QueuePage() {
 
   useEffect(() => { fetchQueue() }, [])
 
+  async function callReview(articleId: string, action: 'approve' | 'reject' | 'revise', notes?: string) {
+    const res = await fetch(`/api/articles/${articleId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, notes }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error(err.error ?? 'Review action failed')
+    }
+    return res.json()
+  }
+
   const handleApprove = useCallback(async (article: Article) => {
     setProcessing(article.id)
     try {
-      const apiKey = process.env.NEXT_PUBLIC_DECODEDSIX_API_KEY
-      if (apiKey) {
-        // Call FastAPI publish endpoint to set published_at + status=published
-        const res = await fetch(`/agents/decodedsix/publish/${article.id}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}` },
-        })
-        if (!res.ok) throw new Error(await res.text())
-      } else {
-        // Fallback: direct Supabase update (dashboard-only, no FastAPI running)
-        const supabase = createClient()
-        await supabase
-          .from('articles')
-          .update({ status: 'published', published_at: new Date().toISOString() })
-          .eq('id', article.id)
-      }
+      await callReview(article.id, 'approve')
       soundManager.play(SoundEvents.ARTICLE_APPROVED)
       setOverlay({ type: 'mission-passed', reward: 'ARTICLE SECURED' })
       setArticles(prev => prev.filter(a => a.id !== article.id))
+    } catch (err) {
+      console.error('Approve failed:', err)
     } finally {
       setProcessing(null)
     }
@@ -76,28 +77,32 @@ export default function QueuePage() {
     const notes = revisionNotes[article.id]?.trim()
     if (!notes) return
     setProcessing(article.id)
-    const supabase = createClient()
-    await supabase
-      .from('articles')
-      .update({ status: 'needs_revision', hitl_notes: notes, hitl_reviewer: 'owner' })
-      .eq('id', article.id)
-    setArticles(prev => prev.map(a => a.id === article.id ? { ...a, status: 'needs_revision', hitl_notes: notes } : a))
-    setRevisionNotes(prev => { const n = { ...prev }; delete n[article.id]; return n })
-    setExpanded(null)
-    setProcessing(null)
+    try {
+      await callReview(article.id, 'revise', notes)
+      setArticles(prev => prev.map(a =>
+        a.id === article.id ? { ...a, status: 'needs_revision', hitl_notes: notes } : a
+      ))
+      setRevisionNotes(prev => { const n = { ...prev }; delete n[article.id]; return n })
+      setExpanded(null)
+    } catch (err) {
+      console.error('Revision failed:', err)
+    } finally {
+      setProcessing(null)
+    }
   }, [revisionNotes])
 
   const handleReject = useCallback(async (article: Article) => {
     setProcessing(article.id)
-    const supabase = createClient()
-    await supabase
-      .from('articles')
-      .update({ status: 'archived' })
-      .eq('id', article.id)
-    soundManager.play(SoundEvents.ARTICLE_REJECTED_SOFT, { volume: 0.4 })
-    setOverlay({ type: 'wasted' })
-    setArticles(prev => prev.filter(a => a.id !== article.id))
-    setProcessing(null)
+    try {
+      await callReview(article.id, 'reject')
+      soundManager.play(SoundEvents.ARTICLE_REJECTED_SOFT, { volume: 0.4 })
+      setOverlay({ type: 'wasted' })
+      setArticles(prev => prev.filter(a => a.id !== article.id))
+    } catch (err) {
+      console.error('Reject failed:', err)
+    } finally {
+      setProcessing(null)
+    }
   }, [])
 
   const visible = statusFilter === 'all'
