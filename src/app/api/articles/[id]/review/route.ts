@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
-type Action = 'approve' | 'reject' | 'revise'
+type Action = 'approve' | 'reject' | 'revise' | 'unpublish'
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +11,6 @@ export async function POST(
 ) {
   const { id } = await params
 
-  // Verify authenticated session from cookie
   const cookieStore = await cookies()
   const authClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,7 +35,7 @@ export async function POST(
   const body = await request.json() as { action: Action; notes?: string }
   const { action, notes } = body
 
-  if (!['approve', 'reject', 'revise'].includes(action)) {
+  if (!['approve', 'reject', 'revise', 'unpublish'].includes(action)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   }
 
@@ -60,13 +59,6 @@ export async function POST(
     return NextResponse.json({ error: 'Article not found' }, { status: 404 })
   }
 
-  if (!['pending_review', 'needs_revision'].includes(article.status)) {
-    return NextResponse.json(
-      { error: `Cannot review article with status '${article.status}'` },
-      { status: 409 },
-    )
-  }
-
   const now = new Date().toISOString()
   const reviewer = user.email ?? user.id
 
@@ -75,12 +67,36 @@ export async function POST(
     hitl_reviewed_at: now,
   }
 
-  if (action === 'approve') {
-    update = { ...update, status: 'published', published_at: now }
-  } else if (action === 'reject') {
+  let auditAction: string
+
+  if (action === 'unpublish') {
+    if (article.status !== 'published') {
+      return NextResponse.json(
+        { error: `Cannot unpublish article with status '${article.status}'` },
+        { status: 409 },
+      )
+    }
     update = { ...update, status: 'archived' }
+    auditAction = 'article_unpublished'
   } else {
-    update = { ...update, status: 'needs_revision', hitl_notes: notes! }
+    if (!['pending_review', 'needs_revision'].includes(article.status)) {
+      return NextResponse.json(
+        { error: `Cannot review article with status '${article.status}'` },
+        { status: 409 },
+      )
+    }
+    const pastTense: Record<string, string> = {
+      approve: 'approved', reject: 'rejected', revise: 'revised',
+    }
+    auditAction = `article_${pastTense[action]}`
+
+    if (action === 'approve') {
+      update = { ...update, status: 'published', published_at: now }
+    } else if (action === 'reject') {
+      update = { ...update, status: 'archived' }
+    } else {
+      update = { ...update, status: 'needs_revision', hitl_notes: notes! }
+    }
   }
 
   const { error } = await sb.from('articles').update(update).eq('id', id)
@@ -88,10 +104,9 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const pastTense: Record<Action, string> = { approve: 'approved', reject: 'rejected', revise: 'revised' }
   await sb.from('audit_log').insert({
     agent_id: 'dsx-hitl-dashboard',
-    action: `article_${pastTense[action]}`,
+    action: auditAction,
     article_id: id,
     result: 'success',
     error: null,
