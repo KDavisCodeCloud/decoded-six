@@ -38,6 +38,68 @@ _WHITESPACE_RE = re.compile(r"[ \t]{2,}")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 
+def _md_inline(text: str) -> str:
+    text = re.sub(r'\*\*([^*\n]+)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'__([^_\n]+)__', r'<strong>\1</strong>', text)
+    text = re.sub(r'\*([^*\n]+)\*', r'<em>\1</em>', text)
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r"<a href='\2'>\1</a>", text)
+    return text
+
+
+def _md_to_html(text: str) -> str:
+    """Convert markdown → HTML. Safety net: if LLM ignores HTML instructions."""
+    if re.search(r'<(h[23]|ul|ol|section|figure)\b', text, re.IGNORECASE):
+        # Already has structural HTML — only fix any stray inline markdown
+        return re.sub(r'(?<=>)[^<]+(?=<)', lambda m: _md_inline(m.group(0)), text)
+
+    lines = text.split('\n')
+    output: list[str] = []
+    in_ul = in_ol = False
+    para: list[str] = []
+
+    def flush():
+        if para:
+            output.append(f'<p>{_md_inline(" ".join(para))}</p>')
+            para.clear()
+
+    for line in lines:
+        s = line.strip()
+        if s.startswith('### '):
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+            output.append(f'<h3>{_md_inline(s[4:])}</h3>')
+        elif s.startswith('## ') or s.startswith('# '):
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+            txt = s[3:] if s.startswith('## ') else s[2:]
+            output.append(f'<h2>{_md_inline(txt)}</h2>')
+        elif s.startswith('- ') or s.startswith('* '):
+            flush()
+            if in_ol: output.append('</ol>'); in_ol = False
+            if not in_ul: output.append('<ul>'); in_ul = True
+            output.append(f'<li>{_md_inline(s[2:])}</li>')
+        elif re.match(r'^\d+\. ', s):
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if not in_ol: output.append('<ol>'); in_ol = True
+            output.append(f'<li>{_md_inline(re.sub(r"^\d+\. ", "", s))}</li>')
+        elif s == '':
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+        else:
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+            para.append(s)
+
+    flush()
+    if in_ul: output.append('</ul>')
+    if in_ol: output.append('</ol>')
+    return '\n'.join(output)
+
+
 class HumanizeError(RuntimeError):
     """Raised when the humanizer pass fails at any stage."""
 
@@ -118,8 +180,14 @@ def humanize_article(
             f"{voice_rules}\n\n"
             "Rewrite the article below to follow every voice rule above exactly. "
             "Do not add new facts. Do not change the meaning. Sound like a human "
-            "player wrote it, not an AI. Output only the rewritten article body — "
-            "no commentary, no markdown fences."
+            "player wrote it, not an AI.\n\n"
+            "CRITICAL — HTML preservation rules:\n"
+            "- The input is HTML. Your output MUST also be HTML.\n"
+            "- Preserve every HTML tag exactly: <h2>, <h3>, <p>, <ul>, <ol>, <li>, "
+            "<strong>, <em>, <a>, <figure>, <section>, <blockquote>, etc.\n"
+            "- Rewrite ONLY the visible text inside the tags. Never change or remove any tag.\n"
+            "- NEVER output markdown (no ## headings, no **bold**, no - lists).\n"
+            "- Return the full HTML body, no commentary, no code fences."
         )
         response = anthropic.messages.create(
             model=MODEL,
@@ -129,6 +197,9 @@ def humanize_article(
             messages=[{"role": "user", "content": draft_content}],
         )
         rewritten = "".join(block.text for block in response.content if block.type == "text")
+
+        # Safety net: if the LLM drifted to markdown despite instructions, convert it back
+        rewritten = _md_to_html(rewritten)
 
         final_content = _mechanical_pass(rewritten)
 

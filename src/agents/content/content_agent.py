@@ -184,17 +184,80 @@ def _node_news_scraper(state: dict) -> dict:
     return state
 
 
+# ── Markdown → HTML safety converter ─────────────────────────────────────────
+
+def _md_inline(text: str) -> str:
+    text = re.sub(r'\*\*([^*\n]+)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'__([^_\n]+)__', r'<strong>\1</strong>', text)
+    text = re.sub(r'\*([^*\n]+)\*', r'<em>\1</em>', text)
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r"<a href='\2'>\1</a>", text)
+    return text
+
+
+def _md_to_html(text: str) -> str:
+    """Convert markdown → HTML. Runs after writer and after humanizer as a safety net."""
+    if re.search(r'<(h[23]|ul|ol|section|figure)\b', text, re.IGNORECASE):
+        # Already has structural HTML — only fix stray inline markdown in text nodes
+        return re.sub(r'(?<=>)[^<]+(?=<)', lambda m: _md_inline(m.group(0)), text)
+
+    lines = text.split('\n')
+    output: list[str] = []
+    in_ul = in_ol = False
+    para: list[str] = []
+
+    def flush() -> None:
+        if para:
+            output.append(f'<p>{_md_inline(" ".join(para))}</p>')
+            para.clear()
+
+    for line in lines:
+        s = line.strip()
+        if s.startswith('### '):
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+            output.append(f'<h3>{_md_inline(s[4:])}</h3>')
+        elif s.startswith('## ') or s.startswith('# '):
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+            txt = s[3:] if s.startswith('## ') else s[2:]
+            output.append(f'<h2>{_md_inline(txt)}</h2>')
+        elif s.startswith('- ') or s.startswith('* '):
+            flush()
+            if in_ol: output.append('</ol>'); in_ol = False
+            if not in_ul: output.append('<ul>'); in_ul = True
+            output.append(f'<li>{_md_inline(s[2:])}</li>')
+        elif re.match(r'^\d+\. ', s):
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if not in_ol: output.append('<ol>'); in_ol = True
+            output.append(f'<li>{_md_inline(re.sub(r"^\d+\. ", "", s))}</li>')
+        elif s == '':
+            flush()
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+        else:
+            if in_ul: output.append('</ul>'); in_ul = False
+            if in_ol: output.append('</ol>'); in_ol = False
+            para.append(s)
+
+    flush()
+    if in_ul: output.append('</ul>')
+    if in_ol: output.append('</ol>')
+    return '\n'.join(output)
+
+
 # ── Node 2b: image_fetcher ────────────────────────────────────────────────────
 
 def _node_image_fetcher(state: dict) -> dict:
     """
-    Fetches the og:image from the article's source/citation URL.
-    Skips gracefully if the URL is unreachable or yields no image.
-    Result stored in state['hero_image_url'].
+    Fetches the og:image from the article's source/citation URL and injects
+    a <figure> block into content_html after the first paragraph.
+    Skips gracefully if unreachable or no image found.
     """
     url = state.get("external_citation", "") or state.get("topic_seed", "")
 
-    # Only attempt if we have an actual URL
     if not url or not url.startswith("http"):
         state["hero_image_url"] = None
         return state
@@ -207,21 +270,47 @@ def _node_image_fetcher(state: dict) -> dict:
         )
         html = response.text
 
-        # Try property="og:image" (content before or after)
         patterns = [
             r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
             r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
-            r'<meta[^>]+name=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+property=["\']og:image["\'][^>]+content="([^"]+)"',
+            r'<meta[^>]+content="([^"]+)"[^>]+property=["\']og:image["\']',
+            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
         ]
         image_url = None
         for pattern in patterns:
             match = re.search(pattern, html, re.IGNORECASE)
             if match:
                 image_url = match.group(1).strip()
+                if image_url.startswith('/'):
+                    from urllib.parse import urlparse
+                    parsed = urlparse(url)
+                    image_url = f"{parsed.scheme}://{parsed.netloc}{image_url}"
                 break
 
         state["hero_image_url"] = image_url
         log.info("[%s] image_fetcher: %s", AGENT_ID, image_url or "none found")
+
+        if image_url and state.get("content_html"):
+            source_url = state.get("external_citation") or ""
+            source_label = (
+                "Rockstar Games" if "rockstargames" in source_url else
+                "Take-Two Interactive" if "take2games" in source_url else
+                "Official Source"
+            )
+            figure = (
+                f"<figure class='article-image'>"
+                f"<img src='{image_url}' alt='{state.get('title', '')}' loading='lazy'>"
+                f"<figcaption>Courtesy of <a href='{source_url}'>{source_label}</a></figcaption>"
+                f"</figure>"
+            )
+            content = state["content_html"]
+            first_p_end = content.find("</p>")
+            if first_p_end != -1:
+                content = content[:first_p_end + 4] + figure + content[first_p_end + 4:]
+            else:
+                content = figure + content
+            state["content_html"] = content
 
     except Exception as exc:
         log.warning("[%s] image_fetcher failed (non-blocking): %s", AGENT_ID, exc)
@@ -284,11 +373,14 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "10. Word count floor: 1,200 words minimum.\n\n"
         "Return ONLY valid JSON with exactly these keys: "
         '"title", "slug", "excerpt", "content_html", "external_citation". '
-        "content_html must be full article HTML with H2/H3 tags, <p> tags, and "
-        "a <section class='faq'> block containing the FAQ questions/answers. "
-        "CRITICAL: Use single quotes for ALL HTML attributes inside content_html "
-        "(e.g. <a href='url'> not <a href=\"url\">) so the JSON remains valid. "
-        "No markdown fences or commentary outside the JSON."
+        "CRITICAL content_html rules:\n"
+        "- content_html MUST be valid HTML — use <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <a> tags.\n"
+        "- NEVER use markdown syntax (no ## headings, no **bold**, no - bullet text) inside content_html.\n"
+        "- Separate every paragraph with its own <p>...</p> block on its own line.\n"
+        "- Include a <section class='faq'> block at the end with the FAQ questions/answers.\n"
+        "- Use single quotes for ALL HTML attributes (e.g. <a href='url'> not <a href=\"url\">) "
+        "so the JSON string remains parseable.\n"
+        "No markdown fences or commentary outside the JSON object."
         + context_block
     )
 
@@ -340,11 +432,12 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         if field not in parsed:
             raise ContentAgentError("writer", None, ValueError(f"LLM output missing field '{field}'"))
 
-    # Enforce slug constraints
     slug = slugify(parsed["slug"])[:60]
 
-    # Rough word count from stripped HTML
-    text_only = re.sub(r"<[^>]+>", " ", parsed["content_html"])
+    # Safety net: if LLM wrote markdown instead of HTML, convert it
+    content_html = _md_to_html(parsed["content_html"])
+
+    text_only = re.sub(r"<[^>]+>", " ", content_html)
     word_count = len(text_only.split())
 
     state["title"] = parsed["title"]
@@ -352,29 +445,6 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
     state["excerpt"] = parsed["excerpt"][:160]
     state["external_citation"] = parsed.get("external_citation", "")
     state["word_count"] = word_count
-
-    # Inject hero image after first paragraph if image_fetcher found one
-    content_html = parsed["content_html"]
-    hero_url = state.get("hero_image_url")
-    if hero_url:
-        source_url = state.get("external_citation") or ""
-        source_label = (
-            "Rockstar Games" if "rockstargames" in source_url else
-            "Take-Two Interactive" if "take2games" in source_url else
-            "Official Source"
-        )
-        figure = (
-            f"<figure class='article-image'>"
-            f"<img src='{hero_url}' alt='{state['title']}' loading='lazy'>"
-            f"<figcaption>Image via <a href='{source_url}'>{source_label}</a></figcaption>"
-            f"</figure>"
-        )
-        first_p_end = content_html.find("</p>")
-        if first_p_end != -1:
-            content_html = content_html[:first_p_end + 4] + figure + content_html[first_p_end + 4:]
-        else:
-            content_html = figure + content_html
-
     state["content_html"] = content_html
     return state
 
