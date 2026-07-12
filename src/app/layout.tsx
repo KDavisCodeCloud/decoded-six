@@ -15,7 +15,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'Decoded Six'
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://decodedsix.com'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thedecodedsix.com'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
