@@ -29,24 +29,13 @@
       }
     },
     {
-      "id": "fetch-news-rss",
-      "name": "Fetch News Topic (news type only)",
-      "type": "n8n-nodes-base.rssFeedRead",
-      "typeVersion": 1,
-      "position": [680, 200],
-      "parameters": {
-        "url": "https://www.gamesradar.com/rss/gta-6/",
-        "options": {}
-      }
-    },
-    {
-      "id": "pick-news-topic",
-      "name": "Pick Latest News Headline",
+      "id": "get-news-topic",
+      "name": "Get News Topic (RSS or fallback)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, 200],
+      "position": [680, 300],
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst articleType = $('Set Article Type by Day').first().json.article_type;\nconst publishDate = $('Set Article Type by Day').first().json.publish_date;\n\nif (articleType !== 'news') {\n  return [{ json: { article_type: articleType, topic_seed: '', publish_date: publishDate } }];\n}\n\nconst latest = items[0]?.json ?? {};\nconst headline = latest.title || latest.headline || 'GTA 6 latest news';\nreturn [{ json: { article_type: articleType, topic_seed: headline, publish_date: publishDate } }];"
+        "jsCode": "const articleType = $input.first().json.article_type;\nconst publishDate = $input.first().json.publish_date;\n\n// Non-news types: skip RSS entirely, agent picks topic from its own lists\nif (articleType !== 'news') {\n  return [{ json: { article_type: articleType, topic_seed: '', publish_date: publishDate } }];\n}\n\n// News type: try RSS, fall back gracefully so workflow never stops on RSS failure\nlet headline = 'GTA 6 latest news';\ntry {\n  const feeds = [\n    'https://www.gamesradar.com/rss/gta-6/',\n    'https://www.reddit.com/r/GTA6/.rss?limit=5'\n  ];\n  for (const url of feeds) {\n    try {\n      const resp = await fetch(url, { headers: { 'User-Agent': 'DecodedSix/1.0' }, signal: AbortSignal.timeout(8000) });\n      if (!resp.ok) continue;\n      const xml = await resp.text();\n      // Try CDATA title first, then plain title\n      const cdata = xml.match(/<item>[\\s\\S]*?<title><!\\[CDATA\\[([^\\]]+)\\]\\]><\\/title>/);\n      const plain = xml.match(/<item>[\\s\\S]*?<title>([^<]+)<\\/title>/);\n      const found = cdata?.[1] || plain?.[1];\n      if (found && found.trim()) { headline = found.trim(); break; }\n    } catch (_) { /* try next feed */ }\n  }\n} catch (_) { /* use fallback headline */ }\n\nreturn [{ json: { article_type: articleType, topic_seed: headline, publish_date: publishDate } }];"
       }
     },
     {
@@ -54,19 +43,15 @@
       "name": "POST /agents/decodedsix/content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1120, 300],
+      "position": [900, 300],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.DECODEDSIX_API_URL }}/agents/decodedsix/content",
+        "url": "={{ $vars.DECODEDSIX_API_URL }}/agents/decodedsix/content",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -104,7 +89,7 @@
       "name": "Check API Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 300],
+      "position": [1120, 300],
       "parameters": {
         "jsCode": "const response = $input.first().json;\nif (!response.success) {\n  throw new Error(`Content agent failed: ${JSON.stringify(response)}`);\n}\nreturn [{ json: { status: 'queued', message: 'DSX-CA1 running in background — article will appear in HITL queue when ready' } }];"
       }
@@ -115,12 +100,9 @@
       "main": [[{ "node": "Set Article Type by Day", "type": "main", "index": 0 }]]
     },
     "Set Article Type by Day": {
-      "main": [[{ "node": "Fetch News Topic (news type only)", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Get News Topic (RSS or fallback)", "type": "main", "index": 0 }]]
     },
-    "Fetch News Topic (news type only)": {
-      "main": [[{ "node": "Pick Latest News Headline", "type": "main", "index": 0 }]]
-    },
-    "Pick Latest News Headline": {
+    "Get News Topic (RSS or fallback)": {
       "main": [[{ "node": "POST /agents/decodedsix/content", "type": "main", "index": 0 }]]
     },
     "POST /agents/decodedsix/content": {
@@ -132,5 +114,5 @@
   },
   "staticData": null,
   "tags": ["decodedsix", "content-agent", "dsx-ca1"],
-  "notes": "Triggers Tue/Thu/Sat at 9am MST (16:00 UTC). Day maps to article_type: Tue=news, Thu=evergreen, Sat=conversion. News type fetches latest headline from GamesRadar RSS. Evergreen and conversion use the agent's built-in keyword/affiliate lists. The FastAPI endpoint runs DSX-CA1 in the background — article appears in /dashboard/queue when complete with status=pending_review. Env vars required: DECODEDSIX_API_URL (FastAPI base URL), DECODEDSIX_API_KEY."
+  "notes": "Triggers Tue/Thu/Sat at 9am MST (16:00 UTC). Day maps to article_type: Tue=news, Thu=evergreen, Sat=conversion. RSS fetch is inside a Code node with timeout+fallback — workflow never fails on RSS error. FastAPI endpoint runs DSX-CA1 in background. Vars required: DECODEDSIX_API_URL, DECODEDSIX_API_KEY."
 }

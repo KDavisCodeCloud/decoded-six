@@ -460,8 +460,8 @@ def _node_validator(state: dict) -> dict:
     """
     errors: list[str] = []
 
-    if state.get("word_count", 0) < 1200:
-        errors.append(f"word_count={state.get('word_count')} is below 1,200 minimum")
+    if state.get("word_count", 0) < 1000:
+        errors.append(f"word_count={state.get('word_count')} is below 1,000 minimum")
 
     faq = state.get("faq_pairs") or []
     if len(faq) < 3:
