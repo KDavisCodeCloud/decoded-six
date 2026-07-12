@@ -44,7 +44,22 @@ export default function QueuePage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchQueue() }, [])
+  useEffect(() => {
+    fetchQueue()
+    const supabase = createClient()
+    // Live queue: auto-refresh when articles table changes so new articles
+    // appear without needing the Refresh button
+    const channel = supabase
+      .channel('queue-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'articles',
+        filter: 'product_id=eq.gta-hub',
+      }, () => { fetchQueue() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   async function callReview(articleId: string, action: 'approve' | 'reject' | 'revise', notes?: string) {
     const res = await fetch(`/api/articles/${articleId}/review`, {

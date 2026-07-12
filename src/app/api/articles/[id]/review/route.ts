@@ -88,9 +88,10 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  const pastTense: Record<Action, string> = { approve: 'approved', reject: 'rejected', revise: 'revised' }
   await sb.from('audit_log').insert({
     agent_id: 'dsx-hitl-dashboard',
-    action: `article_${action}d`,
+    action: `article_${pastTense[action]}`,
     article_id: id,
     result: 'success',
     error: null,

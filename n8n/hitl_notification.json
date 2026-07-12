@@ -1,56 +1,35 @@
 {
-  "name": "DecodedSix \u2014 HITL Notification",
+  "name": "DecodedSix — HITL Notification",
   "nodes": [
     {
-      "id": "4b14b70c-cc20-4fd5-b668-dc29aadce790",
-      "name": "Webhook \u2014 HITL Article",
+      "id": "webhook-trigger",
+      "name": "Webhook — Supabase Article Event",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        0,
-        0
-      ],
+      "position": [0, 0],
       "parameters": {
         "httpMethod": "POST",
         "path": "decodedsix/hitl",
         "responseMode": "onReceived",
         "options": {}
-      },
-      "webhookId": "0aaa556c-a04c-4e36-9ada-783816461ccd"
-    },
-    {
-      "id": "d87f81b4-9aa2-4464-8c3c-0bf8eeac5624",
-      "name": "Get Article",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        220,
-        0
-      ],
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $env.DECODEDSIX_API_URL }}/api/articles/{{ $json.body.record.id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
-            }
-          ]
-        },
-        "options": {}
       }
     },
     {
-      "id": "39529d1c-4376-4252-9726-1af3f7d0989a",
-      "name": "Slack \u2014 HITL Review Needed",
+      "id": "filter-pending",
+      "name": "Filter — Pending Review Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0],
+      "parameters": {
+        "jsCode": "// Supabase sends the row in body.record (HTTP webhook) or record (realtime)\nconst record = $json.body?.record ?? $json.record ?? $json;\n\n// Only notify for pending_review inserts — ignore updates and other statuses\nif (record.status !== 'pending_review') {\n  return [];\n}\n\nreturn [{ json: {\n  article_id: record.id,\n  title: record.title || 'Untitled',\n  category: record.category || 'unknown',\n  article_type: record.article_type || 'N/A',\n  word_count: record.word_count || 0,\n  slug: record.slug || '',\n  created_at: record.created_at || new Date().toISOString(),\n} }];"
+      }
+    },
+    {
+      "id": "slack-notify",
+      "name": "Slack — HITL Review Needed",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.2,
-      "position": [
-        440,
-        0
-      ],
+      "position": [480, 0],
       "parameters": {
         "resource": "message",
         "operation": "post",
@@ -60,83 +39,21 @@
           "mode": "name",
           "value": "#decodedsix-hitl"
         },
-        "text": "=\ud83d\udc40 Article needs review\nTitle: {{ $json.title }}\nCategory: {{ $json.category }}\nDetection score: {{ $json.metadata.detection_score ?? 'not run' }}%\nDashboard: {{ $env.DECODEDSIX_DASHBOARD_URL }}/dashboard/queue",
+        "text": "=👀 *New article needs review*\n\n*Title:* {{ $json.title }}\n*Category:* {{ $json.category.toUpperCase() }} · {{ $json.article_type.toUpperCase() }}\n*Word count:* {{ $json.word_count.toLocaleString() }}\n\n👉 *Review now:* https://thedecodedsix.com/dashboard/queue\n\nApprove to publish. Reject to archive. Add notes to send back for revision.",
         "otherOptions": {}
-      },
-      "webhookId": null
-    },
-    {
-      "id": "8a80f7da-4b78-4f0c-8a03-f61c71670321",
-      "name": "Mark HITL Notified",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        660,
-        0
-      ],
-      "parameters": {
-        "method": "PATCH",
-        "url": "={{ $env.DECODEDSIX_API_URL }}/api/articles/{{ $json.body.record.id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.DECODEDSIX_API_KEY }}"
-            }
-          ]
-        },
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"hitl_notified\": true\n}"
       }
     }
   ],
   "connections": {
-    "Webhook \u2014 HITL Article": {
-      "main": [
-        [
-          {
-            "node": "Get Article",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Webhook — Supabase Article Event": {
+      "main": [[{ "node": "Filter — Pending Review Only", "type": "main", "index": 0 }]]
     },
-    "Get Article": {
-      "main": [
-        [
-          {
-            "node": "Slack \u2014 HITL Review Needed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Slack \u2014 HITL Review Needed": {
-      "main": [
-        [
-          {
-            "node": "Mark HITL Notified",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Filter — Pending Review Only": {
+      "main": [[{ "node": "Slack — HITL Review Needed", "type": "main", "index": 0 }]]
     }
   },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "pinData": {},
-  "versionId": "a3818340-6525-4fb7-a3a8-4c314ce634c5",
-  "meta": {
-    "instanceId": "decodedsix-self-hosted"
-  },
-  "id": "a8c6ba8e-388d-4cde-991c-dadd54d89b6b",
-  "tags": []
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": ["decodedsix", "hitl"],
+  "notes": "Triggered by Supabase Database Webhook on articles table INSERT. Code node filters for pending_review status only. Sends Slack ping to #decodedsix-hitl with dashboard link. No Railway calls needed."
 }

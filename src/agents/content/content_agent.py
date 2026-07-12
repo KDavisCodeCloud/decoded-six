@@ -608,6 +608,30 @@ def _node_seo_aeo_audit(state: dict, sb: Any) -> dict:
     return state
 
 
+# ── HITL webhook ─────────────────────────────────────────────────────────────
+
+def _fire_hitl_webhook(state: dict) -> None:
+    """POST article metadata to n8n HITL notification webhook. Non-blocking."""
+    url = os.getenv("N8N_HITL_WEBHOOK_URL", "")
+    if not url:
+        log.warning("[%s] N8N_HITL_WEBHOOK_URL not set — HITL notification skipped", AGENT_ID)
+        return
+    try:
+        import httpx
+        cat_map = {"news": "news", "evergreen": "guide", "conversion": "guide"}
+        httpx.post(url, json={
+            "status": state.get("status", "pending_review"),
+            "article_id": state.get("article_id"),
+            "title": state.get("title", ""),
+            "slug": state.get("slug", ""),
+            "category": cat_map.get(state.get("article_type", ""), "news"),
+            "article_type": state.get("article_type", ""),
+            "word_count": state.get("word_count", 0),
+        }, timeout=5)
+    except Exception as exc:
+        log.warning("[%s] HITL webhook fire failed (non-blocking): %s", AGENT_ID, exc)
+
+
 # ── Main agent entry point ────────────────────────────────────────────────────
 
 def run_content_agent(
@@ -668,6 +692,7 @@ def run_content_agent(
         state = _node_seo_aeo_audit(state, sb)
 
         _audit(sb, article_id, "content_agent_run", "success")
+        _fire_hitl_webhook(state)
 
         return {
             "article_id": article_id,
