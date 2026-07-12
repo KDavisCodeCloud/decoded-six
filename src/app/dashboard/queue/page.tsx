@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { soundManager, SoundEvents } from '@/lib/sounds'
+import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
 import type { Article } from '@/lib/types'
 
 type QueueStatus = 'pending_review' | 'needs_revision'
@@ -26,11 +27,6 @@ const CAT_BADGE: Record<string, string> = {
   guide: 'bg-gta-gold/15 text-gta-gold',
 }
 
-function stripFaq(html: string) {
-  return html
-    .replace(/<section\s[^>]*class=['"][^'"]*\bfaq\b[^'"]*['"][^>]*>[\s\S]*?<\/section>/gi, '')
-    .trim()
-}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -175,10 +171,7 @@ function ArticlePreview({
         )}
 
         {article.content && (
-          <div
-            className="prose-dsx text-quiet leading-loose text-base"
-            dangerouslySetInnerHTML={{ __html: stripFaq(article.content) }}
-          />
+          <ArticleMarkdown content={article.content} stripFaq />
         )}
 
         {article.faq_pairs && article.faq_pairs.length > 0 && (

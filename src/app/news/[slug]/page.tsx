@@ -5,6 +5,7 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { NewsletterSignup } from '@/components/NewsletterSignup'
+import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
@@ -16,13 +17,6 @@ function truncate(text: string, maxLength: number): string {
   return `${text.slice(0, maxLength - 1).trimEnd()}…`
 }
 
-// Agent HTML embeds a <section class="faq"> that we render separately from
-// faq_pairs so it shows with the card design once, not twice.
-function stripFaqSection(html: string): string {
-  return html
-    .replace(/<section\s[^>]*class=['"][^'"]*\bfaq\b[^'"]*['"][^>]*>[\s\S]*?<\/section>/gi, '')
-    .trim()
-}
 
 async function getArticle(slug: string): Promise<Article | null> {
   const { data } = await supabase
@@ -201,23 +195,7 @@ export default async function ArticlePage({
         )}
 
         {article.content && (
-          article.agent_generated
-            ? (
-              // Agent HTML — strip embedded <section class="faq"> so it doesn't
-              // appear twice alongside the faq_pairs card rendering below.
-              <div
-                className="prose-dsx text-quiet leading-loose text-base"
-                dangerouslySetInnerHTML={{ __html: stripFaqSection(article.content) }}
-              />
-            )
-            : (
-              // Manually written articles use plain text with double-newline paragraphs
-              <div className="text-quiet leading-loose space-y-4 text-base">
-                {article.content.split('\n\n').map((para, i) => (
-                  <p key={i}>{para}</p>
-                ))}
-              </div>
-            )
+          <ArticleMarkdown content={article.content} stripFaq />
         )}
 
         {article.faq_pairs && article.faq_pairs.length > 0 && (

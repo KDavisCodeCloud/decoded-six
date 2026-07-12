@@ -181,13 +181,16 @@ def humanize_article(
             "Rewrite the article below to follow every voice rule above exactly. "
             "Do not add new facts. Do not change the meaning. Sound like a human "
             "player wrote it, not an AI.\n\n"
-            "CRITICAL — HTML preservation rules:\n"
-            "- The input is HTML. Your output MUST also be HTML.\n"
-            "- Preserve every HTML tag exactly: <h2>, <h3>, <p>, <ul>, <ol>, <li>, "
-            "<strong>, <em>, <a>, <figure>, <section>, <blockquote>, etc.\n"
-            "- Rewrite ONLY the visible text inside the tags. Never change or remove any tag.\n"
-            "- NEVER output markdown (no ## headings, no **bold**, no - lists).\n"
-            "- Return the full HTML body, no commentary, no code fences."
+            "CRITICAL — markdown preservation rules:\n"
+            "- The input is markdown. Your output MUST also be markdown.\n"
+            "- Preserve all markdown formatting exactly: ## headings, ### sub-headings, "
+            "**bold**, *italic*, - bullet lists, numbered lists, ![img](url) image embeds, "
+            "[text](url) links.\n"
+            "- Preserve every image embed line (![caption](url)) exactly as written — "
+            "do not modify, remove, or paraphrase image lines.\n"
+            "- Put a blank line between every paragraph. Never collapse paragraphs.\n"
+            "- Keep ## and ### headings on their own lines with blank lines before and after.\n"
+            "- Return ONLY the rewritten article body — no commentary, no code fences."
         )
         response = anthropic.messages.create(
             model=MODEL,
@@ -197,9 +200,6 @@ def humanize_article(
             messages=[{"role": "user", "content": draft_content}],
         )
         rewritten = "".join(block.text for block in response.content if block.type == "text")
-
-        # Safety net: if the LLM drifted to markdown despite instructions, convert it back
-        rewritten = _md_to_html(rewritten)
 
         final_content = _mechanical_pass(rewritten)
 

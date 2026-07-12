@@ -252,11 +252,13 @@ def _md_to_html(text: str) -> str:
 
 def _node_image_fetcher(state: dict) -> dict:
     """
-    Fetches the og:image from the article's source/citation URL and injects
-    a <figure> block into content_html after the first paragraph.
+    Fetches the og:image (and twitter:image fallback) from the article's source URL.
+    Runs BEFORE the writer so the URL can be passed into the writer prompt.
     Skips gracefully if unreachable or no image found.
     """
-    url = state.get("external_citation", "") or state.get("topic_seed", "")
+    # For news, topic_seed is the source URL passed from n8n; use it before
+    # external_citation exists (which only gets set after the writer runs).
+    url = state.get("topic_seed", "") or state.get("external_citation", "")
 
     if not url or not url.startswith("http"):
         state["hero_image_url"] = None
@@ -271,46 +273,26 @@ def _node_image_fetcher(state: dict) -> dict:
         html = response.text
 
         patterns = [
-            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
-            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
             r'<meta[^>]+property=["\']og:image["\'][^>]+content="([^"]+)"',
             r'<meta[^>]+content="([^"]+)"[^>]+property=["\']og:image["\']',
-            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r"<meta[^>]+property=[\"']og:image[\"'][^>]+content=[\"']([^\"']+)[\"']",
+            r"<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+property=[\"']og:image[\"']",
+            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content="([^"]+)"',
         ]
         image_url = None
         for pattern in patterns:
             match = re.search(pattern, html, re.IGNORECASE)
             if match:
-                image_url = match.group(1).strip()
-                if image_url.startswith('/'):
+                candidate = match.group(1).strip()
+                if candidate.startswith('/'):
                     from urllib.parse import urlparse
                     parsed = urlparse(url)
-                    image_url = f"{parsed.scheme}://{parsed.netloc}{image_url}"
+                    candidate = f"{parsed.scheme}://{parsed.netloc}{candidate}"
+                image_url = candidate
                 break
 
         state["hero_image_url"] = image_url
         log.info("[%s] image_fetcher: %s", AGENT_ID, image_url or "none found")
-
-        if image_url and state.get("content_html"):
-            source_url = state.get("external_citation") or ""
-            source_label = (
-                "Rockstar Games" if "rockstargames" in source_url else
-                "Take-Two Interactive" if "take2games" in source_url else
-                "Official Source"
-            )
-            figure = (
-                f"<figure class='article-image'>"
-                f"<img src='{image_url}' alt='{state.get('title', '')}' loading='lazy'>"
-                f"<figcaption>Courtesy of <a href='{source_url}'>{source_label}</a></figcaption>"
-                f"</figure>"
-            )
-            content = state["content_html"]
-            first_p_end = content.find("</p>")
-            if first_p_end != -1:
-                content = content[:first_p_end + 4] + figure + content[first_p_end + 4:]
-            else:
-                content = figure + content
-            state["content_html"] = content
 
     except Exception as exc:
         log.warning("[%s] image_fetcher failed (non-blocking): %s", AGENT_ID, exc)
@@ -324,14 +306,14 @@ def _node_image_fetcher(state: dict) -> dict:
 def _node_writer(state: dict, anthropic_client: Any) -> dict:
     """
     Drafts the full article body using claude-sonnet-4-6.
-    Returns title, slug, excerpt, content (HTML), word_count.
-    Enforces all 10 content quality rules in the system prompt.
+    Outputs clean markdown (not HTML) so react-markdown can render it properly.
     """
     voice = _voice_context()
     article_type = state["article_type"]
     topic = state["topic"]
     scraped = state.get("scraped_context", "")
     affiliate_products = state.get("affiliate_products", [])
+    hero_image_url = state.get("hero_image_url")
 
     type_instructions = {
         "news": (
@@ -343,7 +325,7 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "evergreen": (
             "Write a GTA 6 evergreen reference article (1,500–2,500 words). "
             "Category: 'guide'. Cover the topic comprehensively. "
-            "Use H2 and H3 headings throughout. Include a comparison table if relevant."
+            "Use ## and ### headings throughout. Include a comparison table if relevant."
         ),
         "conversion": (
             "Write a GTA 6 conversion article (1,200–2,000 words) recommending products. "
@@ -353,6 +335,25 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
             "Make product recommendations natural and specific to GTA 6 gaming use cases."
         ),
     }
+
+    image_instruction = ""
+    if hero_image_url:
+        image_instruction = (
+            f"\n\nYou have one official press image available: {hero_image_url}\n"
+            "Embed it near the top of the article (after the first paragraph) using markdown:\n"
+            f"![Courtesy of Rockstar Games]({hero_image_url})\n"
+            "Then embed 1–2 additional images at natural section breaks using the same syntax "
+            "with descriptive captions. Only use publicly available official URLs you are "
+            "confident exist (Rockstar Newswire, Take-Two press kit, or GTABase CDN). "
+            "If unsure of a URL, omit the extra images rather than guess."
+        )
+    else:
+        image_instruction = (
+            "\n\nEmbed 1–2 images at natural section breaks using markdown image syntax: "
+            "![Descriptive caption](url). Only use publicly available official URLs you are "
+            "confident exist (Rockstar Newswire, Take-Two press kit). "
+            "If unsure, omit rather than guess."
+        )
 
     context_block = f"\n\nRecent related content for context:\n{scraped}" if scraped else ""
 
@@ -367,20 +368,21 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "4. Conversion articles: affiliate links in first 300 words AND conclusion.\n"
         "5. Link to at least 3 other DecodedSix articles by slug (use [INTERNAL_LINK:slug] placeholder).\n"
         "6. Cite at least 1 official source by URL.\n"
-        "7. FAQ section: minimum 3 questions as real search queries (People Also Ask format).\n"
+        "7. End with a '## Frequently Asked Questions' section with minimum 3 Q&A pairs.\n"
         "8. Excerpt (meta description): 150–160 characters, includes primary keyword.\n"
         "9. Slug: lowercase, hyphenated, includes primary keyword, max 60 characters.\n"
         "10. Word count floor: 1,200 words minimum.\n\n"
+        "MARKDOWN FORMAT RULES (non-negotiable):\n"
+        "- content MUST be clean markdown — use ## for major sections, ### for sub-sections.\n"
+        "- Put a blank line between every paragraph. NEVER write multiple paragraphs as one block.\n"
+        "- Use - for bullet lists, **text** for bold, *text* for italic.\n"
+        "- Do NOT use HTML tags inside content. Pure markdown only.\n"
+        + image_instruction
+        + "\n\n"
         "Return ONLY valid JSON with exactly these keys: "
-        '"title", "slug", "excerpt", "content_html", "external_citation". '
-        "CRITICAL content_html rules:\n"
-        "- content_html MUST be valid HTML — use <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <a> tags.\n"
-        "- NEVER use markdown syntax (no ## headings, no **bold**, no - bullet text) inside content_html.\n"
-        "- Separate every paragraph with its own <p>...</p> block on its own line.\n"
-        "- Include a <section class='faq'> block at the end with the FAQ questions/answers.\n"
-        "- Use single quotes for ALL HTML attributes (e.g. <a href='url'> not <a href=\"url\">) "
-        "so the JSON string remains parseable.\n"
-        "No markdown fences or commentary outside the JSON object."
+        '"title", "slug", "excerpt", "content", "external_citation". '
+        "content is the full article body in markdown. "
+        "No markdown fences around the JSON. No commentary outside the JSON object."
         + context_block
     )
 
@@ -393,15 +395,13 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
             messages = [{"role": "user", "content": user}]
             temp = 0.7
         else:
-            # Send broken output back — ask Claude to fix JSON only, not regenerate
             messages = [
                 {"role": "user", "content": user},
                 {"role": "assistant", "content": raw},
                 {"role": "user", "content": (
                     "The JSON you returned has a syntax error. "
                     "Fix ONLY the JSON syntax without changing any content. "
-                    "Replace every double-quoted HTML attribute value with single quotes "
-                    "(e.g. href='url' not href=\"url\"). "
+                    "Make sure newlines inside the content string are escaped as \\n. "
                     "Return the corrected JSON only, no commentary."
                 )},
             ]
@@ -428,24 +428,20 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
             if attempt == 1:
                 raise ContentAgentError("writer", None, ValueError(f"LLM returned invalid JSON after 2 attempts: {e}"))
 
-    for field in ("title", "slug", "excerpt", "content_html"):
+    for field in ("title", "slug", "excerpt", "content"):
         if field not in parsed:
             raise ContentAgentError("writer", None, ValueError(f"LLM output missing field '{field}'"))
 
     slug = slugify(parsed["slug"])[:60]
-
-    # Safety net: if LLM wrote markdown instead of HTML, convert it
-    content_html = _md_to_html(parsed["content_html"])
-
-    text_only = re.sub(r"<[^>]+>", " ", content_html)
-    word_count = len(text_only.split())
+    content = parsed["content"]
+    word_count = len(content.split())
 
     state["title"] = parsed["title"]
     state["slug"] = slug
     state["excerpt"] = parsed["excerpt"][:160]
     state["external_citation"] = parsed.get("external_citation", "")
     state["word_count"] = word_count
-    state["content_html"] = content_html
+    state["content"] = content
     return state
 
 
@@ -456,10 +452,10 @@ def _node_faq_generator(state: dict, anthropic_client: Any) -> dict:
     Extracts FAQ pairs from the drafted content.
     Returns list of {question, answer} dicts (minimum 3).
     """
-    content = state["content_html"]
+    content = state["content"]
 
     system = (
-        "Extract the FAQ section from this article HTML. "
+        "Extract the FAQ section from this article (markdown format). "
         "Return ONLY valid JSON: a list of objects with keys 'question' and 'answer'. "
         "Minimum 3 items. Questions must be written as real search queries. "
         "Each answer must be 2–4 sentences and answer the question directly in sentence one. "
@@ -554,7 +550,7 @@ def _node_internal_link_injector(state: dict, sb: Any) -> dict:
     Replaces [INTERNAL_LINK:slug] placeholders in content_html with real <a> tags.
     Also queries the articles table for up to 10 published slugs for the LLM to pick from.
     """
-    content = state["content_html"]
+    content = state["content"]
 
     # Find all requested slugs from writer output
     requested = re.findall(r'\[INTERNAL_LINK:([^\]]+)\]', content)
@@ -577,11 +573,11 @@ def _node_internal_link_injector(state: dict, sb: Any) -> dict:
             slug = m.group(1)
             title = slug_map.get(slug, slug.replace("-", " ").title())
             used_slugs.append(slug)
-            return f'<a href="/news/{slug}">{title}</a>'
+            return f'[{title}](/news/{slug})'
 
         content = re.sub(r'\[INTERNAL_LINK:([^\]]+)\]', replace_link, content)
 
-    state["content_html"] = content
+    state["content"] = content
     state["internal_links_used"] = used_slugs
     return state
 
@@ -598,7 +594,7 @@ def _node_affiliate_link_injector(state: dict) -> dict:
         return state
 
     products = state.get("affiliate_products", [])
-    content = state["content_html"]
+    content = state["content"]
     links: list[dict] = []
 
     for product in products:
@@ -658,7 +654,7 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
         "title": state["title"],
         "slug": state["slug"],
         "excerpt": state["excerpt"],
-        "content": state["content_html"],
+        "content": state["content"],
         "category": {"news": "news", "evergreen": "guide", "conversion": "guide"}[state["article_type"]],
         "status": "pending_review",
         "agent_generated": True,
@@ -841,8 +837,8 @@ def run_content_agent(
     try:
         state = _node_topic_picker(state)
         state = _node_news_scraper(state)
+        state = _node_image_fetcher(state)   # before writer — passes hero_image_url to prompt
         state = _node_writer(state, ai)
-        state = _node_image_fetcher(state)
         state = _node_faq_generator(state, ai)
         state = _node_schema_generator(state)
         state = _node_internal_link_injector(state, sb)
