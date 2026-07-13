@@ -5,6 +5,7 @@ import { ArticleCard } from '@/components/ArticleCard'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
 import { HeroContent } from '@/components/HeroContent'
 import { RegionGrid } from '@/components/RegionGrid'
+import { CharacterGrid } from '@/components/CharacterGrid'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -12,18 +13,6 @@ export const revalidate = 60
 const COVER_ART =
   'https://www.rockstargames.com/VI/_next/static/media/Official_Cover_Art_landscape.12.uu2irr.2_a.jpg'
 
-const CHARACTERS = [
-  {
-    name: 'Jason Duval',
-    desc: 'Ex-military, loyal to a fault — and the wrong people',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Jason_Duval_01.07m377xeb6jhq.jpg',
-  },
-  {
-    name: 'Lucia Caminos',
-    desc: 'Sharp, calculating, and done playing by anyone else\'s rules',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Lucia_Caminos_02.16n.5umvlu_48.jpg',
-  },
-]
 
 const TICKER_ITEMS = [
   'PC LAUNCH WINDOW',
@@ -289,40 +278,7 @@ export default async function HomePage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-2xl">
-            {CHARACTERS.map(char => (
-              <div
-                key={char.name}
-                className="group relative rounded-xl overflow-hidden"
-                style={{ aspectRatio: '2/3', background: '#1a1a1a' }}
-              >
-                <img
-                  src={char.img}
-                  alt={char.name}
-                  loading="lazy"
-                  className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]"
-                />
-                {/* Gradient: bottom overlay */}
-                <div
-                  className="absolute inset-0"
-                  style={{ background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.92) 100%)' }}
-                />
-                {/* Text */}
-                <div className="absolute bottom-0 left-0 right-0 p-5">
-                  <p className="font-heading font-black text-bright text-xl leading-tight">
-                    {char.name}
-                  </p>
-                  <p className="text-[13px] text-white/65 mt-1 leading-snug">
-                    {char.desc}
-                  </p>
-                </div>
-                {/* © attribution */}
-                <span className="absolute top-2 right-2 text-[8px] text-white/30 select-none">
-                  © Rockstar Games
-                </span>
-              </div>
-            ))}
-          </div>
+          <CharacterGrid />
         </div>
       </div>
 
