@@ -3,11 +3,72 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
-import { PalmSilhouette } from '@/components/PalmSilhouette'
 import { HeroContent } from '@/components/HeroContent'
+import { RockstarImage } from '@/components/shared/RockstarImage'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
+
+const COVER_ART =
+  'https://www.rockstargames.com/VI/_next/static/media/Official_Cover_Art_landscape.12.uu2irr.2_a.jpg'
+
+const REGIONS = [
+  {
+    name: 'Vice City',
+    desc: 'The neon-lit metropolis at the heart of Leonida',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Vice_City_01.135x56yoeu.6t.jpg',
+  },
+  {
+    name: 'Leonida Keys',
+    desc: 'Island chain with sun-bleached marinas and cays',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Leonida_Keys_01.0zgz7tveur6y8.jpg',
+  },
+  {
+    name: 'Grassrivers',
+    desc: 'Vast swamplands and untamed wetland wilderness',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Grassrivers_01.1096rw4lbjur_.jpg',
+  },
+  {
+    name: 'Mount Kalaga',
+    desc: 'Remote national park and rugged mountain terrain',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Mount_Kalaga_National_Park_01.0v5fl0f83hjv_.jpg',
+  },
+  {
+    name: 'Port Gellhorn',
+    desc: 'Industrial docklands, warehouses, and freight routes',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Port_Gellhorn_01.0fmisvza-5-cq.jpg',
+  },
+  {
+    name: 'Ambrosia',
+    desc: 'Affluent beachside enclave of Leonida',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Ambrosia_01.0rqphs0gazkm..jpg',
+  },
+]
+
+const CHARACTERS = [
+  {
+    name: 'Jason Duval',
+    desc: 'Ex-military, loyal to a fault — and the wrong people',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Jason_Duval_03.0-1vum7x-3vtp.jpg',
+  },
+  {
+    name: 'Lucia Caminos',
+    desc: 'Sharp, calculating, and done playing by anyone else\'s rules',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Lucia_Caminos_03.14xgd2y_ymmeg.jpg',
+  },
+]
+
+const TICKER_ITEMS = [
+  'PC LAUNCH WINDOW',
+  'CONFIRMED LOCATIONS',
+  'VEHICLE DATABASE',
+  'WEEKLY EVENTS',
+  'HEIST PAYOUTS',
+  'RUMOR MILL',
+  'ONLINE MULTIPLAYER',
+  'MAP SIZE REVEALED',
+  'JASON & LUCIA LORE',
+]
 
 async function getLatest(): Promise<Article[]> {
   const { data } = await supabase
@@ -30,18 +91,6 @@ async function getRumors(): Promise<Article[]> {
   return (data as Article[]) ?? []
 }
 
-const TICKER_ITEMS = [
-  'PC LAUNCH WINDOW',
-  'CONFIRMED LOCATIONS',
-  'VEHICLE DATABASE',
-  'WEEKLY EVENTS',
-  'HEIST PAYOUTS',
-  'RUMOR MILL',
-  'ONLINE MULTIPLAYER',
-  'MAP SIZE REVEALED',
-  'JASON & LUCIA LORE',
-]
-
 export default async function HomePage() {
   const [articles, rumors] = await Promise.all([getLatest(), getRumors()])
   const [featured, ...rest] = articles
@@ -52,28 +101,44 @@ export default async function HomePage() {
     <>
       <Header />
 
-      {/* Hero — 2-column: content left, sunset panel right */}
+      {/* ── HERO — full-bleed cover art ─────────────────────────── */}
       <section className="relative min-h-[88vh] overflow-hidden">
-        {/* Right: sunset panel with palm silhouette */}
-        <div className="absolute right-0 top-0 bottom-0 w-[45%] overflow-hidden">
-          <PalmSilhouette className="w-full h-full" />
-        </div>
+        {/* Background image */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url('${COVER_ART}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center top',
+          }}
+        />
+        {/* Bottom gradient fade to bg */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%)' }}
+        />
+        {/* Left-side text readability fade */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 55%, transparent 85%)' }}
+        />
+        {/* © attribution */}
+        <span className="absolute bottom-2 right-3 text-[9px] text-white/30 select-none">
+          © Rockstar Games
+        </span>
 
-        {/* Fade: left bg bleeds into right panel */}
-        <div className="absolute inset-0 hero-fade pointer-events-none" />
-
-        {/* Left: hero content */}
-        <div className="container relative min-h-[88vh] flex items-center">
+        {/* Content */}
+        <div className="container relative z-10 min-h-[88vh] flex items-center">
           <div className="w-full md:w-[55%] py-20">
             <HeroContent launchDate={launchDate} />
           </div>
         </div>
       </section>
 
-      {/* Scrolling intel ticker */}
+      {/* ── INTEL TICKER ────────────────────────────────────────── */}
       <div
         className="w-full overflow-hidden border-y py-2.5"
-        style={{ background: '#0f0f15', borderColor: 'rgba(255,255,255,0.08)' }}
+        style={{ background: '#0a0a0a', borderColor: 'rgba(255,255,255,0.08)' }}
       >
         <div className="ticker-track">
           {[0, 1].map(copy => (
@@ -95,13 +160,61 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* Content: 2-col (2fr featured / 1fr sidebar) */}
+      {/* ── LEONIDA REGIONS ─────────────────────────────────────── */}
       <div className="container py-16">
+        <div className="flex items-center gap-3 mb-7">
+          <div className="w-[3px] h-5 rounded-full" style={{ background: '#2fc4e8' }} />
+          <h2 className="font-heading font-extrabold text-[13px] uppercase tracking-[0.1em] text-bright">
+            Explore Leonida
+          </h2>
+          <span className="text-whisper text-[11px] font-ibm">6 confirmed regions</span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {REGIONS.map(region => (
+            <a
+              key={region.name}
+              href="/map"
+              className="group relative rounded-xl overflow-hidden cursor-pointer"
+              style={{ aspectRatio: '16/10', background: '#1a1a1a' }}
+            >
+              <img
+                src={region.img}
+                alt={region.name}
+                loading="lazy"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              />
+              {/* Gradient overlay — bottom */}
+              <div
+                className="absolute inset-0"
+                style={{ background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.85) 100%)' }}
+              />
+              {/* Hover: slight extra darken */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+              {/* Text */}
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <p className="font-heading font-bold text-bright text-base leading-tight">
+                  {region.name}
+                </p>
+                <p className="text-[11px] text-white/60 leading-tight mt-0.5 hidden sm:block">
+                  {region.desc}
+                </p>
+              </div>
+              {/* © attribution */}
+              <span className="absolute top-1.5 right-2 text-[7px] text-white/30 select-none">
+                © Rockstar Games
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* ── MAIN CONTENT GRID ───────────────────────────────────── */}
+      <div className="container pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-10">
 
-          {/* Left: Featured + Latest grid */}
+          {/* Left: Featured + Latest */}
           <div>
-            {/* Featured */}
             {featured && (
               <section className="mb-10">
                 <div className="flex items-center gap-3 mb-5">
@@ -114,7 +227,6 @@ export default async function HomePage() {
               </section>
             )}
 
-            {/* Latest grid */}
             {rest.length > 0 && (
               <section className="mb-10">
                 <div className="flex items-center justify-between mb-5">
@@ -138,7 +250,6 @@ export default async function HomePage() {
               </section>
             )}
 
-            {/* Empty state */}
             {articles.length === 0 && (
               <section className="py-24 text-center">
                 <h2 className="font-heading font-bold text-2xl text-bright mb-3">First stories dropping soon</h2>
@@ -147,9 +258,8 @@ export default async function HomePage() {
             )}
           </div>
 
-          {/* Right: Rumor Mill + Map teaser */}
+          {/* Right: Rumor Mill + Map */}
           <div className="space-y-10">
-            {/* Rumor Mill */}
             <section>
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-[3px] h-5 rounded-full" style={{ background: '#7c3aed' }} />
@@ -202,7 +312,6 @@ export default async function HomePage() {
               )}
             </section>
 
-            {/* Map teaser */}
             <section>
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-[3px] h-5 rounded-full" style={{ background: '#2fc4e8' }} />
@@ -214,7 +323,7 @@ export default async function HomePage() {
                 <a
                   href="/map"
                   className="block rounded-xl p-6 text-center border hover:border-white/20 transition-colors"
-                  style={{ background: '#0f0f15', borderColor: 'rgba(255,255,255,0.08)' }}
+                  style={{ background: '#0d0d0d', borderColor: 'rgba(255,255,255,0.08)' }}
                 >
                   <div className="flex items-center justify-center gap-2 mb-3">
                     <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#3fd17a' }} />
@@ -232,6 +341,56 @@ export default async function HomePage() {
                 <MapPlaceholder />
               )}
             </section>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CHARACTERS ──────────────────────────────────────────── */}
+      <div
+        className="border-t border-white/[0.06] py-16"
+        style={{ background: '#0a0a0a' }}
+      >
+        <div className="container">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-[3px] h-5 rounded-full" style={{ background: '#ec1272' }} />
+            <h2 className="font-heading font-extrabold text-[13px] uppercase tracking-[0.1em] text-bright">
+              The Protagonists
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-2xl">
+            {CHARACTERS.map(char => (
+              <div
+                key={char.name}
+                className="group relative rounded-xl overflow-hidden"
+                style={{ aspectRatio: '2/3', background: '#1a1a1a' }}
+              >
+                <img
+                  src={char.img}
+                  alt={char.name}
+                  loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]"
+                />
+                {/* Gradient: bottom overlay */}
+                <div
+                  className="absolute inset-0"
+                  style={{ background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.92) 100%)' }}
+                />
+                {/* Text */}
+                <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <p className="font-heading font-black text-bright text-xl leading-tight">
+                    {char.name}
+                  </p>
+                  <p className="text-[13px] text-white/65 mt-1 leading-snug">
+                    {char.desc}
+                  </p>
+                </div>
+                {/* © attribution */}
+                <span className="absolute top-2 right-2 text-[8px] text-white/30 select-none">
+                  © Rockstar Games
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

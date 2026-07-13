@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { NewsletterSignup } from '@/components/NewsletterSignup'
 import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
+import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
@@ -16,7 +17,6 @@ function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return `${text.slice(0, maxLength - 1).trimEnd()}…`
 }
-
 
 async function getArticle(slug: string): Promise<Article | null> {
   const { data } = await supabase
@@ -54,9 +54,7 @@ export async function generateMetadata({
   return {
     title: article.title,
     description,
-    alternates: {
-      canonical: `${siteUrl}/news/${slug}`,
-    },
+    alternates: { canonical: `${siteUrl}/news/${slug}` },
     openGraph: {
       title: article.title,
       description,
@@ -67,7 +65,6 @@ export async function generateMetadata({
       modifiedTime: article.created_at,
       authors: ['DecodedSix Editorial Team'],
       section: article.category,
-      // og:image is auto-populated by Next.js from opengraph-image.tsx in this directory
     },
     twitter: {
       card: 'summary_large_image',
@@ -89,6 +86,8 @@ const CAT_CLASS: Record<string, string> = {
   event: 'badge-event', update: 'badge-update',
 }
 
+const textShadow = '0 2px 20px rgba(0,0,0,0.9), 0 1px 6px rgba(0,0,0,0.8)'
+
 export default async function ArticlePage({
   params,
 }: {
@@ -100,7 +99,10 @@ export default async function ArticlePage({
 
   const related = await getRelated(article.category, article.id)
 
-  // Use agent-generated schema if available, otherwise build from article fields
+  const heroImage = getArticleFallbackImage(
+    articleTags({ category: article.category, article_type: article.article_type, title: article.title })
+  )
+
   const articleJsonLd = article.schema_article ?? {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
@@ -154,42 +156,82 @@ export default async function ArticlePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+
       <Header />
 
-      <article className="container py-10 max-w-3xl">
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className={`badge ${CAT_CLASS[article.category] ?? 'badge-news'}`}>
-              {article.category}
-            </span>
-            {article.source_name && (
-              <span className="text-whisper text-sm">via {article.source_name}</span>
-            )}
-          </div>
+      {/* ── CINEMATIC ARTICLE HERO ───────────────────────────── */}
+      <section className="relative overflow-hidden" style={{ minHeight: '55vh' }}>
+        {/* Background: contextual press image */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url('${heroImage}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        {/* Bottom-heavy gradient: black at bottom for text readability */}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.6) 55%, rgba(10,10,10,0.97) 100%)' }}
+        />
+        {/* © attribution */}
+        <span className="absolute top-2 right-3 text-[9px] text-white/30 select-none">
+          © Rockstar Games
+        </span>
 
-          <h1 className="font-heading font-bold text-4xl md:text-5xl text-bright leading-tight mb-4">
-            {article.title}
-          </h1>
+        {/* Article header overlay */}
+        <div className="container relative z-10 flex items-end pb-10" style={{ minHeight: '55vh' }}>
+          <div className="max-w-3xl w-full">
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-2 mb-5 text-[11px] font-ibm" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <a href="/" className="hover:text-white transition-colors">Home</a>
+              <span>/</span>
+              <a href="/news" className="hover:text-white transition-colors">News</a>
+              <span>/</span>
+              <span style={{ color: 'rgba(255,255,255,0.6)' }} className="truncate max-w-[200px]">{article.title}</span>
+            </nav>
 
-          <div className="flex items-center gap-4 text-whisper text-sm flex-wrap">
-            <time dateTime={article.published_at}>{fmtLong(article.published_at)}</time>
-            {article.source_url && (
-              <a
-                href={article.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-flame hover:underline"
-              >
-                Source &rarr;
-              </a>
-            )}
+            <div className="flex items-center gap-2 mb-4">
+              <span className={`badge ${CAT_CLASS[article.category] ?? 'badge-news'}`}>
+                {article.category}
+              </span>
+              {article.source_name && (
+                <span className="text-white/50 text-sm font-ibm">via {article.source_name}</span>
+              )}
+            </div>
+
+            <h1
+              className="font-heading font-bold text-bright leading-tight mb-4"
+              style={{ fontSize: 'clamp(28px, 4vw, 48px)', textShadow }}
+            >
+              {article.title}
+            </h1>
+
+            <div className="flex items-center gap-4 flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              <time dateTime={article.published_at} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
+                {fmtLong(article.published_at)}
+              </time>
+              {article.source_url && (
+                <a
+                  href={article.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-ibm hover:text-white transition-colors"
+                  style={{ color: '#ec1272' }}
+                >
+                  Source →
+                </a>
+              )}
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className="h-px bg-white/[0.06] mb-8" />
-
+      {/* ── ARTICLE BODY ─────────────────────────────────────── */}
+      <article className="container py-10 max-w-3xl">
         {article.excerpt && (
-          <p className="text-xl text-quiet leading-relaxed mb-8 font-medium">
+          <p className="text-xl text-quiet leading-relaxed mb-8 font-medium border-l-2 border-flame/40 pl-5">
             {article.excerpt}
           </p>
         )}
@@ -203,7 +245,7 @@ export default async function ArticlePage({
             <h2 className="font-heading font-bold text-2xl text-bright mb-6">Frequently Asked Questions</h2>
             <div className="space-y-5">
               {article.faq_pairs.map((pair, i) => (
-                <div key={i} className="border border-white/[0.06] rounded-xl p-5">
+                <div key={i} className="border border-white/[0.06] rounded-xl p-5" style={{ background: '#0d0d0d' }}>
                   <h3 className="font-heading font-bold text-base text-bright mb-2">{pair.question}</h3>
                   <p className="text-quiet text-sm leading-relaxed">{pair.answer}</p>
                 </div>
@@ -213,10 +255,10 @@ export default async function ArticlePage({
         )}
 
         {article.agent_generated && article.external_citation && (
-          <div className="mt-10 p-4 bg-panel rounded-lg border border-white/[0.06] text-whisper text-sm">
+          <div className="mt-10 p-4 rounded-lg border border-white/[0.06] text-whisper text-sm" style={{ background: '#0d0d0d' }}>
             This article references publicly available reporting.{' '}
             <a href={article.external_citation} target="_blank" rel="noopener noreferrer" className="text-flame hover:underline">
-              View source &rarr;
+              View source →
             </a>
           </div>
         )}
