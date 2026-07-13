@@ -4,7 +4,7 @@ import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
 import { HeroContent } from '@/components/HeroContent'
-import { RockstarImage } from '@/components/shared/RockstarImage'
+import { RegionGrid } from '@/components/RegionGrid'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -12,49 +12,16 @@ export const revalidate = 60
 const COVER_ART =
   'https://www.rockstargames.com/VI/_next/static/media/Official_Cover_Art_landscape.12.uu2irr.2_a.jpg'
 
-const REGIONS = [
-  {
-    name: 'Vice City',
-    desc: 'The neon-lit metropolis at the heart of Leonida',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Vice_City_01.135x56yoeu.6t.jpg',
-  },
-  {
-    name: 'Leonida Keys',
-    desc: 'Island chain with sun-bleached marinas and cays',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Leonida_Keys_01.0zgz7tveur6y8.jpg',
-  },
-  {
-    name: 'Grassrivers',
-    desc: 'Vast swamplands and untamed wetland wilderness',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Grassrivers_01.1096rw4lbjur_.jpg',
-  },
-  {
-    name: 'Mount Kalaga',
-    desc: 'Remote national park and rugged mountain terrain',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Mount_Kalaga_National_Park_01.0v5fl0f83hjv_.jpg',
-  },
-  {
-    name: 'Port Gellhorn',
-    desc: 'Industrial docklands, warehouses, and freight routes',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Port_Gellhorn_01.0fmisvza-5-cq.jpg',
-  },
-  {
-    name: 'Ambrosia',
-    desc: 'Affluent beachside enclave of Leonida',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Ambrosia_01.0rqphs0gazkm..jpg',
-  },
-]
-
 const CHARACTERS = [
   {
     name: 'Jason Duval',
     desc: 'Ex-military, loyal to a fault — and the wrong people',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Jason_Duval_03.0-1vum7x-3vtp.jpg',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Jason_Duval_01.07m377xeb6jhq.jpg',
   },
   {
     name: 'Lucia Caminos',
     desc: 'Sharp, calculating, and done playing by anyone else\'s rules',
-    img: 'https://www.rockstargames.com/VI/_next/static/media/Lucia_Caminos_03.14xgd2y_ymmeg.jpg',
+    img: 'https://www.rockstargames.com/VI/_next/static/media/Lucia_Caminos_02.16n.5umvlu_48.jpg',
   },
 ]
 
@@ -170,43 +137,7 @@ export default async function HomePage() {
           <span className="text-whisper text-[11px] font-ibm">6 confirmed regions</span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {REGIONS.map(region => (
-            <a
-              key={region.name}
-              href="/map"
-              className="group relative rounded-xl overflow-hidden cursor-pointer"
-              style={{ aspectRatio: '16/10', background: '#1a1a1a' }}
-            >
-              <img
-                src={region.img}
-                alt={region.name}
-                loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-              />
-              {/* Gradient overlay — bottom */}
-              <div
-                className="absolute inset-0"
-                style={{ background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.85) 100%)' }}
-              />
-              {/* Hover: slight extra darken */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
-              {/* Text */}
-              <div className="absolute bottom-0 left-0 right-0 p-3">
-                <p className="font-heading font-bold text-bright text-base leading-tight">
-                  {region.name}
-                </p>
-                <p className="text-[11px] text-white/60 leading-tight mt-0.5 hidden sm:block">
-                  {region.desc}
-                </p>
-              </div>
-              {/* © attribution */}
-              <span className="absolute top-1.5 right-2 text-[7px] text-white/30 select-none">
-                © Rockstar Games
-              </span>
-            </a>
-          ))}
-        </div>
+        <RegionGrid />
       </div>
 
       {/* ── MAIN CONTENT GRID ───────────────────────────────────── */}
