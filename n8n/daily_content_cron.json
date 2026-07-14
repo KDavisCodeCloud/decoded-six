@@ -42,7 +42,7 @@
             {
               "id": "a6e0a6a1-3b1e-4b8a-9c2a-7e6f6d9b6a11",
               "name": "article_type",
-              "value": "={{ {2:\"news\",4:\"evergreen\",6:\"conversion\"}[$now.weekday] }}",
+              "value": "={{ {2:\"news\",4:\"evergreen\",6:\"conversion\"}[$now.weekday] || \"news\" }}",
               "type": "string"
             }
           ]
