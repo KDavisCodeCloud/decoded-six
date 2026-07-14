@@ -6,6 +6,7 @@ import { MapPlaceholder } from '@/components/map/MapPlaceholder'
 import { HeroContent } from '@/components/HeroContent'
 import { RegionGrid } from '@/components/RegionGrid'
 import { CharacterGrid } from '@/components/CharacterGrid'
+import { CategoryGrid } from '@/components/CategoryGrid'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -279,6 +280,20 @@ export default async function HomePage() {
           </div>
 
           <CharacterGrid />
+        </div>
+      </div>
+
+      {/* ── BROWSE ──────────────────────────────────────────────── */}
+      <div className="border-t border-white/[0.06] py-16">
+        <div className="container">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-[3px] h-5 rounded-full" style={{ background: '#ec1272' }} />
+            <h2 className="font-heading font-extrabold text-[13px] uppercase tracking-[0.1em] text-bright">
+              Browse
+            </h2>
+          </div>
+
+          <CategoryGrid />
         </div>
       </div>
 

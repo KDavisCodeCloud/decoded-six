@@ -40,6 +40,27 @@ export interface Article {
   hitl_notes: string | null
   page_views: number
   affiliate_clicks: number
+  // Visual strategy fields (007_media_assets.sql)
+  featured_image_url: string | null
+  featured_image_alt: string | null
+  featured_image_credit: string | null
+  featured_image_tier: 1 | 2 | 3 | null
+  og_image_url: string | null
+}
+
+export interface MediaAsset {
+  id: string
+  product_id: string
+  name: string
+  tier: 1 | 2 | 3
+  category: string | null
+  url: string
+  alt_text: string
+  credit: string | null
+  width: number | null
+  height: number | null
+  best_use: string[] | null
+  created_at: string
 }
 
 export interface MapMarker {

@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { NewsletterSignup } from '@/components/NewsletterSignup'
 import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
+import { HeroImage } from '@/components/HeroImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
 import type { Article } from '@/lib/types'
 
@@ -50,6 +51,9 @@ export async function generateMetadata({
   if (!article) return { title: 'Not Found' }
 
   const description = article.excerpt ? truncate(article.excerpt, 160) : undefined
+  const ogImage = article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
+    articleTags({ category: article.category, article_type: article.article_type, title: article.title })
+  )
 
   return {
     title: article.title,
@@ -65,12 +69,14 @@ export async function generateMetadata({
       modifiedTime: article.created_at,
       authors: ['DecodedSix Editorial Team'],
       section: article.category,
+      images: [{ url: ogImage, width: 1200, height: 630 }],
     },
     twitter: {
       card: 'summary_large_image',
       site: '@decodedsix',
       title: article.title,
       description,
+      images: [ogImage],
     },
   }
 }
@@ -160,73 +166,51 @@ export default async function ArticlePage({
       <Header />
 
       {/* ── CINEMATIC ARTICLE HERO ───────────────────────────── */}
-      <section className="relative overflow-hidden" style={{ minHeight: '55vh' }}>
-        {/* Background: contextual press image */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `url('${heroImage}')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        />
-        {/* Bottom-heavy gradient: black at bottom for text readability */}
-        <div
-          className="absolute inset-0"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.6) 55%, rgba(10,10,10,0.97) 100%)' }}
-        />
-        {/* © attribution */}
-        <span className="absolute top-2 right-3 text-[9px] text-white/30 select-none">
-          © Rockstar Games
-        </span>
+      <HeroImage src={article.featured_image_url ?? heroImage} credit={article.featured_image_credit ?? '© Rockstar Games'}>
+        <div className="max-w-3xl w-full">
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-2 mb-5 text-[11px] font-ibm" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <a href="/" className="hover:text-white transition-colors">Home</a>
+            <span>/</span>
+            <a href="/news" className="hover:text-white transition-colors">News</a>
+            <span>/</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)' }} className="truncate max-w-[200px]">{article.title}</span>
+          </nav>
 
-        {/* Article header overlay */}
-        <div className="container relative z-10 flex items-end pb-10" style={{ minHeight: '55vh' }}>
-          <div className="max-w-3xl w-full">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 mb-5 text-[11px] font-ibm" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              <a href="/" className="hover:text-white transition-colors">Home</a>
-              <span>/</span>
-              <a href="/news" className="hover:text-white transition-colors">News</a>
-              <span>/</span>
-              <span style={{ color: 'rgba(255,255,255,0.6)' }} className="truncate max-w-[200px]">{article.title}</span>
-            </nav>
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`badge ${CAT_CLASS[article.category] ?? 'badge-news'}`}>
+              {article.category}
+            </span>
+            {article.source_name && (
+              <span className="text-white/50 text-sm font-ibm">via {article.source_name}</span>
+            )}
+          </div>
 
-            <div className="flex items-center gap-2 mb-4">
-              <span className={`badge ${CAT_CLASS[article.category] ?? 'badge-news'}`}>
-                {article.category}
-              </span>
-              {article.source_name && (
-                <span className="text-white/50 text-sm font-ibm">via {article.source_name}</span>
-              )}
-            </div>
+          <h1
+            className="font-heading font-bold text-bright leading-tight mb-4"
+            style={{ fontSize: 'clamp(28px, 4vw, 48px)', textShadow }}
+          >
+            {article.title}
+          </h1>
 
-            <h1
-              className="font-heading font-bold text-bright leading-tight mb-4"
-              style={{ fontSize: 'clamp(28px, 4vw, 48px)', textShadow }}
-            >
-              {article.title}
-            </h1>
-
-            <div className="flex items-center gap-4 flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              <time dateTime={article.published_at} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
-                {fmtLong(article.published_at)}
-              </time>
-              {article.source_url && (
-                <a
-                  href={article.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-ibm hover:text-white transition-colors"
-                  style={{ color: '#ec1272' }}
-                >
-                  Source →
-                </a>
-              )}
-            </div>
+          <div className="flex items-center gap-4 flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <time dateTime={article.published_at} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
+              {fmtLong(article.published_at)}
+            </time>
+            {article.source_url && (
+              <a
+                href={article.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-ibm hover:text-white transition-colors"
+                style={{ color: '#ec1272' }}
+              >
+                Source →
+              </a>
+            )}
           </div>
         </div>
-      </section>
+      </HeroImage>
 
       {/* ── ARTICLE BODY ─────────────────────────────────────── */}
       <article className="container py-10 max-w-3xl">
