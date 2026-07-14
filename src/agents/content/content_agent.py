@@ -688,6 +688,23 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
 
     article_id = result.data[0]["id"]
     state["article_id"] = article_id
+
+    # Additive: creates the real hitl_queue row for this article, alongside
+    # the articles.status='pending_review' state above. Nothing previously
+    # read/wrote this table for an article's initial entry into review — the
+    # dashboard's approve/reject flow (review/route.ts) only updated
+    # articles+audit_log. Both are now kept in sync; articles.status stays
+    # the source of truth for the dashboard UI, hitl_queue exists for
+    # whatever reads the real queue table (api/routes/hitl_queue.py).
+    hitl_result = sb.table("hitl_queue").insert({
+        "product_id": "gta-hub",
+        "article_id": article_id,
+        "status": "pending",
+    }).execute()
+    if not hitl_result.data:
+        raise ContentAgentError("output_formatter", article_id,
+            RuntimeError("hitl_queue insert returned no data"))
+
     return state
 
 

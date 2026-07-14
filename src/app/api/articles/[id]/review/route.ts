@@ -112,5 +112,26 @@ export async function POST(
     error: null,
   })
 
+  // Additive: keeps the real hitl_queue row for this article in sync.
+  // articles.status remains the source of truth for the dashboard UI —
+  // this doesn't change that, it just stops hitl_queue from going stale
+  // now that DSX-CA1's output_formatter creates a row here on entry.
+  // 'revise'/'unpublish' don't map to hitl_queue's pending/approved/
+  // rejected/held CHECK constraint, so only approve/reject resolve it;
+  // a missing row (e.g. an article published before this existed) is not
+  // an error — best-effort, matches this route's existing error handling.
+  if (action === 'approve' || action === 'reject') {
+    await sb
+      .from('hitl_queue')
+      .update({
+        status: action === 'approve' ? 'approved' : 'rejected',
+        action: auditAction,
+        notes: notes ?? null,
+        resolved_at: now,
+      })
+      .eq('article_id', id)
+      .eq('status', 'pending')
+  }
+
   return NextResponse.json({ success: true, article_id: id, action })
 }
