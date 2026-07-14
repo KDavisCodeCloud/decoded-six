@@ -15,7 +15,7 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "0 11 * * *"
+              "expression": "0 11 * * 2,4,6"
             }
           ]
         }
@@ -35,8 +35,14 @@
           "assignments": [
             {
               "id": "f862039a-9f7f-49cf-abd4-51276c5e2c51",
-              "name": "topic",
+              "name": "topic_seed",
               "value": "={{ [\"GTA 6 Vice City location details\", \"GTA 6 character and story rumors\", \"GTA 6 online multiplayer features\", \"GTA 6 release date and pricing news\", \"GTA 6 gameplay mechanics leaked details\"][$now.format('d') % 5] }}",
+              "type": "string"
+            },
+            {
+              "id": "a6e0a6a1-3b1e-4b8a-9c2a-7e6f6d9b6a11",
+              "name": "article_type",
+              "value": "={{ {2:\"news\",4:\"evergreen\",6:\"conversion\"}[$now.weekday] }}",
               "type": "string"
             }
           ]
@@ -46,7 +52,7 @@
     },
     {
       "id": "08bdacbc-8074-436b-a457-0b6e0c646f2a",
-      "name": "Run Content Pipeline",
+      "name": "Trigger DSX-CA1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -55,7 +61,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.DECODEDSIX_API_URL }}/api/pipeline/run",
+        "url": "={{ $env.DECODEDSIX_API_URL }}/agents/decodedsix/content",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -68,7 +74,7 @@
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"topic\": \"{{ $json.topic }}\",\n  \"category\": \"news\"\n}"
+        "jsonBody": "={\n  \"article_type\": \"{{ $json.article_type }}\",\n  \"topic_seed\": \"{{ $json.topic_seed }}\"\n}"
       }
     },
     {
@@ -167,14 +173,14 @@
       "main": [
         [
           {
-            "node": "Run Content Pipeline",
+            "node": "Trigger DSX-CA1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Run Content Pipeline": {
+    "Trigger DSX-CA1": {
       "main": [
         [
           {
