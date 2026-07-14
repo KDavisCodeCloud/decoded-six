@@ -107,8 +107,8 @@ Then stop and wait.
 - HITL approval before any content publishes
 - AI detection check (Originality.ai) before HITL queue
 - Copyright/trademark check before any publish
-- No Rockstar/GTA trademarks on the site
-- No game asset screenshots used anywhere
+- Rockstar trailer stills, screenshots, and official press art ARE permitted — editorial/news-reporting use, same basis every GTA fan/news site operates on (Fandom, gta6map.io, gtabase.com, Rockstar Intel). Every image must carry a visible source credit every time (e.g. "Screenshot: GTA 6 Trailer 2 © Rockstar Games") — never uncredited, never presented as our own art. Full tier system + exact caption rules: docs/VISUAL_STRATEGY.md. This is an editorial fair-use judgment call, not a confirmed license from Rockstar — revisit if the site's scale or a takedown notice changes the risk calculus.
+- No gameplay-footage screen recordings or repackaged full trailer video — stills/screenshots for editorial commentary only, not redistributing Rockstar's video assets wholesale
 - Sound files in public/sounds/ only — never external URLs
 - No hardcoded API keys anywhere — always os.getenv() or process.env
 

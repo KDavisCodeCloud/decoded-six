@@ -110,5 +110,5 @@ Each tier has a distinct amber shade (S = brightest)
 - Fonts: Inter, Roboto, Arial
 - Colors: generic purple gradients, white backgrounds
 - Layouts: hero → features → pricing without design intent
-- Game screenshots or Rockstar official assets
+- Uncredited Rockstar screenshots/press art — permitted for editorial use, but every single one needs a visible source credit (see docs/VISUAL_STRATEGY.md's tier system + caption rules; CLAUDE.md Non-Negotiables)
 - Generic shadcn defaults without design token customization
