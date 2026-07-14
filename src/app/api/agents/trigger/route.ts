@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
     }
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (apiKey) headers['X-API-Key'] = apiKey
+    // /agents/decodedsix/content is gated by api/auth.py's require_api_key,
+    // which checks Authorization: Bearer — NOT X-API-Key (that header is
+    // map_markers.py's separate, deliberately different convention).
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
     const upstream = await fetch(`${apiUrl}/agents/decodedsix/content`, {
       method: 'POST',

@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { soundManager, SoundEvents } from '@/lib/sounds'
 import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
 import type { Article } from '@/lib/types'
+
+type GenerateStatus = 'idle' | 'running' | 'queued' | 'error'
+type ArticleTypeOption = 'news' | 'evergreen' | 'conversion'
 
 type QueueStatus = 'pending_review' | 'needs_revision'
 
@@ -204,6 +207,14 @@ export default function QueuePage() {
   const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({})
   const [statusFilter, setStatusFilter] = useState<'all' | QueueStatus>('all')
 
+  // Article generator panel
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generateType, setGenerateType] = useState<ArticleTypeOption>('news')
+  const [generateSeed, setGenerateSeed] = useState('')
+  const [generateStatus, setGenerateStatus] = useState<GenerateStatus>('idle')
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const generateSeedRef = useRef<HTMLInputElement>(null)
+
   async function fetchQueue() {
     const supabase = createClient()
     const { data } = await supabase
@@ -292,6 +303,33 @@ export default function QueuePage() {
     }
   }, [])
 
+  const handleGenerate = useCallback(async () => {
+    setGenerateStatus('running')
+    setGenerateError(null)
+    try {
+      const res = await fetch('/api/agents/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent: 'dsx-ca1',
+          article_type: generateType,
+          topic_seed: generateSeed.trim(),
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }))
+        throw new Error(err.error ?? `Agent returned ${res.status}`)
+      }
+      setGenerateStatus('queued')
+      setGenerateSeed('')
+      setGenerateType('news')
+      // Article will appear via realtime subscription — no manual refresh needed
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : 'Unknown error')
+      setGenerateStatus('error')
+    }
+  }, [generateType, generateSeed])
+
   const visible = statusFilter === 'all'
     ? articles
     : articles.filter(a => a.status === statusFilter)
@@ -316,7 +354,7 @@ export default function QueuePage() {
       )}
 
       <div className="p-8">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="font-pricedown text-gta-gold text-3xl leading-none">HITL QUEUE</h1>
             <p className="text-quiet text-sm mt-1">
@@ -345,8 +383,93 @@ export default function QueuePage() {
             >
               Refresh
             </button>
+            <button
+              onClick={() => {
+                setGenerateOpen(o => !o)
+                setGenerateStatus('idle')
+                setGenerateError(null)
+              }}
+              className={`text-xs px-3 py-2 rounded-lg border transition-colors font-semibold ${
+                generateOpen
+                  ? 'border-[#3fd17a]/60 text-[#3fd17a] bg-[#3fd17a]/10'
+                  : 'border-[#3fd17a]/40 text-[#3fd17a] hover:bg-[#3fd17a]/10'
+              }`}
+            >
+              + Generate Article
+            </button>
           </div>
         </div>
+
+        {/* Generate Article panel */}
+        {generateOpen && (
+          <div className="dash-card p-5 mb-6 border-[#3fd17a]/20">
+            <p className="text-xs text-whisper uppercase tracking-widest mb-4 font-semibold">Generate Article Now</p>
+            <div className="flex flex-wrap items-end gap-4">
+              {/* Article type */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] text-whisper uppercase tracking-wider">Type</label>
+                <div className="flex gap-1">
+                  {(['news', 'evergreen', 'conversion'] as ArticleTypeOption[]).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setGenerateType(t)}
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${
+                        generateType === t
+                          ? 'border-gta-gold/60 text-gta-gold bg-gta-gold/10'
+                          : 'border-dash-border text-quiet hover:text-bright'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Topic seed */}
+              <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                <label className="text-[10px] text-whisper uppercase tracking-wider">
+                  Topic Seed <span className="normal-case opacity-60">(optional — agent picks if empty)</span>
+                </label>
+                <input
+                  ref={generateSeedRef}
+                  type="text"
+                  value={generateSeed}
+                  onChange={e => setGenerateSeed(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && generateStatus === 'idle') handleGenerate() }}
+                  placeholder="e.g. GTA 6 release date, Lucia character guide..."
+                  maxLength={300}
+                  disabled={generateStatus === 'running'}
+                  className="text-sm bg-transparent border border-dash-border rounded-lg px-3 py-2 text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 disabled:opacity-50"
+                />
+              </div>
+
+              {/* Fire button */}
+              <button
+                onClick={handleGenerate}
+                disabled={generateStatus === 'running'}
+                className={`text-sm px-5 py-2 rounded-lg border font-semibold transition-colors shrink-0 ${
+                  generateStatus === 'running'
+                    ? 'border-[#3fd17a]/30 text-[#3fd17a]/50 cursor-not-allowed'
+                    : 'border-[#3fd17a]/60 text-[#3fd17a] bg-[#3fd17a]/10 hover:bg-[#3fd17a]/20'
+                }`}
+              >
+                {generateStatus === 'running' ? 'Running…' : 'Run Agent'}
+              </button>
+            </div>
+
+            {/* Status feedback */}
+            {generateStatus === 'queued' && (
+              <p className="mt-3 text-xs text-[#3fd17a]">
+                Agent queued. Article will appear in the queue in ~2–3 minutes via realtime.
+              </p>
+            )}
+            {generateStatus === 'error' && generateError && (
+              <p className="mt-3 text-xs text-neon-pink">
+                Error: {generateError}
+              </p>
+            )}
+          </div>
+        )}
 
         {loading && (
           <div className="dash-card p-8 text-center text-quiet text-sm">Loading queue...</div>
