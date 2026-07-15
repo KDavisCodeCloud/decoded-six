@@ -222,11 +222,11 @@ export default function DashboardOverview() {
             {[
               { phase: 'Phase 1 — Foundation',           done: true },
               { phase: 'Phase 2 — Public Site Shell',    done: true },
-              { phase: 'Phase 3 — Content Pipeline',     done: false, active: true },
-              { phase: 'Phase 4 — Internal Dashboard',   done: false },
-              { phase: 'Phase 5 — Interactive Map',      done: false },
-              { phase: 'Phase 6 — YouTube System',       done: false },
-              { phase: 'Phase 7 — Revenue Intelligence', done: false },
+              { phase: 'Phase 3 — Content Pipeline',     done: false, active: true, note: '7/20 articles — Gate 1' },
+              { phase: 'Phase 4 — Internal Dashboard',   done: true },
+              { phase: 'Phase 5 — Interactive Map',      done: true, note: 'built, gated until launch' },
+              { phase: 'Phase 6 — YouTube System',       done: false, note: 'gated behind AdSense' },
+              { phase: 'Phase 7 — Revenue Intelligence', done: false, note: 'gated behind 25K sessions/mo' },
               { phase: 'Phase 8 — Launch Day Nov 19 2026', done: false },
             ].map(p => (
               <div key={p.phase} className="flex items-center gap-3">
@@ -242,6 +242,9 @@ export default function DashboardOverview() {
                 }`} style={p.active ? { color: '#00f0ff' } : {}}>
                   {p.phase}
                 </span>
+                {p.note && (
+                  <span className="text-xs text-whisper opacity-60">— {p.note}</span>
+                )}
               </div>
             ))}
           </div>
