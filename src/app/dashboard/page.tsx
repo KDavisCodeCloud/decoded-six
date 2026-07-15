@@ -12,9 +12,29 @@ interface Stats {
   agentRuns: number
 }
 
+interface HealthCheck {
+  name: string
+  up: boolean
+  statusCode: number | null
+  responseMs: number | null
+  error: string | null
+}
+
+interface TrafficStats {
+  trackingStarted: string
+  pageviewsToday: number
+  uniqueSessionsToday: number
+  pageviewsThisWeek: number
+  uniqueSessionsThisWeek: number
+  topPages: { path: string; views: number }[]
+}
+
 export default function DashboardOverview() {
   const [stats, setStats] = useState<Stats>({ published: 0, pending: 0, errors: 0, agentRuns: 0 })
   const [overlay, setOverlay] = useState<{ type: OverlayType; reward?: string } | null>(null)
+  const [health, setHealth] = useState<{ checkedAt: string; checks: HealthCheck[] } | null>(null)
+  const [healthLoading, setHealthLoading] = useState(false)
+  const [traffic, setTraffic] = useState<TrafficStats | null>(null)
 
   const daysToLaunch = Math.ceil(
     (new Date(process.env.NEXT_PUBLIC_LAUNCH_DATE || '2026-11-19T00:00:00Z').getTime() - Date.now()) / 86400000
@@ -38,7 +58,25 @@ export default function DashboardOverview() {
       })
     }
     load().catch(() => {})
+
+    fetch('/api/dashboard/traffic')
+      .then(r => r.json())
+      .then(d => { if (!d.error) setTraffic(d) })
+      .catch(() => {})
   }, [])
+
+  async function runHealthCheck() {
+    setHealthLoading(true)
+    try {
+      const res = await fetch('/api/dashboard/health', { cache: 'no-store' })
+      const data = await res.json()
+      setHealth(data)
+    } catch {
+      setHealth({ checkedAt: new Date().toISOString(), checks: [] })
+    } finally {
+      setHealthLoading(false)
+    }
+  }
 
   function triggerMission(reward: string) {
     soundManager.play(SoundEvents.REVENUE_MILESTONE)
@@ -117,6 +155,63 @@ export default function DashboardOverview() {
             <button className="dash-vc-btn-pink" onClick={triggerWasted}>
               SIMULATE ERROR
             </button>
+          </div>
+        </div>
+
+        {/* Site health + traffic */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+          <div className="dash-vc-card">
+            <div className="dash-vc-label">SITE HEALTH</div>
+            {!health ? (
+              <div className="dash-vc-stat" style={{ fontSize: '22px' }}>NOT CHECKED YET</div>
+            ) : (
+              <div className="mb-4 space-y-2">
+                {health.checks.map(c => (
+                  <div key={c.name} className="flex items-center justify-between text-sm font-heading">
+                    <span className="text-whisper">{c.name}</span>
+                    <span style={{ color: c.up ? '#00f0ff' : '#FF2D6B' }} className="font-semibold">
+                      {c.up ? `UP · ${c.responseMs}ms` : `DOWN${c.error ? ` · ${c.error}` : ''}`}
+                    </span>
+                  </div>
+                ))}
+                <div className="text-xs text-whisper opacity-60">
+                  Checked {new Date(health.checkedAt).toLocaleTimeString()}
+                </div>
+              </div>
+            )}
+            <button className="dash-vc-btn-cyan" onClick={runHealthCheck} disabled={healthLoading}>
+              {healthLoading ? 'CHECKING…' : 'CHECK NOW'}
+            </button>
+          </div>
+
+          <div className="dash-vc-card">
+            <div className="dash-vc-label">TRAFFIC</div>
+            {!traffic ? (
+              <div className="dash-vc-stat" style={{ fontSize: '22px' }}>LOADING…</div>
+            ) : (
+              <>
+                <div className="dash-vc-stat" style={{ fontSize: '38px' }}>
+                  {traffic.pageviewsToday} VIEWS TODAY
+                </div>
+                <div className="text-sm font-heading text-whisper mb-3 space-y-1">
+                  <div>{traffic.uniqueSessionsToday} unique visitors today</div>
+                  <div>{traffic.pageviewsThisWeek} pageviews / {traffic.uniqueSessionsThisWeek} visitors this week</div>
+                  {traffic.topPages.length > 0 && (
+                    <div className="pt-1">
+                      {traffic.topPages.map(p => (
+                        <div key={p.path} className="flex justify-between">
+                          <span className="truncate">{p.path}</span>
+                          <span>{p.views}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="text-xs opacity-50 pt-1">
+                    Tracking started {traffic.trackingStarted} — low numbers reflect that, not a bug
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Archivo, IBM_Plex_Mono } from 'next/font/google'
+import PageviewBeacon from '@/components/shared/PageviewBeacon'
 import './globals.css'
 
 const archivo = Archivo({
@@ -46,7 +48,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${archivo.variable} ${ibmPlexMono.variable}`}>
-      <body className="font-body antialiased bg-void text-bright">{children}</body>
+      <body className="font-body antialiased bg-void text-bright">
+        <Suspense fallback={null}>
+          <PageviewBeacon />
+        </Suspense>
+        {children}
+      </body>
     </html>
   )
 }
