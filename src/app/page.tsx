@@ -52,7 +52,7 @@ export default async function HomePage() {
   const [articles, rumors] = await Promise.all([getLatest(), getRumors()])
   const [featured, ...rest] = articles
 
-  const launchDate = process.env.NEXT_PUBLIC_LAUNCH_DATE || '2027-11-19'
+  const launchDate = process.env.NEXT_PUBLIC_LAUNCH_DATE || '2026-11-19'
 
   return (
     <>

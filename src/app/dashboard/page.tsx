@@ -17,7 +17,7 @@ export default function DashboardOverview() {
   const [overlay, setOverlay] = useState<{ type: OverlayType; reward?: string } | null>(null)
 
   const daysToLaunch = Math.ceil(
-    (new Date('2027-11-19T00:00:00Z').getTime() - Date.now()) / 86400000
+    (new Date(process.env.NEXT_PUBLIC_LAUNCH_DATE || '2026-11-19T00:00:00Z').getTime() - Date.now()) / 86400000
   )
 
   useEffect(() => {
@@ -132,7 +132,7 @@ export default function DashboardOverview() {
               { phase: 'Phase 5 — Interactive Map',      done: false },
               { phase: 'Phase 6 — YouTube System',       done: false },
               { phase: 'Phase 7 — Revenue Intelligence', done: false },
-              { phase: 'Phase 8 — Launch Day Nov 19 2027', done: false },
+              { phase: 'Phase 8 — Launch Day Nov 19 2026', done: false },
             ].map(p => (
               <div key={p.phase} className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full shrink-0 ${
