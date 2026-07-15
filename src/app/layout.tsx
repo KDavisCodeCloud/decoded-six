@@ -48,6 +48,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${archivo.variable} ${ibmPlexMono.variable}`}>
+      <head>
+        {/* Impact.com affiliate network site verification — CDKeys + Green Man Gaming.
+            Uses value= (non-standard, not content=) intentionally: the verifier
+            checks for the literal attribute it issued this tag with. React's
+            meta types only recognize content=, so this is spread as `any` to
+            bypass that and render value= literally rather than being coerced. */}
+        <meta {...({ name: 'impact-site-verification', value: '0df4b2cc-c4bc-4d85-a090-01f7f92145bd' } as any)} />
+      </head>
       <body className="font-body antialiased bg-void text-bright">
         <Suspense fallback={null}>
           <PageviewBeacon />
