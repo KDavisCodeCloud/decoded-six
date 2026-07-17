@@ -9,7 +9,7 @@ const KNOWN_AGENTS = [
   { id: 'ds_aeo',        name: 'DS-AEO',         desc: 'AEO structure check',                      schedule: 'Per draft',        canFire: false },
   { id: 'ds_seo',        name: 'DS-SEO',         desc: 'SEO rules check',                          schedule: 'Per draft',        canFire: false },
   { id: 'ds_detect',     name: 'DS-DETECT',      desc: 'AI detection (Originality)',               schedule: 'Per draft',        canFire: false },
-  { id: 'DS-MAP-SCRAPE', name: 'DS-MAP-SCRAPE',  desc: 'Reddit/Discord scraper',                   schedule: 'Daily 6am',        canFire: false },
+  { id: 'ds_map_scrape', name: 'DS-MAP-SCRAPE',  desc: 'Reddit/Discord scraper',                   schedule: 'Daily 6am',        canFire: false },
   { id: 'DS-YT-SHORT',   name: 'DS-YT-SHORT',    desc: 'Weekly challenge Short',                   schedule: 'Thu 6am',          canFire: false },
 ]
 
