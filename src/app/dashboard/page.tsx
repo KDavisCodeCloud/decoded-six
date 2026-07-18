@@ -83,11 +83,6 @@ export default function DashboardOverview() {
     setOverlay({ type: 'mission-passed', reward })
   }
 
-  function triggerWasted() {
-    soundManager.play(SoundEvents.ARTICLE_REJECTED)
-    setOverlay({ type: 'wasted' })
-  }
-
   function pickupSound() {
     soundManager.play(SoundEvents.ARTICLE_APPROVED)
   }
@@ -148,13 +143,22 @@ export default function DashboardOverview() {
             </a>
           </div>
 
-          {/* Critical incidents */}
+          {/* Content QA flags — was mislabeled "CRITICAL INCIDENTS", which
+              implied system-level emergencies. This count is actually
+              routine SEO/AEO audit findings on drafts (title length,
+              missing H2 tags, AEO first-sentence checks) from the DS-SEO/
+              DS-AEO agents over the last 24h — expected content-quality
+              feedback, not incidents. Full per-entry detail (agent, error
+              text) already exists on /dashboard/agents; this card had no
+              link to it and no way to tell what "2 errors" meant. */}
           <div className="dash-vc-card">
-            <div className="dash-vc-label">CRITICAL INCIDENTS</div>
-            <div className="dash-vc-stat-error">{stats.errors} ERRORS</div>
-            <button className="dash-vc-btn-pink" onClick={triggerWasted}>
-              SIMULATE ERROR
-            </button>
+            <div className="dash-vc-label">CONTENT QA FLAGS (24H)</div>
+            <div className="dash-vc-stat-error">{stats.errors} FLAGGED</div>
+            <a href="/dashboard/agents">
+              <button className="dash-vc-btn-pink" style={{ width: '100%' }}>
+                VIEW FLAGS
+              </button>
+            </a>
           </div>
         </div>
 
