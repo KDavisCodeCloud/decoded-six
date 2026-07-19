@@ -37,6 +37,21 @@ _IN_ORDER_TO_RE = re.compile(r"\bin order to\b", re.IGNORECASE)
 _WHITESPACE_RE = re.compile(r"[ \t]{2,}")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
 
+# Matches a full markdown image/link construct, e.g. ![caption](url) or
+# [text](url) -- used to protect both the URL and its caption/alt text
+# from every rewrite below. Real bug found 2026-07-19: BANNED_WORDS did a
+# bare case-insensitive substring match with no word boundary, so
+# "ultimate" matched inside Rockstar's own hashed image filenames
+# (ULTIMATE_EDITION_01.16qc1xq5nigg1.jpg -> _EDITION_01...), silently
+# 404-ing every embedded Ultimate Edition / Vintage Vice City Pack image
+# across every live article that used one -- caught because the HITL
+# queue was showing broken images. Protecting the caption too (not just
+# the URL) is deliberate: "Ultimate Edition" is Rockstar's own product
+# name here, not marketing-hype language the banned-word rule is meant
+# to catch, and stripping it from the caption would just make the
+# caption wrong instead of the URL.
+_MD_LINK_RE = re.compile(r'!?\[[^\]\n]*\]\([^)\n]+\)')
+
 
 def _md_inline(text: str) -> str:
     text = re.sub(r'\*\*([^*\n]+)\*\*', r'<strong>\1</strong>', text)
@@ -84,7 +99,13 @@ def _md_to_html(text: str) -> str:
             flush()
             if in_ul: output.append('</ul>'); in_ul = False
             if not in_ol: output.append('<ol>'); in_ol = True
-            output.append(f'<li>{_md_inline(re.sub(r"^\d+\. ", "", s))}</li>')
+            # Backslash inside an f-string expression is a SyntaxError on
+            # Python <3.12 -- found while testing the fix above, since this
+            # module otherwise imports fine in production (3.12+) but
+            # crashed immediately in this repo's local 3.11 environment.
+            # Extracting to a local variable is version-portable either way.
+            item_text = re.sub(r'^\d+\. ', '', s)
+            output.append(f'<li>{_md_inline(item_text)}</li>')
         elif s == '':
             flush()
             if in_ul: output.append('</ul>'); in_ul = False
@@ -142,6 +163,17 @@ def _write_audit(
 
 def _mechanical_pass(text: str) -> str:
     """Deterministic guarantee for the two purely mechanical VOICE.md rules."""
+    # Stash every markdown image/link construct before any rewrite touches
+    # the text, so URLs (and their captions) survive byte-for-byte. See
+    # _MD_LINK_RE's comment for the real bug this fixes.
+    protected: list[str] = []
+
+    def _stash(m: re.Match) -> str:
+        protected.append(m.group(0))
+        return f"\x00PROTECTED{len(protected) - 1}\x00"
+
+    text = _MD_LINK_RE.sub(_stash, text)
+
     text = _EM_DASH_RE.sub(",", text)
     text = _UTILIZE_RE.sub("use", text)
     text = _IN_ORDER_TO_RE.sub("to", text)
@@ -149,6 +181,10 @@ def _mechanical_pass(text: str) -> str:
         text = re.sub(re.escape(word), "", text, flags=re.IGNORECASE)
     text = _WHITESPACE_RE.sub(" ", text)
     text = _BLANK_LINES_RE.sub("\n\n", text)
+
+    for i, original in enumerate(protected):
+        text = text.replace(f"\x00PROTECTED{i}\x00", original)
+
     return text.strip()
 
 
