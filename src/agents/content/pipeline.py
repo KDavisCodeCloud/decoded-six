@@ -1,4 +1,4 @@
-"""Content pipeline orchestrator: DRAFT -> HUM -> DETECT -> COPYRIGHT.
+"""Content pipeline orchestrator: DRAFT -> HUM -> IMAGE_VERIFY -> DETECT -> COPYRIGHT.
 
 CLI usage:
     python -m src.agents.content.pipeline --topic "..." --category news
@@ -72,17 +72,20 @@ def _safe_write_audit(
 
 def run_pipeline(topic: str, category: str, supabase_client: Optional[Any] = None) -> dict:
     """
-    Run DRAFT -> HUM -> DETECT -> COPYRIGHT in sequence for one new article.
+    Run DRAFT -> HUM -> IMAGE_VERIFY -> DETECT -> COPYRIGHT in sequence for
+    one new article.
 
     Returns {article_id, status}, status is one of:
       "ok"                  — all stages passed clean
-      "flagged_for_review"  — completed, but ds_detect or ds_copyright flagged it
+      "flagged_for_review"  — completed, but ds_image_verify, ds_detect, or
+                               ds_copyright flagged it
     Raises PipelineError (with .stage / .article_id) if any stage errors out.
     """
     from src.agents.content.ds_copyright import check_copyright
     from src.agents.content.ds_detect import detect_article
     from src.agents.content.ds_draft import draft_article
     from src.agents.content.ds_humanizer import humanize_article
+    from src.agents.content.ds_image_verify import verify_images
 
     supabase = supabase_client or _get_supabase_client()
     article_id: Optional[str] = None
@@ -100,6 +103,16 @@ def run_pipeline(topic: str, category: str, supabase_client: Optional[Any] = Non
         _safe_write_audit(supabase, article_id, "pipeline", "failure:humanize", error=str(exc))
         raise PipelineError("humanize", article_id, exc) from exc
 
+    # Runs right after HUM -- the mechanical rewrite pass is exactly where a
+    # real bug corrupted embedded image URLs (2026-07-19), and this is the
+    # cheapest point to catch it before spending an AI-detection or
+    # copyright-check cycle on content that may need a fix regardless.
+    try:
+        image_result = verify_images(article_id, supabase_client=supabase)
+    except Exception as exc:
+        _safe_write_audit(supabase, article_id, "pipeline", "failure:image_verify", error=str(exc))
+        raise PipelineError("image_verify", article_id, exc) from exc
+
     try:
         detect_result = detect_article(article_id, supabase_client=supabase)
     except Exception as exc:
@@ -112,7 +125,11 @@ def run_pipeline(topic: str, category: str, supabase_client: Optional[Any] = Non
         _safe_write_audit(supabase, article_id, "pipeline", "failure:copyright", error=str(exc))
         raise PipelineError("copyright", article_id, exc) from exc
 
-    flagged = detect_result.get("flagged_for_review", False) or copyright_result.get("flagged", False)
+    flagged = (
+        image_result.get("flagged", False)
+        or detect_result.get("flagged_for_review", False)
+        or copyright_result.get("flagged", False)
+    )
     status = "flagged_for_review" if flagged else "ok"
 
     _safe_write_audit(supabase, article_id, "pipeline", status)
