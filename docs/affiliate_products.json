@@ -3,17 +3,17 @@
     "name": "Best PS5 DualSense controller for GTA 6",
     "category": "controller",
     "program": "amazon",
-    "url": "https://www.amazon.com/s?k=ps5+dualsense+controller",
+    "url": "https://www.amazon.com/dp/B0CQKLS4RP?tag=decodedsix-20",
     "commission_rate": "3-4%",
-    "notes": "Native haptic feedback — highlight GTA 6 immersion angle"
+    "notes": "Native haptic feedback — highlight GTA 6 immersion angle. Real ASIN: standard Sony DualSense Wireless Controller, White (2026-07-22)."
   },
   {
     "name": "Best gaming headset for GTA 6 Online",
     "category": "headset",
     "program": "amazon",
-    "url": "https://www.amazon.com/s?k=gaming+headset+ps5+xbox",
+    "url": "https://www.amazon.com/dp/B08H99878P?tag=decodedsix-20",
     "commission_rate": "3-4%",
-    "notes": "Focus on voice chat quality for GTA Online crews"
+    "notes": "Focus on voice chat quality for GTA Online crews. Real ASIN: Sony Pulse 3D Wireless Headset (2026-07-22)."
   },
   {
     "name": "Best gaming chair for long GTA 6 sessions",
@@ -21,31 +21,31 @@
     "program": "secretlab",
     "url": "https://secretlab.co",
     "commission_rate": "8%",
-    "notes": "Secretlab affiliate — high ticket, use Secretlab affiliate link when live"
+    "notes": "Secretlab affiliate — high ticket, use Secretlab affiliate link when live. NOT an Amazon product, unaffected by the decodedsix-20 tag fix (2026-07-22) — this is still a bare homepage URL, not a real tracked affiliate link. Separate gap, flagging but not fixing here."
   },
   {
     "name": "Best gaming monitor for GTA 6 PS5",
     "category": "monitor",
     "program": "amazon",
-    "url": "https://www.amazon.com/s?k=4k+gaming+monitor+ps5",
+    "url": "https://www.amazon.com/s?k=4k+gaming+monitor+ps5&tag=decodedsix-20",
     "commission_rate": "3-4%",
-    "notes": "4K 120Hz angle — GTA 6 targets 4K on PS5 Pro"
+    "notes": "4K 120Hz angle — GTA 6 targets 4K on PS5 Pro. Category-level (no single model) — tagged search URL is intentional here, not a placeholder; a tagged Amazon search/browse link is a legitimate, trackable affiliate link type. Specific monitor models get their own real ASINs directly in-article (see best-gaming-monitor-gta-6-ps5)."
   },
   {
     "name": "GTA 6 on PS5 vs Xbox Series X which to buy",
     "category": "console",
     "program": "amazon",
-    "url": "https://www.amazon.com/s?k=ps5+console",
+    "url": "https://www.amazon.com/s?k=ps5+console&tag=decodedsix-20",
     "commission_rate": "3-4%",
-    "notes": "Comparison article format — link to both consoles"
+    "notes": "Comparison article format — link to both consoles. Tagged search URL for now since two distinct console SKUs are being compared; consider splitting into two entries (PS5 ASIN + Xbox Series X ASIN) next time this article is drafted."
   },
   {
     "name": "Best gaming setup for GTA 6 on PC",
     "category": "pc-gear",
     "program": "amazon",
-    "url": "https://www.amazon.com/s?k=gaming+pc+setup",
+    "url": "https://www.amazon.com/s?k=gaming+pc+setup&tag=decodedsix-20",
     "commission_rate": "3-4%",
-    "notes": "PC release angle — high search volume when PC date announced"
+    "notes": "PC release angle — high search volume when PC date announced. Broad bundle/category — tagged search URL is intentional, not a placeholder."
   },
   {
     "name": "Where to preorder GTA 6 cheapest",
@@ -53,7 +53,7 @@
     "program": "fanatical",
     "url": "https://www.fanatical.com",
     "commission_rate": "5-10%",
-    "notes": "Fanatical affiliate — update URL once GTA 6 preorder is live"
+    "notes": "Fanatical affiliate — update URL once GTA 6 preorder is live. NOT an Amazon product, unaffected by the decodedsix-20 tag fix — still a bare homepage URL. Separate gap."
   },
   {
     "name": "Best NordVPN deal for GTA 6 PC early access",
@@ -61,6 +61,6 @@
     "program": "nordvpn",
     "url": "https://nordvpn.com",
     "commission_rate": "$40-65 per sub",
-    "notes": "NordVPN affiliate — region unlock / early access angle"
+    "notes": "NordVPN affiliate — region unlock / early access angle. NOT an Amazon product, unaffected by the decodedsix-20 tag fix — still a bare homepage URL. Separate gap."
   }
 ]

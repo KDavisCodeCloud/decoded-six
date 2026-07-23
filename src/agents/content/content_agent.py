@@ -232,7 +232,8 @@ def _md_to_html(text: str) -> str:
             flush()
             if in_ul: output.append('</ul>'); in_ul = False
             if not in_ol: output.append('<ol>'); in_ol = True
-            output.append(f'<li>{_md_inline(re.sub(r"^\d+\. ", "", s))}</li>')
+            list_item_text = re.sub(r'^\d+\. ', '', s)
+            output.append(f'<li>{_md_inline(list_item_text)}</li>')
         elif s == '':
             flush()
             if in_ul: output.append('</ul>'); in_ul = False
@@ -592,13 +593,66 @@ def _node_internal_link_injector(state: dict, sb: Any) -> dict:
     return state
 
 
-# ── Node 7: affiliate_link_injector (conversion type only) ───────────────────
+AMAZON_AFFILIATE_TAG = "decodedsix-20"
+
+# Matches a markdown link whose URL is an amazon.com/.co.uk/etc host --
+# broad domain match (not just /dp/ or /s?k=) since a future draft could
+# link an Amazon page shape this doesn't anticipate yet, and the whole
+# point of this check is to not depend on anticipating every shape.
+_AMAZON_MD_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://(?:www\.)?amazon\.[a-z.]+[^\)]*)\)")
+
+
+def _ensure_amazon_affiliate_tags(content: str) -> tuple[str, list[str]]:
+    """
+    Real bug found 2026-07-22: a currently-published article had 5 Amazon
+    links with zero affiliate tag, because the tag only ever existed if
+    the source docs/affiliate_products.json's url field already had it --
+    nothing enforced it structurally. This closes that gap at the code
+    level: every amazon.* link in the final drafted content gets the
+    decodedsix-20 tag appended if missing, regardless of article_type
+    (an Amazon link could appear in a news or evergreen article too, not
+    just conversion) and regardless of whether the source data was
+    correct. Never trust upstream data alone for something this easy to
+    verify structurally -- same principle CLAUDE.md applies elsewhere in
+    this codebase to MRR floors and confidence scores.
+
+    Returns (corrected_content, list of urls that were auto-tagged) --
+    the list is for audit_log visibility, not for gating anything; a
+    missing tag is fixed here, never just flagged and left broken.
+    """
+    fixed_urls: list[str] = []
+
+    def _fix(match: re.Match) -> str:
+        text, url = match.group(1), match.group(2)
+        if f"tag={AMAZON_AFFILIATE_TAG}" in url:
+            return match.group(0)
+        separator = "&" if "?" in url else "?"
+        new_url = f"{url}{separator}tag={AMAZON_AFFILIATE_TAG}"
+        fixed_urls.append(url)
+        return f"[{text}]({new_url})"
+
+    corrected = _AMAZON_MD_LINK_RE.sub(_fix, content)
+    return corrected, fixed_urls
+
+
+# ── Node 7: affiliate_link_injector ───────────────────────────────────────────
 
 def _node_affiliate_link_injector(state: dict) -> dict:
     """
-    For conversion articles: builds the affiliate_links list from products
-    referenced in content_html. Matches product names against affiliate_products.
+    Runs the Amazon tag-enforcement pass on every article type (see
+    _ensure_amazon_affiliate_tags -- an Amazon link isn't exclusive to
+    conversion articles). Only conversion articles additionally build the
+    affiliate_links metadata list, matching product names referenced in
+    content against docs/affiliate_products.json.
     """
+    state["content"], auto_tagged = _ensure_amazon_affiliate_tags(state["content"])
+    if auto_tagged:
+        log.warning(
+            "[%s] %d Amazon link(s) were missing tag=%s and were auto-corrected: %s",
+            AGENT_ID, len(auto_tagged), AMAZON_AFFILIATE_TAG, auto_tagged,
+        )
+        state["affiliate_tag_auto_fixed"] = auto_tagged
+
     if state["article_type"] != "conversion":
         state["affiliate_links"] = []
         return state

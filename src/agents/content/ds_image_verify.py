@@ -4,10 +4,13 @@ known, accurate official Rockstar press image before an article reaches HITL.
 Two independent checks; either one failing flags the article for review
 (never a hard crash — same non-fatal-flag pattern as ds_copyright.py):
 
-1. URL RESOLVES — a live HTTP request returns a non-error status. Catches
-   broken URLs directly, e.g. the real bug found 2026-07-19 where
-   ds_humanizer's banned-word filter silently corrupted "ULTIMATE_EDITION_"
-   image filenames into "_EDITION_", 404-ing the image.
+1. URL RESOLVES — a live HTTP request returns a non-error status for a
+   hotlinked https:// URL, or the file exists on disk under public/ for
+   a site-relative local path (most images as of 2026-07-23 -- see
+   rockstar_images.py). Catches broken references either way, e.g. the
+   real bug found 2026-07-19 where ds_humanizer's banned-word filter
+   silently corrupted "ULTIMATE_EDITION_" image filenames into
+   "_EDITION_", 404-ing the image.
 
 2. URL IS A KNOWN REGISTRY IMAGE — the exact URL must match an entry in
    rockstar_images.ROCKSTAR_IMAGES. This is the actual "accurate
@@ -70,6 +73,20 @@ def _extract_image_urls(content: str) -> list[str]:
 
 
 def _url_resolves(url: str, timeout: float = 8.0) -> bool:
+    """
+    A "url" here is either a real hotlinked https:// address (Ultimate
+    Edition / Vintage Vice City Pack, still hotlinked as of 2026-07-23 --
+    see rockstar_images.py) or a site-relative local path like
+    /images/tier1/characters/jason-duval/screenshot-Jason_Duval_01.jpg
+    (everything else, now served from public/ instead of Rockstar's CDN).
+    A local path can't be HTTP-resolved before the site is deployed with
+    it, and doesn't need to be -- checking the file actually exists on
+    disk is the equivalent, real check for that case.
+    """
+    if url.startswith("/"):
+        from src.agents.content.rockstar_images import REPO_ROOT
+        return (REPO_ROOT / "public" / url.lstrip("/")).is_file()
+
     try:
         resp = requests.head(url, timeout=timeout, allow_redirects=True)
         if resp.status_code >= 400:
