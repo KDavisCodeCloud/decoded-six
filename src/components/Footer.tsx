@@ -18,7 +18,7 @@ export function Footer() {
             <Link href="/guides" className="hover:text-quiet transition-colors">Guides</Link>
             <Link href="/about" className="hover:text-quiet transition-colors">About</Link>
             <Link href="/privacy" className="hover:text-quiet transition-colors">Privacy</Link>
-            <Link href="#" className="hover:text-quiet transition-colors">Contact</Link>
+            <a href="mailto:hello@decodedsix.com" className="hover:text-quiet transition-colors">Contact</a>
           </nav>
         </div>
         <div className="mt-8 pt-6 border-t border-white/[0.04] text-center text-whisper text-xs">
