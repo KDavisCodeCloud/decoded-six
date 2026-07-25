@@ -2,7 +2,7 @@
 
 ## Product
 decodedsix.com — GTA 6 fan utility site
-Owner: Kelvin Davis (King Kelz)
+Owner: Kelvin Davis
 Son participates in Tuesday build sessions
 Launch: November 19 2026
 

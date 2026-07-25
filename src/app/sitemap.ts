@@ -1,9 +1,18 @@
 import type { MetadataRoute } from 'next'
 import { supabase } from '@/lib/supabase'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thedecodedsix.com'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
 const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy']
+
+// Without this, Next.js treats this route as static (no dynamic API used
+// in the function body) and generates it once at build time -- confirmed
+// live 2026-07-25: the deployed sitemap was missing an article published
+// 2 days after the last deploy. force-dynamic makes it query
+// `articles` fresh on every request instead of needing a redeploy to
+// pick up new content -- this alone covers "auto-regenerate on publish"
+// without needing a separate webhook/rebuild trigger.
+export const dynamic = 'force-dynamic'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = STATIC_ROUTES.map((route) => ({

@@ -12,7 +12,7 @@ import type { Article } from '@/lib/types'
 
 export const revalidate = 300
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thedecodedsix.com'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
@@ -109,19 +109,35 @@ export default async function ArticlePage({
     articleTags({ category: article.category, article_type: article.article_type, title: article.title })
   )
 
-  const articleJsonLd = article.schema_article ?? {
+  // articleJsonLd and breadcrumbJsonLd are ALWAYS computed fresh here, never
+  // from the stored article.schema_article/schema_breadcrumb columns --
+  // confirmed live 2026-07-25 that the stored version had datePublished/
+  // dateModified baked in as null (content_agent.py's schema_generator node
+  // ran before publish_date was known) and used the wrong domain (its
+  // SITE_URL fell back to non-www; this site's real canonical is www).
+  // Computing fresh means every article gets correct data with no need to
+  // backfill/repair already-stored rows.
+  const ogImage = article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
+    articleTags({ category: article.category, article_type: article.article_type, title: article.title })
+  )
+
+  const articleJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
     headline: article.title,
     description: article.excerpt ?? undefined,
+    image: [ogImage],
     datePublished: article.published_at,
-    dateModified: article.created_at,
+    dateModified: article.published_at,
     author: { '@type': 'Organization', name: 'DecodedSix Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Decoded Six', url: siteUrl },
     url: `${siteUrl}/news/${slug}`,
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteUrl}/news/${slug}` },
   }
 
+  // FAQ content itself (not a timestamp or URL) is safe to trust from
+  // storage -- fall back to computing it from faq_pairs if schema_faq
+  // wasn't populated for this row.
   const faqJsonLd = article.schema_faq ?? (
     article.faq_pairs && article.faq_pairs.length >= 3
       ? {
@@ -136,7 +152,7 @@ export default async function ArticlePage({
       : null
   )
 
-  const breadcrumbJsonLd = article.schema_breadcrumb ?? {
+  const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [

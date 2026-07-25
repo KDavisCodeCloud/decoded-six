@@ -40,7 +40,7 @@ AFFILIATE_LIST_PATH = REPO_ROOT / "docs" / "affiliate_products.json"
 MODEL = "claude-sonnet-4-6"
 AGENT_ID = "dsx-ca1"
 
-SITE_URL = os.getenv("NEXT_PUBLIC_SITE_URL", "https://thedecodedsix.com")
+SITE_URL = os.getenv("NEXT_PUBLIC_SITE_URL", "https://www.thedecodedsix.com")
 
 
 class ContentAgentError(RuntimeError):
@@ -507,9 +507,22 @@ def _node_schema_generator(state: dict) -> dict:
     excerpt = state["excerpt"]
     slug = state["slug"]
     faq_pairs = state.get("faq_pairs", [])
-    publish_date = state.get("publish_date", datetime.now(timezone.utc).isoformat())
+    # `state.get("publish_date", default)` only uses `default` when the KEY
+    # is missing -- if an earlier node explicitly sets state["publish_date"]
+    # = None (true here: publish_date isn't known until HITL approval, well
+    # after this node runs), .get() returns that None, not the fallback.
+    # Confirmed live 2026-07-25: a real published article's stored
+    # schema_article had datePublished/dateModified baked in as literal
+    # null. `or` catches both "key missing" and "key present but falsy".
+    publish_date = state.get("publish_date") or datetime.now(timezone.utc).isoformat()
     article_url = f"{SITE_URL}/news/{slug}"
 
+    # No image field here: no image URL exists in state at this point in the
+    # pipeline (assigned later, outside this agent) and this stored schema
+    # is no longer what actually renders anyway -- src/app/news/[slug]/
+    # page.tsx computes articleJsonLd fresh at render time using the real
+    # image/published_at once they're known, rather than trusting whatever
+    # was baked in here at draft time.
     schema_article = {
         "@context": "https://schema.org",
         "@type": "NewsArticle",
