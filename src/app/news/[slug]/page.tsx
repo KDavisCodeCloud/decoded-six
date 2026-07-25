@@ -19,6 +19,13 @@ function truncate(text: string, maxLength: number): string {
   return `${text.slice(0, maxLength - 1).trimEnd()}…`
 }
 
+// Google's structured-data (and OG) image requirements need a fully-qualified
+// URL -- confirmed live 2026-07-25 that stored/fallback images are relative
+// paths (served from the local image library), which fails rich-results eligibility.
+function absoluteUrl(url: string): string {
+  return url.startsWith('http') ? url : `${siteUrl}${url}`
+}
+
 async function getArticle(slug: string): Promise<Article | null> {
   const { data } = await supabase
     .from('articles')
@@ -51,9 +58,9 @@ export async function generateMetadata({
   if (!article) return { title: 'Not Found' }
 
   const description = article.excerpt ? truncate(article.excerpt, 160) : undefined
-  const ogImage = article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
+  const ogImage = absoluteUrl(article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
     articleTags({ category: article.category, article_type: article.article_type, title: article.title })
-  )
+  ))
 
   return {
     title: article.title,
@@ -117,9 +124,9 @@ export default async function ArticlePage({
   // SITE_URL fell back to non-www; this site's real canonical is www).
   // Computing fresh means every article gets correct data with no need to
   // backfill/repair already-stored rows.
-  const ogImage = article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
+  const ogImage = absoluteUrl(article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
     articleTags({ category: article.category, article_type: article.article_type, title: article.title })
-  )
+  ))
 
   const articleJsonLd = {
     '@context': 'https://schema.org',
