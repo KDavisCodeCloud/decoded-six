@@ -342,25 +342,37 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         ),
     }
 
-    # Select contextually relevant images from the official Rockstar press kit
+    # Select contextually relevant images from the official Rockstar press kit.
+    # No fixed cap (raised from the old limit=4) -- Kelvin's standing rule as of
+    # 2026-07-25: every named person/place/thing that is the main subject of a
+    # paragraph gets its matching image if one exists in the registry, however
+    # many that ends up being for a given article. limit=12 here just bounds
+    # how many candidates get listed in the prompt, not how many the article
+    # can actually use.
     keywords = extract_article_keywords(topic, article_type, scraped)
-    press_images = get_images_by_tags(keywords, limit=4)
+    press_images = get_images_by_tags(keywords, limit=12)
 
     img_list_lines = "\n".join(
         f"  - Caption: \"{img['caption']}\"  →  {img['url']}"
         for img in press_images
     )
     image_instruction = (
-        "\n\nIMAGE EMBEDDING RULES — You MUST embed 2–4 images in this article.\n"
+        "\n\nIMAGE EMBEDDING RULES — no fixed image count for this article. "
+        "Embed an image every time a named person, place, or thing from the list below "
+        "is the main subject of a paragraph or section -- not just once per article. "
+        "If a character, location, vehicle, or item gets its own paragraph or heading "
+        "and a matching image exists below, that image belongs right after that paragraph. "
+        "An article covering 8 characters with images for all 8 available should use all 8.\n\n"
         "Use this exact markdown syntax for each image (two lines, no blank line between them):\n\n"
         "![Caption text here](image_url)\n"
         "*Image credit: Rockstar Games*\n\n"
         "Placement rules:\n"
-        "- Place the FIRST image after the intro paragraph (before the first ## section heading).\n"
-        "- Place subsequent images at natural section breaks — after introducing a location, "
-        "character, or feature, NEVER back-to-back with no text between them.\n"
-        "- Match image to content: Vice City article → use a Vice City image; "
-        "character article → use that character's image; Ultimate Edition → use edition images.\n\n"
+        "- Place an image after the intro paragraph (before the first ## section heading) if one fits the overall topic.\n"
+        "- Place every other image immediately after the paragraph introducing the specific "
+        "character, location, vehicle, or item it depicts — never batch multiple images "
+        "back-to-back with no text between them.\n"
+        "- Only use an image for a subject it actually depicts. Do not attach an image to a "
+        "paragraph about something else just to hit a quota — there is no quota.\n\n"
         "Available official Rockstar press images for this article:\n"
         + img_list_lines
         + "\n\nUse these exact URLs. Do not invent or modify image URLs."
