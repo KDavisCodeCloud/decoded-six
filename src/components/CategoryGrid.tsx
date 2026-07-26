@@ -18,9 +18,9 @@ interface CategoryTile {
 // this small.
 const CATEGORIES: CategoryTile[] = [
   { label: 'News', href: '/news', img: '/images/tier1/locations/leonida-keys/screenshot-Leonida_Keys_01.jpg' },
-  { label: 'Map & Locations', href: '/map', img: '/images/tier1/locations/vice-city/screenshot-Vice_City_01.jpg' },
+  { label: 'Map & Locations', href: '/map', img: '/images/tier1/locations/vice-city/screenshot-Vice_City_03.jpg' },
   { label: 'Guides', href: '/guides', img: '/images/tier1/locations/mount-kalaga/screenshot-Mount_Kalaga_National_Park_01.jpg' },
-  { label: 'Vehicles', href: '/vehicles', img: 'https://www.rockstargames.com/VI/_next/static/media/ULTIMATE_EDITION_GROTTI_CHEETAH_01.0a.wy3s_ogjey.jpg' },
+  { label: 'Vehicles', href: '/vehicles', img: 'https://www.rockstargames.com/VI/_next/static/media/ULTIMATE_EDITION_VAPID_BUGGY_02.0tf15jp~61bkj.jpg' },
   { label: 'Rumors', href: '/rumors', img: '/images/tier1/locations/ambrosia/screenshot-Ambrosia_01.jpg' },
   { label: 'Characters', href: '/characters', img: '/images/tier1/keyart/jason-lucia-01/Jason_and_Lucia_01_landscape.jpg' },
 ]
