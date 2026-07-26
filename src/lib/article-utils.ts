@@ -1,5 +1,17 @@
 import { getImagesByTags } from './rockstar-images'
 
+// Placeholder pages created to fix dead internal links (2026-07-25) — real
+// content, but not Gate 1 editorial output and not "news." Excluded from the
+// /news feed and from Gate 1 article-count stats. Add future utility-page
+// slugs here.
+export const UTILITY_PAGE_SLUGS = new Set([
+  'gta-6-money-spots',
+  'gta-6-tier-list',
+  'gta-6-weekly-challenges',
+  'gta-6-trailer-breakdown',
+  'gta-6-system-requirements',
+])
+
 const COVER_ART =
   'https://www.rockstargames.com/VI/_next/static/media/Official_Cover_Art_landscape.12.uu2irr.2_a.jpg'
 

@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
+import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -20,7 +21,8 @@ async function getGuides(): Promise<Article[]> {
     .order('published_at', { ascending: false })
     .limit(48)
 
-  return (data as Article[]) ?? []
+  const rows = (data as Article[]) ?? []
+  return rows.filter(a => !UTILITY_PAGE_SLUGS.has(a.slug))
 }
 
 export default async function GuidesPage() {

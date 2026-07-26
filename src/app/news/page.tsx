@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
+import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -24,7 +25,11 @@ async function getArticles(category: string): Promise<Article[]> {
   if (category !== 'all') q = q.eq('category', category)
 
   const { data } = await q
-  return (data as Article[]) ?? []
+  const rows = (data as Article[]) ?? []
+  // Utility placeholder pages exist to satisfy internal links, not to read
+  // as news -- otherwise they'd show up as the "newest" items ahead of
+  // real articles since they all publish_at the moment they're created.
+  return rows.filter(a => !UTILITY_PAGE_SLUGS.has(a.slug))
 }
 
 export default async function NewsPage({

@@ -7,6 +7,7 @@ import { HeroContent } from '@/components/HeroContent'
 import { RegionGrid } from '@/components/RegionGrid'
 import { CharacterGrid } from '@/components/CharacterGrid'
 import { CategoryGrid } from '@/components/CategoryGrid'
+import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
@@ -33,8 +34,13 @@ async function getLatest(): Promise<Article[]> {
     .select('*')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
-    .limit(7)
-  return (data as Article[]) ?? []
+    .limit(20)
+  const rows = (data as Article[]) ?? []
+  // Utility placeholder pages all publish_at the moment they're created, so
+  // an unfiltered top-7 query would surface them ahead of real news. Fetch
+  // extra and filter before slicing so the section still fills with 7 real
+  // articles.
+  return rows.filter(a => !UTILITY_PAGE_SLUGS.has(a.slug)).slice(0, 7)
 }
 
 async function getRumors(): Promise<Article[]> {

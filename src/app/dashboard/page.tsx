@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { soundManager, SoundEvents } from '@/lib/sounds'
+import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 
 interface Stats {
   published: number
@@ -44,14 +45,18 @@ export default function DashboardOverview() {
     async function load() {
       const supabase = createClient()
       const [articles, audit] = await Promise.all([
-        supabase.from('articles').select('id, status').eq('product_id', 'gta-hub'),
+        supabase.from('articles').select('id, slug, status').eq('product_id', 'gta-hub'),
         supabase.from('audit_log').select('id, error, created_at')
           .gte('created_at', new Date(Date.now() - 86400000).toISOString()),
       ])
       const data = articles.data ?? []
       const logs = audit.data ?? []
+      // Utility placeholder pages (money spots, tier list, etc.) are real
+      // published rows but not Gate 1 editorial content -- excluded so this
+      // stat tracks actual AdSense-gate progress, not total row count.
+      const editorial = data.filter(a => !UTILITY_PAGE_SLUGS.has(a.slug))
       setStats({
-        published: data.filter(a => a.status === 'published').length,
+        published: editorial.filter(a => a.status === 'published').length,
         pending:   data.filter(a => a.status === 'pending_review').length,
         errors:    logs.filter(l => l.error).length,
         agentRuns: logs.length,
@@ -226,7 +231,7 @@ export default function DashboardOverview() {
             {[
               { phase: 'Phase 1 — Foundation',           done: true },
               { phase: 'Phase 2 — Public Site Shell',    done: true },
-              { phase: 'Phase 3 — Content Pipeline',     done: false, active: true, note: '7/20 articles — Gate 1' },
+              { phase: 'Phase 3 — Content Pipeline',     done: false, active: true, note: `${stats.published}/20 articles — Gate 1` },
               { phase: 'Phase 4 — Internal Dashboard',   done: true },
               { phase: 'Phase 5 — Interactive Map',      done: true, note: 'built, gated until launch' },
               { phase: 'Phase 6 — YouTube System',       done: false, note: 'gated behind AdSense' },
