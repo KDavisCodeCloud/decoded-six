@@ -1,21 +1,28 @@
 import Link from 'next/link'
 import { ArticleImage } from '@/components/ArticleImage'
-import { getArticleFallbackImage } from '@/lib/article-utils'
 
 interface CategoryTile {
   label: string
   href: string
-  tags: string[]
+  img: string
 }
 
 // Real site sections only (matches Header.tsx nav) — not the aspirational
 // 10-category list in docs/VISUAL_STRATEGY.md, most of which have no route yet.
+//
+// Each tile gets an explicitly assigned image rather than a tag-guessed one.
+// Confirmed live 2026-07-26: 'news'/'guide'/'rumor' don't match any tag in the
+// registry, so all three silently fell through to the same COVER_ART fallback
+// -- three tiles with the identical background image. Hardcoding a specific,
+// distinct image per tile removes that guesswork entirely for a fixed set
+// this small.
 const CATEGORIES: CategoryTile[] = [
-  { label: 'News', href: '/news', tags: ['news'] },
-  { label: 'Map & Locations', href: '/map', tags: ['vice_city'] },
-  { label: 'Guides', href: '/guides', tags: ['guide'] },
-  { label: 'Vehicles', href: '/vehicles', tags: ['vehicles'] },
-  { label: 'Rumors', href: '/rumors', tags: ['rumor'] },
+  { label: 'News', href: '/news', img: '/images/tier1/locations/leonida-keys/screenshot-Leonida_Keys_01.jpg' },
+  { label: 'Map & Locations', href: '/map', img: '/images/tier1/locations/vice-city/screenshot-Vice_City_01.jpg' },
+  { label: 'Guides', href: '/guides', img: '/images/tier1/locations/mount-kalaga/screenshot-Mount_Kalaga_National_Park_01.jpg' },
+  { label: 'Vehicles', href: '/vehicles', img: 'https://www.rockstargames.com/VI/_next/static/media/ULTIMATE_EDITION_GROTTI_CHEETAH_01.0a.wy3s_ogjey.jpg' },
+  { label: 'Rumors', href: '/rumors', img: '/images/tier1/locations/ambrosia/screenshot-Ambrosia_01.jpg' },
+  { label: 'Characters', href: '/characters', img: '/images/tier1/keyart/jason-lucia-01/Jason_and_Lucia_01_landscape.jpg' },
 ]
 
 /**
@@ -33,7 +40,7 @@ export function CategoryGrid() {
           className="group relative block h-40 overflow-hidden rounded-xl border border-white/[0.06] hover:border-flame/25 transition-all duration-300"
         >
           <ArticleImage
-            src={getArticleFallbackImage(cat.tags)}
+            src={cat.img}
             alt={cat.label}
             className="absolute inset-0 w-full h-full brightness-[0.55] group-hover:brightness-[0.75] transition-[filter] duration-300"
           />

@@ -465,6 +465,15 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
     state["external_citation"] = parsed.get("external_citation", "")
     state["word_count"] = word_count
     state["content"] = content
+    # featured_image_url was never actually written by this pipeline despite
+    # docs/VISUAL_STRATEGY.md mandating it -- confirmed 2026-07-26, the column
+    # was always null, so every article rendered its list-card thumbnail via
+    # the tag-guessed fallback at request time instead, and unrelated articles
+    # with overlapping keywords kept colliding on the same guessed image.
+    # Reusing the writer's own best-scoring press image closes that gap at
+    # the source for every future article.
+    if press_images:
+        state["featured_image_url"] = press_images[0]["url"]
     return state
 
 
@@ -759,6 +768,7 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
         "schema_faq": state.get("schema_faq"),
         "schema_breadcrumb": state.get("schema_breadcrumb"),
         "word_count": state.get("word_count"),
+        "featured_image_url": state.get("featured_image_url"),
     }
 
     result = sb.table("articles").insert(row).execute()

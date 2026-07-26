@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 
-const BASE = 'https://www.rockstargames.com/VI/_next/static/media'
-
 interface Character {
   name: string
   role: string
@@ -18,30 +16,34 @@ interface Character {
   articleSlug?: string
 }
 
+const ARTICLE_SLUG = 'gta-6-characters-every-confirmed-name-role-detail'
+
 const CHARACTERS: Character[] = [
   {
     name: 'Jason Duval',
     role: 'Protagonist',
     tagline: 'Ex-military, loyal to a fault — and the wrong people',
-    img: `${BASE}/Jason_Duval_06.086o72llg6~1p.jpg`,
+    img: '/images/tier1/characters/jason-duval/screenshot-Jason_Duval_01.jpg',
     imgObjectPosition: 'center 8%',
     bio: 'Jason Duval is a Florida man with a complicated history. Former military, he drifted through work that kept him close to the edge of things before landing in Vice City\'s criminal ecosystem. He\'s not a bad man — but he\'s very good at doing bad things for people he trusts. That loyalty is his defining trait and his most exploitable weakness.',
     traits: ['Loyal', 'Resourceful', 'Physically imposing', 'Morally flexible under pressure'],
     background: 'Ex-military. Grew up in rural Leonida. Ended up in Vice City working for people who saw his capabilities and his blind spots in equal measure.',
     confirmedIn: ['GTA VI Trailer 1', 'GTA VI Trailer 2', 'Official press materials'],
-    hasArticle: false,
+    hasArticle: true,
+    articleSlug: ARTICLE_SLUG,
   },
   {
     name: 'Lucia Caminos',
     role: 'Protagonist',
     tagline: 'Sharp, calculating, and done playing by anyone else\'s rules',
-    img: `${BASE}/Lucia_Caminos_02.16n.5umvlu_48.jpg`,
+    img: '/images/tier1/characters/lucia-caminos/screenshot-Lucia_Caminos_01.jpg',
     imgObjectPosition: 'center 25%',
     bio: 'Lucia Caminos walked out of Leonida State Penitentiary with nothing but a clear head and a very specific plan. Where Jason leads with instinct, Lucia leads with calculation. She is the sharpest person in any room she enters, and she has spent long enough in rooms where that did not matter. That time is over.',
     traits: ['Calculated', 'Street-smart', 'Adaptable', 'Self-determined'],
     background: 'Released from Leonida State Penitentiary. Working-class background. Has been surviving in systems designed to keep her down her entire life — and has gotten very good at it.',
     confirmedIn: ['GTA VI Trailer 1 (opening scene)', 'GTA VI Trailer 2', 'Official press materials'],
-    hasArticle: false,
+    hasArticle: true,
+    articleSlug: ARTICLE_SLUG,
   },
 ]
 

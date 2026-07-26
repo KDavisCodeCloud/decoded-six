@@ -1,4 +1,4 @@
-import { getImagesByTags } from './rockstar-images'
+import { getImagesByTags, hashSeed } from './rockstar-images'
 
 // Placeholder pages created to fix dead internal links (2026-07-25) — real
 // content, but not Gate 1 editorial output and not "news." Excluded from the
@@ -16,12 +16,21 @@ const COVER_ART =
   'https://www.rockstargames.com/VI/_next/static/media/Official_Cover_Art_landscape.12.uu2irr.2_a.jpg'
 
 /**
- * Returns the best-matching Rockstar press image URL for a set of article tags.
+ * Returns a matching Rockstar press image URL for a set of article tags.
  * Falls back to the official cover art when no match is found.
+ *
+ * `seed` (typically the article's slug) spreads different articles across
+ * the pool of similarly-scored candidates instead of every article with
+ * overlapping keywords collapsing onto the single top-ranked image -- pass
+ * it whenever multiple articles' images render on the same page (list
+ * views, category grids). Omit it only for truly one-off, single-image
+ * contexts where no sibling collision is possible.
  */
-export function getArticleFallbackImage(tags: string[]): string {
-  const results = getImagesByTags(tags, 1)
-  return results[0]?.url ?? COVER_ART
+export function getArticleFallbackImage(tags: string[], seed?: string): string {
+  const results = getImagesByTags(tags, seed ? 6 : 1)
+  if (results.length === 0) return COVER_ART
+  const index = seed ? hashSeed(seed) % results.length : 0
+  return results[index].url
 }
 
 /**

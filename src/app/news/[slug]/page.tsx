@@ -59,7 +59,8 @@ export async function generateMetadata({
 
   const description = article.excerpt ? truncate(article.excerpt, 160) : undefined
   const ogImage = absoluteUrl(article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
-    articleTags({ category: article.category, article_type: article.article_type, title: article.title })
+    articleTags({ category: article.category, article_type: article.article_type, title: article.title }),
+    article.slug
   ))
 
   return {
@@ -113,7 +114,8 @@ export default async function ArticlePage({
   const related = await getRelated(article.category, article.id)
 
   const heroImage = getArticleFallbackImage(
-    articleTags({ category: article.category, article_type: article.article_type, title: article.title })
+    articleTags({ category: article.category, article_type: article.article_type, title: article.title }),
+    article.slug
   )
 
   // articleJsonLd and breadcrumbJsonLd are ALWAYS computed fresh here, never
@@ -125,7 +127,8 @@ export default async function ArticlePage({
   // Computing fresh means every article gets correct data with no need to
   // backfill/repair already-stored rows.
   const ogImage = absoluteUrl(article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
-    articleTags({ category: article.category, article_type: article.article_type, title: article.title })
+    articleTags({ category: article.category, article_type: article.article_type, title: article.title }),
+    article.slug
   ))
 
   const articleJsonLd = {

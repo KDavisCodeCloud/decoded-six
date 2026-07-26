@@ -29,7 +29,12 @@ export function ArticleCard({
     article_type: article.article_type,
     title: article.title,
   })
-  const thumbUrl = getArticleFallbackImage(tags)
+  // Prefer a deliberately-assigned image over the tag-guessed fallback --
+  // confirmed live 2026-07-26 that several unrelated articles (anything
+  // with "vice"+"city" in the title) were all rendering the identical
+  // guessed thumbnail. seed=article.slug spreads any remaining guessed
+  // fallbacks across tied candidates instead of one fixed winner.
+  const thumbUrl = article.featured_image_url ?? article.og_image_url ?? getArticleFallbackImage(tags, article.slug)
 
   if (featured) {
     return (

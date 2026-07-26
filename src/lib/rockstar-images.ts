@@ -165,6 +165,20 @@ export function getImagesByTags(keywords: string[], limit = 3): RockstarImage[] 
     .map(s => s.img);
 }
 
+// Deterministic string hash (djb2) -- used to spread different articles
+// across tied top-scoring images instead of every tied article collapsing
+// onto the same array-order winner (Array.sort is stable, so ties always
+// resolved to index 0 before this existed -- confirmed live 2026-07-26:
+// three different articles about Vice City all rendered the identical
+// screenshot-Vice_City_01.jpg thumbnail).
+export function hashSeed(seed: string): number {
+  let hash = 5381;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 33) ^ seed.charCodeAt(i);
+  }
+  return Math.abs(hash);
+}
+
 export function getImagesByCategory(category: RockstarImageCategory, limit = 3): RockstarImage[] {
   return ROCKSTAR_IMAGES.filter(img => img.category === category).slice(0, limit);
 }
