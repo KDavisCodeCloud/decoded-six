@@ -133,12 +133,12 @@
 
   .dash-btn-approve {
     @apply bg-green-500/15 text-green-400 border border-green-500/30
-           hover:bg-green-500/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold;
+           hover:bg-green-500/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold min-h-[44px];
   }
 
   .dash-btn-reject {
     @apply bg-neon-pink/15 text-neon-pink border border-neon-pink/30
-           hover:bg-neon-pink/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold;
+           hover:bg-neon-pink/25 transition-colors px-4 py-2 rounded-lg text-sm font-semibold min-h-[44px];
   }
 
   /* Agent-generated article HTML content */

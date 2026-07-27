@@ -59,7 +59,7 @@ function ArticlePreview({
   return (
     <div className="fixed inset-0 z-50 bg-void overflow-y-auto">
       {/* Sticky action bar */}
-      <div className="sticky top-0 z-10 bg-[#0a0a0f]/95 backdrop-blur-sm border-b border-white/[0.06] px-6 py-3 flex items-center justify-between gap-4">
+      <div className="sticky top-0 z-10 bg-[#0a0a0f]/95 backdrop-blur-sm border-b border-white/[0.06] px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <span className="text-xs font-mono text-whisper uppercase tracking-widest">
           Preview — {article.word_count?.toLocaleString()} words
         </span>
@@ -71,17 +71,20 @@ function ArticlePreview({
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="What needs to change?"
-                className="text-xs bg-transparent border border-gta-gold/40 rounded-lg px-3 py-1.5 text-quiet placeholder:text-whisper focus:outline-none w-64"
+                style={{ fontSize: 16, minHeight: 44 }}
+                className="bg-transparent border border-gta-gold/40 rounded-lg px-3 py-1.5 text-quiet placeholder:text-whisper focus:outline-none w-full sm:w-64"
               />
               <button
                 onClick={() => { if (notes.trim()) { onRevise(notes); setRevisionMode(false) } }}
                 disabled={!notes.trim() || processing}
+                style={{ minHeight: 44 }}
                 className="text-xs px-3 py-1.5 rounded-lg bg-gta-gold/20 text-gta-gold border border-gta-gold/30 hover:bg-gta-gold/30 disabled:opacity-40 transition-colors"
               >
                 Send for Revision
               </button>
               <button
                 onClick={() => setRevisionMode(false)}
+                style={{ minHeight: 44 }}
                 className="text-xs px-3 py-1.5 border border-dash-border text-quiet rounded-lg hover:text-bright transition-colors"
               >
                 Cancel
@@ -92,6 +95,7 @@ function ArticlePreview({
               <button
                 onClick={onApprove}
                 disabled={processing}
+                style={{ minHeight: 44 }}
                 className="text-xs px-4 py-1.5 rounded-lg bg-[#3fd17a]/20 text-[#3fd17a] border border-[#3fd17a]/40 hover:bg-[#3fd17a]/30 disabled:opacity-40 transition-colors font-semibold"
               >
                 ✓ Approve
@@ -99,6 +103,7 @@ function ArticlePreview({
               <button
                 onClick={() => setRevisionMode(true)}
                 disabled={processing}
+                style={{ minHeight: 44 }}
                 className="text-xs px-4 py-1.5 rounded-lg border border-gta-gold/40 text-gta-gold hover:bg-gta-gold/10 transition-colors"
               >
                 Revise
@@ -106,6 +111,7 @@ function ArticlePreview({
               <button
                 onClick={onReject}
                 disabled={processing}
+                style={{ minHeight: 44 }}
                 className="text-xs px-4 py-1.5 rounded-lg bg-neon-pink/10 text-neon-pink border border-neon-pink/30 hover:bg-neon-pink/20 disabled:opacity-40 transition-colors"
               >
                 ✕ Reject
@@ -114,7 +120,8 @@ function ArticlePreview({
           )}
           <button
             onClick={onClose}
-            className="text-xs px-3 py-1.5 border border-dash-border text-quiet rounded-lg hover:text-bright transition-colors ml-2"
+            style={{ minHeight: 44 }}
+            className="text-xs px-3 py-1.5 border border-dash-border text-quiet rounded-lg hover:text-bright transition-colors sm:ml-2"
           >
             ← Back to queue
           </button>
@@ -353,20 +360,21 @@ export default function QueuePage() {
         />
       )}
 
-      <div className="p-8">
-        <div className="mb-6 flex items-center justify-between">
+      <div className="p-4 sm:p-8">
+        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="font-pricedown text-gta-gold text-3xl leading-none">HITL QUEUE</h1>
             <p className="text-quiet text-sm mt-1">
               {loading ? 'Loading...' : `${pending} pending review · ${revision} needs revision`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
               {(['all', 'pending_review', 'needs_revision'] as const).map(f => (
                 <button
                   key={f}
                   onClick={() => setStatusFilter(f)}
+                  style={{ minHeight: 44 }}
                   className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
                     statusFilter === f
                       ? 'border-gta-gold/60 text-gta-gold bg-gta-gold/10'
@@ -379,6 +387,7 @@ export default function QueuePage() {
             </div>
             <button
               onClick={fetchQueue}
+              style={{ minHeight: 44 }}
               className="text-xs text-quiet hover:text-bright border border-dash-border rounded-lg px-3 py-2 transition-colors"
             >
               Refresh
@@ -389,6 +398,7 @@ export default function QueuePage() {
                 setGenerateStatus('idle')
                 setGenerateError(null)
               }}
+              style={{ minHeight: 44 }}
               className={`text-xs px-3 py-2 rounded-lg border transition-colors font-semibold ${
                 generateOpen
                   ? 'border-[#3fd17a]/60 text-[#3fd17a] bg-[#3fd17a]/10'
@@ -413,6 +423,7 @@ export default function QueuePage() {
                     <button
                       key={t}
                       onClick={() => setGenerateType(t)}
+                      style={{ minHeight: 44 }}
                       className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${
                         generateType === t
                           ? 'border-gta-gold/60 text-gta-gold bg-gta-gold/10'
@@ -439,7 +450,8 @@ export default function QueuePage() {
                   placeholder="e.g. GTA 6 release date, Lucia character guide..."
                   maxLength={300}
                   disabled={generateStatus === 'running'}
-                  className="text-sm bg-transparent border border-dash-border rounded-lg px-3 py-2 text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 disabled:opacity-50"
+                  style={{ fontSize: 16, minHeight: 44 }}
+                  className="bg-transparent border border-dash-border rounded-lg px-3 py-2 text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 disabled:opacity-50"
                 />
               </div>
 
@@ -447,6 +459,7 @@ export default function QueuePage() {
               <button
                 onClick={handleGenerate}
                 disabled={generateStatus === 'running'}
+                style={{ minHeight: 44 }}
                 className={`text-sm px-5 py-2 rounded-lg border font-semibold transition-colors shrink-0 ${
                   generateStatus === 'running'
                     ? 'border-[#3fd17a]/30 text-[#3fd17a]/50 cursor-not-allowed'
@@ -547,6 +560,7 @@ export default function QueuePage() {
 
                   <button
                     onClick={() => setPreviewArticle(article)}
+                    style={{ minHeight: 44 }}
                     className="text-xs px-3 py-1.5 rounded-lg border border-gta-gold/40 text-gta-gold hover:bg-gta-gold/10 transition-colors"
                   >
                     Preview Article →
@@ -564,6 +578,7 @@ export default function QueuePage() {
                   <button
                     onClick={() => setExpanded(expanded === article.id ? null : article.id)}
                     disabled={processing === article.id}
+                    style={{ minHeight: 44 }}
                     className="text-xs px-3 py-1.5 rounded-lg border border-gta-gold/40 text-gta-gold hover:bg-gta-gold/10 transition-colors"
                   >
                     {expanded === article.id ? 'Cancel' : 'Revise'}
@@ -585,11 +600,13 @@ export default function QueuePage() {
                     onChange={e => setRevisionNotes(prev => ({ ...prev, [article.id]: e.target.value }))}
                     placeholder="What needs to change? Be specific — the agent reads this on the next run."
                     rows={3}
-                    className="w-full bg-transparent border border-dash-border rounded-lg p-3 text-sm text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 resize-none"
+                    style={{ fontSize: 16 }}
+                    className="w-full bg-transparent border border-dash-border rounded-lg p-3 text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 resize-none"
                   />
                   <button
                     onClick={() => handleRevision(article, revisionNotes[article.id] ?? '')}
                     disabled={!revisionNotes[article.id]?.trim() || processing === article.id}
+                    style={{ minHeight: 44 }}
                     className="mt-2 text-xs px-4 py-2 rounded-lg bg-gta-gold/20 text-gta-gold border border-gta-gold/30 hover:bg-gta-gold/30 disabled:opacity-40 transition-colors"
                   >
                     Send for Revision

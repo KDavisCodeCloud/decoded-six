@@ -97,16 +97,18 @@ export default function ContentPage() {
               {loading ? 'Loading...' : `${articles.length} live · ${totalWords.toLocaleString()} total words`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               type="text"
               placeholder="Search articles..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="text-sm bg-transparent border border-dash-border rounded-lg px-3 py-2 text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 w-56"
+              style={{ fontSize: 16, minHeight: 44 }}
+              className="bg-transparent border border-dash-border rounded-lg px-3 py-2 text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/40 w-full sm:w-56"
             />
             <button
               onClick={fetchPublished}
+              style={{ minHeight: 44 }}
               className="text-xs text-quiet hover:text-bright border border-dash-border rounded-lg px-3 py-2 transition-colors"
             >
               Refresh
@@ -116,7 +118,7 @@ export default function ContentPage() {
 
         {/* Stat strip */}
         {!loading && articles.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
             {[
               { label: 'Published', value: articles.length },
               { label: 'Avg. words', value: Math.round(totalWords / articles.length).toLocaleString() },

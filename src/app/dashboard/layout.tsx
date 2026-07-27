@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import DashNav from '@/components/dashboard/DashNav'
+import MobileDashNav from '@/components/dashboard/MobileDashNav'
 
 export const metadata = {
   title: 'Mission Control — DecodedSix',
@@ -36,8 +37,11 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-dash-bg text-bright">
-      <DashNav userEmail={userEmail} pendingCount={pendingCount} />
+    <div className="flex flex-col md:flex-row min-h-screen bg-dash-bg text-bright">
+      <div className="hidden md:flex">
+        <DashNav userEmail={userEmail} pendingCount={pendingCount} />
+      </div>
+      <MobileDashNav pendingCount={pendingCount} />
       <main className="flex-1 overflow-auto">
         {children}
       </main>
