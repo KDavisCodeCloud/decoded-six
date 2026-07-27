@@ -1,9 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 
+const CALLBACK_ERROR_MESSAGES: Record<string, string> = {
+  auth_failed:
+    "That sign-in link didn't work — it may have expired, already been used, or been opened in a different browser than the one you requested it from. Send another link and open it in the same browser.",
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const callbackError = searchParams.get('error')
+
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -40,6 +57,12 @@ export default function LoginPage() {
         </div>
 
         <div className="dash-card p-8">
+          {callbackError && !sent && (
+            <p className="text-neon-pink text-xs mb-4">
+              {CALLBACK_ERROR_MESSAGES[callbackError] ?? 'Sign-in failed. Please try again.'}
+            </p>
+          )}
+
           {sent ? (
             <div className="text-center">
               <div className="text-3xl mb-4">📬</div>
