@@ -7,6 +7,12 @@ import type { MapMarker, MapArea } from '@/lib/types'
 
 export const revalidate = 300
 
+export const metadata = {
+  title: 'GTA 6 Interactive Map',
+  description: 'An interactive map of the GTA 6 world — locations, points of interest, and areas confirmed so far.',
+  alternates: { canonical: '/map' },
+}
+
 async function getMapData() {
   const [{ data: markers }, { data: areas }] = await Promise.all([
     supabase

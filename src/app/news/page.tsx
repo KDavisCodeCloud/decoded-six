@@ -10,6 +10,7 @@ export const revalidate = 60
 export const metadata = {
   title: 'GTA 6 News',
   description: 'All the latest GTA 6 updates, leaks, and breaking news — updated continuously.',
+  alternates: { canonical: '/news' },
 }
 
 const CATS = ['all', 'news', 'rumor', 'guide', 'event', 'update'] as const

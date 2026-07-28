@@ -9,6 +9,7 @@ export const revalidate = 60
 export const metadata = {
   title: 'GTA 6 Rumors',
   description: 'Unconfirmed GTA 6 leaks, insider reports, and speculation — tracked and verified as Rockstar confirms details.',
+  alternates: { canonical: '/rumors' },
 }
 
 async function getRumors(): Promise<Article[]> {

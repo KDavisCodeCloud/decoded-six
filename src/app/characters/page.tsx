@@ -5,6 +5,7 @@ import { CharactersDirectory } from '@/components/CharactersDirectory'
 export const metadata = {
   title: 'GTA 6 Characters',
   description: 'Every officially confirmed GTA 6 character — name, role, and what Rockstar has actually said about each.',
+  alternates: { canonical: '/characters' },
 }
 
 export default function CharactersPage() {

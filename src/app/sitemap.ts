@@ -3,7 +3,10 @@ import { supabase } from '@/lib/supabase'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
-const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy']
+// Was missing 4 real, nav-linked pages (map/vehicles/characters/rumors) --
+// they were still crawlable via internal links, but excluding them from the
+// sitemap denied Google an explicit discovery/priority signal for them.
+const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy', '/map', '/vehicles', '/characters', '/rumors']
 
 // Without this, Next.js treats this route as static (no dynamic API used
 // in the function body) and generates it once at build time -- confirmed

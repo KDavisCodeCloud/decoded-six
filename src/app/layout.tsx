@@ -17,7 +17,14 @@ const ibmPlexMono = IBM_Plex_Mono({
 })
 
 const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'Decoded Six'
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thedecodedsix.com'
+// Must match sitemap.ts/robots.ts/news/[slug]/page.tsx's fallback (www) --
+// this was previously the one place still defaulting to the apex domain,
+// which the domain's own 308 redirect sends to www. Since metadataBase
+// resolves every relative `alternates.canonical` below, that mismatch was
+// silently emitting canonical tags pointing at a URL that immediately
+// redirects -- a real cause of Google's "duplicate content" / indexing
+// errors on a site with no other canonical mismatch left.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -28,6 +35,7 @@ export const metadata: Metadata = {
   description:
     'The definitive independent source for GTA 6 news, rumors, interactive maps, vehicle stats, and weekly event guides.',
   keywords: ['GTA 6', 'Grand Theft Auto 6', 'GTA 6 map', 'GTA 6 news', 'GTA 6 release date'],
+  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     siteName,

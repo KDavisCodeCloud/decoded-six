@@ -4,6 +4,7 @@ import { Footer } from '@/components/Footer'
 export const metadata = {
   title: 'About & Editorial Policy',
   description: 'Who runs this site, how content is made, and where it comes from.',
+  alternates: { canonical: '/about' },
 }
 
 const CONTACT_EMAIL = 'hello@decodedsix.com'

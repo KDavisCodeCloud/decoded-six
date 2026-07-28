@@ -5,6 +5,7 @@ import { VehicleGrid } from '@/components/VehicleGrid'
 export const metadata = {
   title: 'GTA 6 Vehicles',
   description: 'Every confirmed GTA 6 vehicle — specs, images, and availability. Updated from official Rockstar sources.',
+  alternates: { canonical: '/vehicles' },
 }
 
 export default function VehiclesPage() {

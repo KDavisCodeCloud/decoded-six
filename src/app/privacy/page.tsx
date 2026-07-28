@@ -4,6 +4,7 @@ import { Footer } from '@/components/Footer'
 export const metadata = {
   title: 'Privacy Policy',
   description: 'How this site collects, uses, and protects your data.',
+  alternates: { canonical: '/privacy' },
 }
 
 const CONTACT_EMAIL = 'hello@decodedsix.com'

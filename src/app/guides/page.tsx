@@ -10,6 +10,7 @@ export const revalidate = 60
 export const metadata = {
   title: 'GTA 6 Guides',
   description: 'Strategy guides, walkthroughs, and how-tos for GTA 6 — updated as the game evolves.',
+  alternates: { canonical: '/guides' },
 }
 
 async function getGuides(): Promise<Article[]> {
