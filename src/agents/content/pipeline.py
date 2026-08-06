@@ -1,4 +1,4 @@
-"""Content pipeline orchestrator: DRAFT -> HUM -> IMAGE_VERIFY -> DETECT -> COPYRIGHT.
+"""Content pipeline orchestrator: DRAFT -> HUM -> IMAGE_VERIFY -> COPYRIGHT.
 
 CLI usage:
     python -m src.agents.content.pipeline --topic "..." --category news
@@ -72,17 +72,18 @@ def _safe_write_audit(
 
 def run_pipeline(topic: str, category: str, supabase_client: Optional[Any] = None) -> dict:
     """
-    Run DRAFT -> HUM -> IMAGE_VERIFY -> DETECT -> COPYRIGHT in sequence for
-    one new article.
+    Run DRAFT -> HUM -> IMAGE_VERIFY -> COPYRIGHT in sequence for one new
+    article. There is no AI-detection stage — Originality.ai is not used,
+    and never will be (Kelvin, 2026-08-06: non-negotiable, applies to every
+    project).
 
     Returns {article_id, status}, status is one of:
       "ok"                  — all stages passed clean
-      "flagged_for_review"  — completed, but ds_image_verify, ds_detect, or
+      "flagged_for_review"  — completed, but ds_image_verify or
                                ds_copyright flagged it
     Raises PipelineError (with .stage / .article_id) if any stage errors out.
     """
     from src.agents.content.ds_copyright import check_copyright
-    from src.agents.content.ds_detect import detect_article
     from src.agents.content.ds_draft import draft_article
     from src.agents.content.ds_humanizer import humanize_article
     from src.agents.content.ds_image_verify import verify_images
@@ -114,12 +115,6 @@ def run_pipeline(topic: str, category: str, supabase_client: Optional[Any] = Non
         raise PipelineError("image_verify", article_id, exc) from exc
 
     try:
-        detect_result = detect_article(article_id, supabase_client=supabase)
-    except Exception as exc:
-        _safe_write_audit(supabase, article_id, "pipeline", "failure:detect", error=str(exc))
-        raise PipelineError("detect", article_id, exc) from exc
-
-    try:
         copyright_result = check_copyright(article_id, supabase_client=supabase)
     except Exception as exc:
         _safe_write_audit(supabase, article_id, "pipeline", "failure:copyright", error=str(exc))
@@ -127,7 +122,6 @@ def run_pipeline(topic: str, category: str, supabase_client: Optional[Any] = Non
 
     flagged = (
         image_result.get("flagged", False)
-        or detect_result.get("flagged_for_review", False)
         or copyright_result.get("flagged", False)
     )
     status = "flagged_for_review" if flagged else "ok"

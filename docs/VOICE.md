@@ -135,9 +135,8 @@ They're checking this between sessions.
 Every sentence should be worth their time.
 If it doesn't add information, cut it.
 
-## AI Detection Target
-Every article must score below 30% on Originality.ai.
-The humanizer agent runs after every draft.
-The detection agent runs after the humanizer.
-If score is above 30%, humanizer runs again.
-Never publish above 30%.
+## Humanizer
+The humanizer agent runs after every draft. There is no AI-detection-score
+check after it — Originality.ai is not used, and never will be
+(non-negotiable, applies to every project). Human review at HITL is the
+actual quality gate.

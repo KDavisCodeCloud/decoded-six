@@ -1,14 +1,15 @@
 # DecodedSix — Agent Roster
 
-## Content Pipeline (6 agents, always active)
+## Content Pipeline (5 agents, always active)
 DS-DRAFT     → Draft generation (sonnet-4-6)
 DS-HUM       → Humanizer (reads .claude/product-marketing-context.md)
 DS-AEO       → AEO structure check
 DS-SEO       → SEO rules-based check
-DS-DETECT    → AI detection via Originality.ai (haiku-4-5)
 DS-COPYRIGHT → Trademark/copyright compliance check
 
-Pipeline: DRAFT → HUM → AEO → SEO → DETECT → COPYRIGHT → HITL → publish
+Pipeline: DRAFT → HUM → AEO → SEO → COPYRIGHT → HITL → publish
+No AI-detection-score stage — Originality.ai is not used, and never will
+be (non-negotiable, applies to every project).
 
 ## Map Agents (active from Phase 5)
 DS-MAP-SCRAPE  → Reddit/Discord community scraper (haiku-4-5, daily 6am)

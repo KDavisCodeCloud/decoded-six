@@ -28,7 +28,6 @@ as BLOCKED before writing any application code.
 - ElevenLabs API (voiceover generation)
 - InVideo AI API (video assembly)
 - YouTube Data API v3 (upload + analytics)
-- Originality.ai API (AI detection scoring)
 
 Do not introduce new frameworks or libraries
 without explicit instruction from owner.
@@ -64,8 +63,6 @@ Voice file: .claude/product-marketing-context.md
 ALWAYS read voice file before generating
 any content for the site.
 Run humanizer skill after every draft.
-Run AI detection before HITL queue.
-Target detection score: below 30%.
 Never publish without HITL approval.
 
 ## Map Feature Flag
@@ -105,7 +102,6 @@ Then stop and wait.
 - Every agent action writes to audit_log table
 - DataSanitizationShield before any LLM call
 - HITL approval before any content publishes
-- AI detection check (Originality.ai) before HITL queue
 - Copyright/trademark check before any publish
 - Rockstar trailer stills, screenshots, and official press art ARE permitted — editorial/news-reporting use, same basis every GTA fan/news site operates on (Fandom, gta6map.io, gtabase.com, Rockstar Intel). Every image must carry a visible source credit every time (e.g. "Screenshot: GTA 6 Trailer 2 © Rockstar Games") — never uncredited, never presented as our own art. Full tier system + exact caption rules: docs/VISUAL_STRATEGY.md. This is an editorial fair-use judgment call, not a confirmed license from Rockstar — revisit if the site's scale or a takedown notice changes the risk calculus.
 - No gameplay-footage screen recordings or repackaged full trailer video — stills/screenshots for editorial commentary only, not redistributing Rockstar's video assets wholesale

@@ -27,7 +27,6 @@ from typing import Any, Optional
 
 from slugify import slugify
 
-from src.agents.content.ds_detect import DetectError, detect_article
 from src.agents.content.ds_humanizer import HumanizeError, humanize_article
 
 log = logging.getLogger(__name__)
@@ -817,27 +816,6 @@ def _node_humanizer(state: dict, sb: Any, ai: Any) -> dict:
     return state
 
 
-# ── Node: detect (Terminal 2) ─────────────────────────────────────────────────
-
-def _node_detect(state: dict, sb: Any) -> dict:
-    """
-    Runs ds_detect (Originality.ai) against the just-humanized article. A
-    flagged_for_review result is informational only — the HITL queue surfaces
-    it, this node doesn't block the pipeline on it. Only a genuine DetectError
-    (the check itself failing to run) stops the pipeline.
-    """
-    article_id = state["article_id"]
-
-    try:
-        result = detect_article(article_id, supabase_client=sb)
-    except DetectError as exc:
-        raise ContentAgentError("detect", article_id, exc) from exc
-
-    state["detect_result"] = result
-    _audit(sb, article_id, "detect_pass", "success" if result.get("checked") else "skipped_no_key")
-    return state
-
-
 # ── Node 10: seo_aeo_audit (Session 13) ───────────────────────────────────────
 
 def _node_seo_aeo_audit(state: dict, sb: Any) -> dict:
@@ -965,7 +943,6 @@ def run_content_agent(
         article_id = state["article_id"]
 
         state = _node_humanizer(state, sb, ai)
-        state = _node_detect(state, sb)
         state = _node_seo_aeo_audit(state, sb)
 
         _audit(sb, article_id, "content_agent_run", "success")

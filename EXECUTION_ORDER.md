@@ -39,7 +39,6 @@ Tuesday Sessions: Son (GTA content + approvals)
 - [ ] agents/content/ds_humanizer.py wired to voice file
 - [ ] agents/content/ds_aeo.py AEO structure check
 - [ ] agents/content/ds_seo.py rules-based SEO check
-- [ ] agents/content/ds_detect.py Originality.ai wired
 - [ ] agents/content/ds_copyright.py compliance check
 - [ ] n8n content pipeline workflow active
 - [ ] HITL queue rendering in dashboard

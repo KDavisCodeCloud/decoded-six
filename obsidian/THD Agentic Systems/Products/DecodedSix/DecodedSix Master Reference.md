@@ -52,7 +52,9 @@ Site sale value (Year 2): $1.89M — $2.65M (30–42x monthly)
 
 ## Content Strategy
 AEO (Answer Engine Optimization) — answer GTA 6 queries directly
-AI detection target: below 30% on Originality.ai
+No AI-detection-score check (Originality.ai is not used, and never will
+be — non-negotiable, applies to every project). Human review at HITL is
+the real quality gate.
 Voice: direct, specific, no buzzwords, talk like a crew member
 
 ## Related Notes

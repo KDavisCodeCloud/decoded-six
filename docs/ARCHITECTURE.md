@@ -21,7 +21,6 @@ Repo: github.com/KDavisCodeCloud/decoded-six
 - ElevenLabs API (voiceover for YouTube Shorts)
 - InVideo AI (video assembly for YouTube Shorts)
 - YouTube Data API v3 (upload + analytics)
-- Originality.ai API (AI detection scoring on content)
 
 ## Supabase Project
 Isolated from all other THD products.
@@ -37,14 +36,15 @@ Dashboard access: owner + son only
 5. YouTube — ad revenue + brand sponsorships
 
 ## Content Architecture
-All content goes through the 6-agent pipeline before publish:
+All content goes through the 5-agent pipeline before publish:
 
-ds_draft → ds_humanizer → ds_aeo → ds_seo → ds_detect → ds_copyright → HITL → publish
+ds_draft → ds_humanizer → ds_aeo → ds_seo → ds_copyright → HITL → publish
 
-No content bypasses this pipeline. Ever.
+No content bypasses this pipeline. Ever. There is no AI-detection-score
+stage — Originality.ai is not used, and never will be (non-negotiable,
+applies to every project).
 
 Voice file: .claude/product-marketing-context.md
-AI detection target: below 30% on Originality.ai
 HITL: every article reviewed before publish
 
 ## Map Architecture

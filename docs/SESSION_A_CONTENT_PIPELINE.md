@@ -26,29 +26,23 @@ Agents to build (all use claude-sonnet-4-6, all write to audit_log):
    - Updates articles.content in place
    - Writes audit_log entry
 
-3. ds_detect.py — DS-DETECT
-   - Takes article_id
-   - Placeholder implementation: logs that Originality.ai key is needed
-   - Reads ORIGINALITY_API_KEY from os.getenv()
-   - If key present: calls Originality.ai API, stores score in articles metadata
-   - If score > 30%: flags article for manual review, does NOT advance to HITL queue
-   - Writes audit_log entry with score
-
-4. ds_copyright.py — DS-COPYRIGHT
+3. ds_copyright.py — DS-COPYRIGHT
    - Takes article_id
    - Checks title + content for: "Rockstar", "GTA®", "Grand Theft Auto®", and a list of 20 trademark phrases
    - Uses regex — no LLM call needed
    - Flags article if any match found
    - Writes audit_log entry
 
-5. pipeline.py — orchestrator
-   - Runs DRAFT → HUM → DETECT → COPYRIGHT in sequence
+4. pipeline.py — orchestrator
+   - Runs DRAFT → HUM → COPYRIGHT in sequence (no AI-detection stage —
+     Originality.ai is not used, and never will be: non-negotiable, applies
+     to every project)
    - Stops pipeline if any stage fails
    - Returns final article_id and status
    - Uses try/except on each stage, writes audit_log on each failure
    - Runs as: python -m src.agents.content.pipeline --topic "..." --category news
 
-Environment: reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, ORIGINALITY_API_KEY from os.getenv(). No hardcoded values.
+Environment: reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY from os.getenv(). No hardcoded values.
 
 Create src/agents/__init__.py and src/agents/content/__init__.py.
 Create requirements-agents.txt with: anthropic, supabase, python-dotenv, requests, python-slugify.

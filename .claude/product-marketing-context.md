@@ -58,9 +58,9 @@ Write like a crew member, not a gaming journalist.
 4. Tier lists — ranked, no fluff, specific verdicts
 5. News analysis — what changed, what it means for your game
 
-## AI Detection Target
-Every article must score below 30% on Originality.ai.
-The humanizer agent runs after every draft.
+## Humanizer
+The humanizer agent runs after every draft. There is no AI-detection-score
+check — Originality.ai is not used, and never will be (non-negotiable).
 Humanizer instruction: rewrite to sound like the voice above.
 Make it sound like a player wrote it, not an AI.
 Short sentences. Specific numbers. Zero hedge words.

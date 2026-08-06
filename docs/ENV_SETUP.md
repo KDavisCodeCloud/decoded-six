@@ -18,10 +18,6 @@ NEXT_PUBLIC_MAP_LIVE=false
   No code deploy needed — Vercel rebuild triggers automatically.
 
 ## Content Agents
-ORIGINALITY_API_KEY=
-  Go to originality.ai → Account → API Keys → Create new key
-  Needed for DS-DETECT agent (AI detection scoring)
-
 ELEVENLABS_API_KEY=
   Go to elevenlabs.io → Profile → API Keys
   Needed for DS-YT-SHORT agent (voiceover generation)
