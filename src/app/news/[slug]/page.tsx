@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { NewsletterSignup } from '@/components/NewsletterSignup'
 import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
+import { ShareBar } from '@/components/shared/ShareBar'
 import { HeroImage } from '@/components/HeroImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
 import type { Article } from '@/lib/types'
@@ -241,10 +242,17 @@ export default async function ArticlePage({
       {/* ── ARTICLE BODY ─────────────────────────────────────── */}
       <article className="container py-10 max-w-3xl">
         {article.excerpt && (
-          <p className="text-xl text-quiet leading-relaxed mb-8 font-medium border-l-2 border-flame/40 pl-5">
+          <p className="text-xl text-quiet leading-relaxed mb-6 font-medium border-l-2 border-flame/40 pl-5">
             {article.excerpt}
           </p>
         )}
+
+        {/* Standard on every article going forward (Kelvin, 2026-08-06) --
+            lives in the shared template, not per-article content, so every
+            new article gets it automatically. */}
+        <div className="mb-8 pb-6 border-b border-white/[0.06]">
+          <ShareBar url={`${siteUrl}/news/${slug}`} title={article.title} image={ogImage} />
+        </div>
 
         {article.content && (
           <ArticleMarkdown content={article.content} stripFaq />
