@@ -109,6 +109,32 @@ def _safe_write_audit(supabase: Any, article_id: Optional[str], action: str, res
         log.error("[ds_translate] failed to write '%s' audit_log entry: %s", action, audit_exc)
 
 
+def _normalize_faq_pairs(value: Any) -> list:
+    """
+    The tool_use input schema declares faq_pairs as an array, but the model
+    has been observed (caught live 2026-08-07: German and Chinese passes
+    for one real article) returning a JSON-encoded *string* for this one
+    field instead of a native array on some calls, even though every other
+    locale/field came back correctly typed the same run. Storing that
+    string as-is into a jsonb column doesn't error (jsonb happily holds a
+    scalar string), so this went undetected until the frontend's
+    faqPairs.map() call hit it in production. Parse defensively rather
+    than trust the declared schema blindly.
+    """
+    import json
+
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return parsed
+        except (ValueError, TypeError):
+            pass
+    return []
+
+
 def _truncate(text: str, max_length: int) -> str:
     if not text or len(text) <= max_length:
         return text
@@ -191,7 +217,7 @@ def translate_article(
             "title": translated["title"],
             "excerpt": translated.get("excerpt"),
             "content": translated.get("content"),
-            "faq_pairs": translated.get("faq_pairs") or [],
+            "faq_pairs": _normalize_faq_pairs(translated.get("faq_pairs")),
             "meta_description": _truncate(translated.get("excerpt") or "", 160),
             "translation_status": "completed",
             "translation_error": None,

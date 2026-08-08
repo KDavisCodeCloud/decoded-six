@@ -160,7 +160,12 @@ export default async function ArticlePage({
   const title = translation?.title ?? article.title
   const excerptText = translation?.excerpt ?? article.excerpt
   const contentText = translation?.content ?? article.content
-  const faqPairs = translation?.faq_pairs ?? article.faq_pairs
+  // Defensive: a translation row's faq_pairs has been observed stored as a
+  // JSON string instead of a real array on rare bad rows (ds_translate.py
+  // now normalizes this at write time, but this guards existing/future
+  // data quirks from ever 500ing the page instead of just showing no FAQ).
+  const rawFaqPairs = translation?.faq_pairs ?? article.faq_pairs
+  const faqPairs = Array.isArray(rawFaqPairs) ? rawFaqPairs : []
 
   const t = await getTranslations({ locale, namespace: 'article' })
   const tTranslate = await getTranslations({ locale, namespace: 'translate' })
