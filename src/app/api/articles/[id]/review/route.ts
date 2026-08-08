@@ -133,5 +133,29 @@ export async function POST(
       .eq('status', 'pending')
   }
 
+  // Fire-and-forget: translate the article into all 7 supported locales
+  // (Kelvin, 2026-08-07 — reach more people worldwide). Never blocks or
+  // fails the approve response even if DECODEDSIX_API_URL is unset or the
+  // backend is unreachable; ds_translate itself writes its own audit_log
+  // entries per locale, so a failure here is still visible there.
+  if (action === 'approve') {
+    void triggerTranslation(id)
+  }
+
   return NextResponse.json({ success: true, article_id: id, action })
+}
+
+function triggerTranslation(articleId: string): Promise<void> {
+  const apiUrl = process.env.DECODEDSIX_API_URL
+  const apiKey = process.env.DECODEDSIX_API_KEY
+  if (!apiUrl) return Promise.resolve()
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
+
+  return fetch(`${apiUrl}/api/translate/${articleId}`, { method: 'POST', headers })
+    .then(() => undefined)
+    .catch((err) => {
+      console.error(`[translate-trigger] failed for article ${articleId}:`, err)
+    })
 }

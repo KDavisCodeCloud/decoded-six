@@ -14,7 +14,11 @@ read-only stub for the future weekly events feature. POST
 /api/distribute/reddit only ever creates a reddit_drafts row (draft-only,
 never auto-posts — ban risk). GET/PATCH /api/hitl-queue surfaces the real
 hitl_queue table (the dashboard queue page still reads articles.status
-directly instead — known gap, not fixed by this route).
+directly instead — known gap, not fixed by this route). POST
+/api/translate/{article_id} fans DS-TRANSLATE out across all 7 supported
+locales — the real HITL approve action (src/app/api/articles/[id]/review/
+route.ts) fires this after publishing (Kelvin, 2026-08-07: translate
+everything so the site reaches more people worldwide).
 """
 
 import os
@@ -30,6 +34,7 @@ from api.routes.hitl_queue import router as hitl_queue_router
 from api.routes.map_markers import router as map_markers_router
 from api.routes.map_scrape import router as map_scrape_router
 from api.routes.pipeline import router as pipeline_router
+from api.routes.translate import router as translate_router
 from api.routes.waitlist import router as waitlist_router
 
 app = FastAPI(title="DecodedSix API", version="1.0.0")
@@ -63,3 +68,4 @@ app.include_router(map_scrape_router)
 app.include_router(waitlist_router)
 app.include_router(events_router)
 app.include_router(distribute_router)
+app.include_router(translate_router)
