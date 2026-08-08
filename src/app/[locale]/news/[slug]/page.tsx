@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
@@ -9,11 +10,17 @@ import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
 import { ShareBar } from '@/components/shared/ShareBar'
 import { HeroImage } from '@/components/HeroImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
+import { routing } from '@/i18n/routing'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
+
+const LOCALE_NAMES: Record<string, string> = {
+  en: 'English (US)', 'en-GB': 'English (UK)', fr: 'Français', de: 'Deutsch',
+  ja: '日本語', zh: '中文', pt: 'Português', es: 'Español',
+}
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
@@ -37,6 +44,30 @@ async function getArticle(slug: string): Promise<Article | null> {
   return (data as Article | null) ?? null
 }
 
+interface Translation {
+  title: string
+  excerpt: string | null
+  content: string | null
+  faq_pairs: { question: string; answer: string }[] | null
+}
+
+// Overlays a completed translation onto the base (English) article --
+// every field NOT translated (images, dates, category, source, id, slug)
+// stays exactly as the base article has it. Returns null (not a partial
+// object) when no completed translation exists yet, so the caller can
+// show the "not translated yet" notice and fall back to English cleanly.
+async function getTranslation(articleId: string, locale: string): Promise<Translation | null> {
+  if (locale === routing.defaultLocale) return null
+  const { data } = await supabase
+    .from('article_translations')
+    .select('title, excerpt, content, faq_pairs')
+    .eq('article_id', articleId)
+    .eq('locale', locale)
+    .eq('translation_status', 'completed')
+    .maybeSingle()
+  return (data as Translation | null) ?? null
+}
+
 async function getRelated(category: string, excludeId: string): Promise<Article[]> {
   const { data } = await supabase
     .from('articles')
@@ -52,27 +83,39 @@ async function getRelated(category: string, excludeId: string): Promise<Article[
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ slug: string; locale: string }>
 }): Promise<Metadata> {
-  const { slug } = await params
+  const { slug, locale } = await params
   const article = await getArticle(slug)
   if (!article) return { title: 'Not Found' }
 
-  const description = article.excerpt ? truncate(article.excerpt, 160) : undefined
+  const translation = await getTranslation(article.id, locale)
+  const title = translation?.title ?? article.title
+  const excerptText = translation?.excerpt ?? article.excerpt
+
+  const description = excerptText ? truncate(excerptText, 160) : undefined
   const ogImage = absoluteUrl(article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
     articleTags({ category: article.category, article_type: article.article_type, title: article.title }),
     article.slug
   ))
 
+  const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
+  const canonicalPath = `${prefix}/news/${slug}`
+
   return {
-    title: article.title,
+    title,
     description,
-    alternates: { canonical: `${siteUrl}/news/${slug}` },
+    alternates: {
+      canonical: `${siteUrl}${canonicalPath}`,
+      languages: Object.fromEntries(
+        routing.locales.map((l) => [l, `${siteUrl}${l === routing.defaultLocale ? '' : `/${l}`}/news/${slug}`])
+      ),
+    },
     openGraph: {
-      title: article.title,
+      title,
       description,
       type: 'article',
-      url: `${siteUrl}/news/${slug}`,
+      url: `${siteUrl}${canonicalPath}`,
       siteName: 'Decoded Six',
       publishedTime: article.published_at,
       modifiedTime: article.created_at,
@@ -83,15 +126,15 @@ export async function generateMetadata({
     twitter: {
       card: 'summary_large_image',
       site: '@decodedsix',
-      title: article.title,
+      title,
       description,
       images: [ogImage],
     },
   }
 }
 
-function fmtLong(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
+function fmtLong(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   })
 }
@@ -106,11 +149,21 @@ const textShadow = '0 2px 20px rgba(0,0,0,0.9), 0 1px 6px rgba(0,0,0,0.8)'
 export default async function ArticlePage({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ slug: string; locale: string }>
 }) {
-  const { slug } = await params
+  const { slug, locale } = await params
   const article = await getArticle(slug)
   if (!article) notFound()
+
+  const translation = await getTranslation(article.id, locale)
+  const isUntranslated = locale !== routing.defaultLocale && !translation
+  const title = translation?.title ?? article.title
+  const excerptText = translation?.excerpt ?? article.excerpt
+  const contentText = translation?.content ?? article.content
+  const faqPairs = translation?.faq_pairs ?? article.faq_pairs
+
+  const t = await getTranslations({ locale, namespace: 'article' })
+  const tTranslate = await getTranslations({ locale, namespace: 'translate' })
 
   const related = await getRelated(article.category, article.id)
 
@@ -132,29 +185,35 @@ export default async function ArticlePage({
     article.slug
   ))
 
+  const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
+  const canonicalUrl = `${siteUrl}${prefix}/news/${slug}`
+
   const articleJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
-    headline: article.title,
-    description: article.excerpt ?? undefined,
+    headline: title,
+    description: excerptText ?? undefined,
     image: [ogImage],
     datePublished: article.published_at,
     dateModified: article.published_at,
+    inLanguage: locale,
     author: { '@type': 'Organization', name: 'DecodedSix Editorial Team' },
     publisher: { '@type': 'Organization', name: 'Decoded Six', url: siteUrl },
-    url: `${siteUrl}/news/${slug}`,
-    mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteUrl}/news/${slug}` },
+    url: canonicalUrl,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl },
   }
 
   // FAQ content itself (not a timestamp or URL) is safe to trust from
   // storage -- fall back to computing it from faq_pairs if schema_faq
-  // wasn't populated for this row.
-  const faqJsonLd = article.schema_faq ?? (
-    article.faq_pairs && article.faq_pairs.length >= 3
+  // wasn't populated for this row. Only used for the base (English)
+  // locale's pre-computed schema; translated locales compute it fresh
+  // from the translated faqPairs below.
+  const faqJsonLd = (!translation ? article.schema_faq : null) ?? (
+    faqPairs && faqPairs.length >= 3
       ? {
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
-          mainEntity: article.faq_pairs.map(pair => ({
+          mainEntity: faqPairs.map(pair => ({
             '@type': 'Question',
             name: pair.question,
             acceptedAnswer: { '@type': 'Answer', text: pair.answer },
@@ -167,9 +226,9 @@ export default async function ArticlePage({
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
-      { '@type': 'ListItem', position: 2, name: 'News', item: `${siteUrl}/news` },
-      { '@type': 'ListItem', position: 3, name: article.title, item: `${siteUrl}/news/${slug}` },
+      { '@type': 'ListItem', position: 1, name: t('home'), item: `${siteUrl}${prefix}/` },
+      { '@type': 'ListItem', position: 2, name: 'News', item: `${siteUrl}${prefix}/news` },
+      { '@type': 'ListItem', position: 3, name: title, item: canonicalUrl },
     ],
   }
 
@@ -197,11 +256,11 @@ export default async function ArticlePage({
         <div className="max-w-3xl w-full">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 mb-5 text-[11px] font-ibm" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            <a href="/" className="hover:text-white transition-colors">Home</a>
+            <a href={`${prefix}/`} className="hover:text-white transition-colors">{t('home')}</a>
             <span>/</span>
-            <a href="/news" className="hover:text-white transition-colors">News</a>
+            <a href={`${prefix}/news`} className="hover:text-white transition-colors">News</a>
             <span>/</span>
-            <span style={{ color: 'rgba(255,255,255,0.6)' }} className="truncate max-w-[200px]">{article.title}</span>
+            <span style={{ color: 'rgba(255,255,255,0.6)' }} className="truncate max-w-[200px]">{title}</span>
           </nav>
 
           <div className="flex items-center gap-2 mb-4">
@@ -217,12 +276,12 @@ export default async function ArticlePage({
             className="font-heading font-bold text-bright leading-tight mb-4"
             style={{ fontSize: 'clamp(28px, 4vw, 48px)', textShadow }}
           >
-            {article.title}
+            {title}
           </h1>
 
           <div className="flex items-center gap-4 flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
             <time dateTime={article.published_at} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
-              {fmtLong(article.published_at)}
+              {fmtLong(article.published_at, locale)}
             </time>
             {article.source_url && (
               <a
@@ -232,7 +291,7 @@ export default async function ArticlePage({
                 className="text-sm font-ibm hover:text-white transition-colors"
                 style={{ color: '#ec1272' }}
               >
-                Source →
+                {t('source')} →
               </a>
             )}
           </div>
@@ -241,9 +300,15 @@ export default async function ArticlePage({
 
       {/* ── ARTICLE BODY ─────────────────────────────────────── */}
       <article className="container py-10 max-w-3xl">
-        {article.excerpt && (
+        {isUntranslated && (
+          <div className="mb-8 p-4 rounded-lg border border-flame/20 text-quiet text-sm" style={{ background: '#0d0d0d' }}>
+            {tTranslate('notTranslatedNotice', { language: LOCALE_NAMES[locale] ?? locale })}
+          </div>
+        )}
+
+        {excerptText && (
           <p className="text-xl text-quiet leading-relaxed mb-6 font-medium border-l-2 border-flame/40 pl-5">
-            {article.excerpt}
+            {excerptText}
           </p>
         )}
 
@@ -251,18 +316,18 @@ export default async function ArticlePage({
             lives in the shared template, not per-article content, so every
             new article gets it automatically. */}
         <div className="mb-8 pb-6 border-b border-white/[0.06]">
-          <ShareBar url={`${siteUrl}/news/${slug}`} title={article.title} image={ogImage} />
+          <ShareBar url={canonicalUrl} title={title} image={ogImage} />
         </div>
 
-        {article.content && (
-          <ArticleMarkdown content={article.content} stripFaq />
+        {contentText && (
+          <ArticleMarkdown content={contentText} stripFaq />
         )}
 
-        {article.faq_pairs && article.faq_pairs.length > 0 && (
+        {faqPairs && faqPairs.length > 0 && (
           <section className="mt-10 border-t border-white/[0.06] pt-8">
-            <h2 className="font-heading font-bold text-2xl text-bright mb-6">Frequently Asked Questions</h2>
+            <h2 className="font-heading font-bold text-2xl text-bright mb-6">{t('faqHeading')}</h2>
             <div className="space-y-5">
-              {article.faq_pairs.map((pair, i) => (
+              {faqPairs.map((pair, i) => (
                 <div key={i} className="border border-white/[0.06] rounded-xl p-5" style={{ background: '#0d0d0d' }}>
                   <h3 className="font-heading font-bold text-base text-bright mb-2">{pair.question}</h3>
                   <p className="text-quiet text-sm leading-relaxed">{pair.answer}</p>
@@ -274,9 +339,9 @@ export default async function ArticlePage({
 
         {article.agent_generated && article.external_citation && (
           <div className="mt-10 p-4 rounded-lg border border-white/[0.06] text-whisper text-sm" style={{ background: '#0d0d0d' }}>
-            This article references publicly available reporting.{' '}
+            {t('referencesNotice')}{' '}
             <a href={article.external_citation} target="_blank" rel="noopener noreferrer" className="text-flame hover:underline">
-              View source →
+              {t('viewSource')} →
             </a>
           </div>
         )}

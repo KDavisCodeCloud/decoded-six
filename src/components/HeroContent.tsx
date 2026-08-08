@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { motion, type Variants } from 'framer-motion'
 import { Countdown } from '@/components/Countdown'
 

@@ -1,80 +1,63 @@
-import type { Metadata, Viewport } from 'next'
-import { Suspense } from 'react'
-import { Archivo, IBM_Plex_Mono } from 'next/font/google'
-import PageviewBeacon from '@/components/shared/PageviewBeacon'
-import './globals.css'
+import type { Metadata } from 'next'
+import { NextIntlClientProvider } from 'next-intl'
+import { getMessages, setRequestLocale } from 'next-intl/server'
+import { notFound } from 'next/navigation'
+import { routing } from '@/i18n/routing'
 
-const archivo = Archivo({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
-  variable: '--font-archivo',
-})
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '600', '700'],
-  variable: '--font-ibm-plex-mono',
-})
-
-const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'Decoded Six'
-// Must match sitemap.ts/robots.ts/news/[slug]/page.tsx's fallback (www) --
-// this was previously the one place still defaulting to the apex domain,
-// which the domain's own 308 redirect sends to www. Since metadataBase
-// resolves every relative `alternates.canonical` below, that mismatch was
-// silently emitting canonical tags pointing at a URL that immediately
-// redirects -- a real cause of Google's "duplicate content" / indexing
-// errors on a site with no other canonical mismatch left.
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: `${siteName} | GTA 6 News, Maps & Guides`,
-    template: `%s | ${siteName}`,
-  },
-  description:
-    'The definitive independent source for GTA 6 news, rumors, interactive maps, vehicle stats, and weekly event guides.',
-  keywords: ['GTA 6', 'Grand Theft Auto 6', 'GTA 6 map', 'GTA 6 news', 'GTA 6 release date'],
-  alternates: { canonical: '/' },
-  openGraph: {
-    type: 'website',
-    siteName,
-    locale: 'en_US',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    site: '@decodedsix',
-    title: `${siteName} | GTA 6 News, Maps & Guides`,
-    description: 'The definitive independent source for GTA 6 news, rumors, interactive maps, vehicle stats, and weekly event guides.',
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
+// OG locale tags use underscore region codes, not the URL's hyphenated
+// BCP-47 codes (en-GB -> en_GB). 'en' (the site's un-prefixed default)
+// still needs a real region for og:locale -- en_US matches the existing
+// value this repo already shipped with.
+const OG_LOCALE: Record<string, string> = {
+  en: 'en_US', 'en-GB': 'en_GB', fr: 'fr_FR', de: 'de_DE',
+  ja: 'ja_JP', zh: 'zh_CN', pt: 'pt_BR', es: 'es_ES',
 }
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }))
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
+
+  return {
+    alternates: {
+      canonical: `${prefix}/`,
+      languages: Object.fromEntries(
+        routing.locales.map((l) => [l, `${siteUrl}${l === routing.defaultLocale ? '' : `/${l}`}/`])
+      ),
+    },
+    openGraph: { locale: OG_LOCALE[locale] },
+  }
+}
+
+export default async function LocaleLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  if (!routing.locales.includes(locale as (typeof routing.locales)[number])) {
+    notFound()
+  }
+
+  // Required by next-intl so static rendering knows which locale is
+  // active for this request before any messages are read.
+  setRequestLocale(locale)
+  const messages = await getMessages()
+
   return (
-    <html lang="en" className={`${archivo.variable} ${ibmPlexMono.variable}`}>
-      <head>
-        {/* Impact.com affiliate network site verification — CDKeys + Green Man Gaming.
-            Uses value= (non-standard, not content=) intentionally: the verifier
-            checks for the literal attribute it issued this tag with. React's
-            meta types only recognize content=, so this is spread as `any` to
-            bypass that and render value= literally rather than being coerced. */}
-        <meta {...({ name: 'impact-site-verification', value: '0df4b2cc-c4bc-4d85-a090-01f7f92145bd' } as any)} />
-      </head>
-      <body className="font-body antialiased bg-void text-bright">
-        <Suspense fallback={null}>
-          <PageviewBeacon />
-        </Suspense>
-        {children}
-      </body>
-    </html>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      {children}
+    </NextIntlClientProvider>
   )
 }

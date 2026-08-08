@@ -1,19 +1,22 @@
 'use client'
 
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { useState } from 'react'
-
-const NAV = [
-  { label: 'News',       href: '/news' },
-  { label: 'Map',        href: '/map' },
-  { label: 'Guides',     href: '/guides' },
-  { label: 'Vehicles',   href: '/vehicles' },
-  { label: 'Characters', href: '/characters' },
-  { label: 'Rumors',     href: '/rumors' },
-]
+import { useTranslations } from 'next-intl'
+import { TranslateButton } from './TranslateButton'
 
 export function Header() {
+  const t = useTranslations('nav')
   const [open, setOpen] = useState(false)
+
+  const NAV = [
+    { label: t('news'), href: '/news' },
+    { label: t('map'), href: '/map' },
+    { label: t('guides'), href: '/guides' },
+    { label: t('vehicles'), href: '/vehicles' },
+    { label: t('characters'), href: '/characters' },
+    { label: t('rumors'), href: '/rumors' },
+  ]
 
   return (
     <header className="sticky top-0 z-50 bg-void/90 backdrop-blur-md border-b border-white/[0.06]">
@@ -36,7 +39,7 @@ export function Header() {
           <nav className="hidden md:flex items-center gap-1">
             {NAV.map(n => (
               <Link
-                key={n.label}
+                key={n.href}
                 href={n.href}
                 className="px-4 py-2 text-sm font-medium text-quiet hover:text-bright transition-colors"
               >
@@ -45,30 +48,33 @@ export function Header() {
             ))}
           </nav>
 
-          {/* Subscribe CTA */}
-          <div className="hidden md:block">
-            <Link
-              href="/subscribe"
-              className="px-4 py-2 rounded-lg text-sm font-bold text-white"
-              style={{ background: '#ec1272' }}
-            >
-              Subscribe
-            </Link>
-          </div>
+          {/* Translate + Subscribe CTA */}
+          <div className="flex items-center gap-2">
+            <TranslateButton />
+            <div className="hidden md:block">
+              <Link
+                href="/subscribe"
+                className="px-4 py-2 rounded-lg text-sm font-bold text-white"
+                style={{ background: '#ec1272' }}
+              >
+                {t('subscribe')}
+              </Link>
+            </div>
 
-          {/* Mobile toggle */}
-          <button
-            onClick={() => setOpen(!open)}
-            className="md:hidden p-2 text-quiet"
-            aria-label="Toggle menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {open
-                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              }
-            </svg>
-          </button>
+            {/* Mobile toggle */}
+            <button
+              onClick={() => setOpen(!open)}
+              className="md:hidden p-2 text-quiet"
+              aria-label="Toggle menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {open
+                  ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                }
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -76,7 +82,7 @@ export function Header() {
           <div className="md:hidden border-t border-white/[0.06] py-3">
             {NAV.map(n => (
               <Link
-                key={n.label}
+                key={n.href}
                 href={n.href}
                 className="flex items-center px-4 py-3 text-sm font-medium text-quiet hover:text-bright"
                 onClick={() => setOpen(false)}
@@ -90,7 +96,7 @@ export function Header() {
                 className="block w-full text-center py-2.5 rounded-lg text-sm font-bold text-white"
                 style={{ background: '#ec1272' }}
               >
-                Subscribe
+                {t('subscribe')}
               </Link>
             </div>
           </div>

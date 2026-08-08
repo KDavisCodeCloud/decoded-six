@@ -1,0 +1,28 @@
+{
+  "nav": {
+    "news": "News",
+    "map": "Karte",
+    "guides": "Guides",
+    "vehicles": "Fahrzeuge",
+    "characters": "Charaktere",
+    "rumors": "Gerüchte",
+    "subscribe": "Abonnieren"
+  },
+  "footer": {
+    "disclaimer": "Unabhängige Fanseite zu GTA 6. Nicht verbunden mit Rockstar Games oder Take-Two Interactive.",
+    "contact": "Kontakt",
+    "trademark": "GTA 6, Grand Theft Auto und verwandte Marken sind Warenzeichen von Take-Two Interactive Software."
+  },
+  "translate": {
+    "label": "Übersetzen",
+    "menuLabel": "Sprache wählen",
+    "notTranslatedNotice": "Dieser Artikel wurde noch nicht ins {language} übersetzt — hier die englische Originalversion."
+  },
+  "article": {
+    "home": "Startseite",
+    "faqHeading": "Häufig gestellte Fragen",
+    "source": "Quelle",
+    "referencesNotice": "Dieser Artikel bezieht sich auf öffentlich zugängliche Berichterstattung.",
+    "viewSource": "Quelle ansehen"
+  }
+}

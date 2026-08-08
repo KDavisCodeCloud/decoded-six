@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import type { Article } from '@/lib/types'
 import { RockstarImage } from '@/components/shared/RockstarImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'

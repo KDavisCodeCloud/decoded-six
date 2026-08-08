@@ -1,0 +1,28 @@
+{
+  "nav": {
+    "news": "新闻",
+    "map": "地图",
+    "guides": "攻略",
+    "vehicles": "载具",
+    "characters": "角色",
+    "rumors": "传闻",
+    "subscribe": "订阅"
+  },
+  "footer": {
+    "disclaimer": "本站为GTA 6独立粉丝网站，与Rockstar Games及Take-Two Interactive没有任何关联。",
+    "contact": "联系我们",
+    "trademark": "GTA 6、Grand Theft Auto及相关标志均为Take-Two Interactive Software的商标。"
+  },
+  "translate": {
+    "label": "翻译",
+    "menuLabel": "选择语言",
+    "notTranslatedNotice": "这篇文章尚未翻译成{language} — 目前显示的是英文原文。"
+  },
+  "article": {
+    "home": "首页",
+    "faqHeading": "常见问题",
+    "source": "来源",
+    "referencesNotice": "本文引用了公开报道的信息。",
+    "viewSource": "查看来源"
+  }
+}

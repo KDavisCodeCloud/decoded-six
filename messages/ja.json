@@ -1,0 +1,28 @@
+{
+  "nav": {
+    "news": "ニュース",
+    "map": "マップ",
+    "guides": "攻略ガイド",
+    "vehicles": "車両",
+    "characters": "キャラクター",
+    "rumors": "噂",
+    "subscribe": "購読する"
+  },
+  "footer": {
+    "disclaimer": "GTA 6を扱う非公式ファンサイトです。Rockstar GamesおよびTake-Two Interactiveとは提携していません。",
+    "contact": "お問い合わせ",
+    "trademark": "GTA 6、Grand Theft Auto、および関連する商標はTake-Two Interactive Softwareの商標です。"
+  },
+  "translate": {
+    "label": "翻訳",
+    "menuLabel": "言語を選択",
+    "notTranslatedNotice": "この記事はまだ{language}に翻訳されていません — 英語の原文を表示しています。"
+  },
+  "article": {
+    "home": "ホーム",
+    "faqHeading": "よくある質問",
+    "source": "情報源",
+    "referencesNotice": "この記事は公開されている報道を参照しています。",
+    "viewSource": "情報源を見る"
+  }
+}
