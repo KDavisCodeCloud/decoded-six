@@ -770,9 +770,27 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
         "featured_image_url": state.get("featured_image_url"),
     }
 
-    result = sb.table("articles").insert(row).execute()
+    # The writer's LLM-generated slug can collide with a previously published
+    # article's slug -- observed live 2026-08-08 ("gta-6-release-date-price-
+    # editions-guide" already existed), which killed the whole day's run with
+    # a raw unique-violation. The topic pool is a small rotating list of
+    # evergreen subjects, so this recurs rather than being a one-off. Same
+    # duplicate-key-catch-and-retry shape as the idempotency handling
+    # elsewhere in this codebase, but retried with a modified slug instead of
+    # skipped, since a content run should still produce an article.
+    base_slug = row["slug"][:56]
+    for attempt in range(1, 6):
+        try:
+            result = sb.table("articles").insert(row).execute()
+            break
+        except Exception as exc:
+            if attempt == 5 or not ("duplicate key" in str(exc) or "23505" in str(exc)):
+                raise
+            row["slug"] = f"{base_slug}-{attempt + 1}"
+
     if not result.data:
         raise ContentAgentError("output_formatter", None, RuntimeError("Supabase insert returned no data"))
+    state["slug"] = row["slug"]
 
     article_id = result.data[0]["id"]
     state["article_id"] = article_id
