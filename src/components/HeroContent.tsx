@@ -36,7 +36,15 @@ export function HeroContent({ launchDate }: { launchDate: string }) {
         style={{ fontSize: 'clamp(60px, 8vw, 84px)', textShadow: shadow }}
       >
         <span className="block text-bright">GTA VI</span>
-        <span className="block gradient-text">DECODED</span>
+        <span
+          className="block gradient-text"
+          style={{
+            WebkitTextStroke: '1.5px rgba(255,255,255,0.9)',
+            filter: 'drop-shadow(0 0 18px rgba(236,18,114,0.55)) drop-shadow(0 4px 14px rgba(0,0,0,0.9))',
+          }}
+        >
+          DECODED
+        </span>
       </motion.h1>
 
       {/* Subtitle */}
