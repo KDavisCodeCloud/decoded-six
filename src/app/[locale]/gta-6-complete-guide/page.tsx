@@ -93,7 +93,7 @@ GTA 6 is set in Vice City and the surrounding state of Leonida, a fictionalized 
 
 Fans speculate the map is the largest in series history based on trailer footage alone. Rockstar hasn't published a specific size figure, a square-mile count, or a direct comparison to GTA 5's Los Santos and Blaine County map — so treat "largest ever" as an inference from what's visible on screen, not a confirmed number. The same caution applies to specific district names and boundaries circulating on fan wikis: some line up with what's shown in trailers, some are guesses dressed up as leaks.
 
-Every confirmed location detail: [GTA 6 Vice City: Every Location Detail](/news/gta-6-vice-city-location-details)
+Every confirmed location detail: [GTA 6 Vice City: Every Location Detail](/guides/gta-6-vice-city-location-details)
 
 ## Protagonists: Jason and Lucia
 
@@ -101,7 +101,7 @@ Jason and Lucia are confirmed dual protagonists. Lucia is the first playable fem
 
 Rockstar has shown Jason and Lucia in a range of settings across both trailers — from a gas-station robbery in the newest key art to quieter character moments — but hasn't detailed a full cast list, supporting characters, or specific mission structure beyond the two leads. Anything you read naming a large supporting cast in detail right now is speculation from trailer frame analysis, not a Rockstar-published character list.
 
-Full confirmed character breakdown: [GTA 6 Characters: Every Confirmed Name, Role, and Detail](/news/gta-6-characters-every-confirmed-name-role-detail)
+Full confirmed character breakdown: [GTA 6 Characters: Every Confirmed Name, Role, and Detail](/guides/gta-6-characters-every-confirmed-name-role-detail)
 
 ## Confirmed Mechanics
 
@@ -119,7 +119,7 @@ Trailer footage additionally shows boats, muscle cars, ATVs, and what reads as a
 
 Browse the full confirmed vehicle database: [GTA 6 Vehicles](/vehicles)
 
-Full Ultimate Edition vehicle breakdown: [GTA 6 Ultimate Edition vs Standard: Every Item Confirmed](/news/gta-6-ultimate-edition-vs-standard-edition)
+Full Ultimate Edition vehicle breakdown: [GTA 6 Ultimate Edition vs Standard: Every Item Confirmed](/guides/gta-6-ultimate-edition-vs-standard-edition)
 
 ## Weapons
 
@@ -127,7 +127,7 @@ Confirmed so far: the Girardi ES9 and Klose K17 sidearms (Jason's and Lucia's de
 
 Rockstar hasn't published a full weapon list, a customization-system breakdown, or confirmed whether the wanted-system claims circulating on fan sites tie into weapon use at all. Treat any complete "confirmed weapons list" you see elsewhere with more than a handful of guns on it as partially or fully speculative.
 
-Every confirmed gun: [GTA 6 Weapons List: Every Confirmed Gun](/news/gta-6-weapons-list-confirmed)
+Every confirmed gun: [GTA 6 Weapons List: Every Confirmed Gun](/guides/gta-6-weapons-list-confirmed)
 
 ## Online Mode
 
@@ -135,7 +135,7 @@ GTA Online ships with GTA 6 at no extra cost, on the same map as story mode. Tha
 
 If you see a specific $/hr money-spot figure for GTA 6 anywhere before launch, it's not real. There's nothing to test until the game is actually out, and this site doesn't publish money-spot numbers until they're verified post-launch.
 
-Full breakdown of what's confirmed vs. carried over from GTA 5's playbook: [GTA 6 Online Economy: Everything We Know](/news/gta-6-online-economy-making-money)
+Full breakdown of what's confirmed vs. carried over from GTA 5's playbook: [GTA 6 Online Economy: Everything We Know](/guides/gta-6-online-economy-making-money)
 
 ## Pre-Order Guide
 
@@ -145,9 +145,9 @@ You can upgrade Standard to Ultimate any time after launch, so the pre-order dec
 
 One format detail regardless of edition: physical copies are code-in-box. There's no disc. Physical vs. digital doesn't change how the game reaches your console — you're redeeming a code either way.
 
-Full edition-by-edition breakdown: [GTA 6 Ultimate Edition vs Standard: Every Item Confirmed](/news/gta-6-ultimate-edition-vs-standard-edition)
+Full edition-by-edition breakdown: [GTA 6 Ultimate Edition vs Standard: Every Item Confirmed](/guides/gta-6-ultimate-edition-vs-standard-edition)
 
-Everything in the pre-order bonus pack itself: [GTA 6 Vintage Vice City Pack: Every Item Included](/news/gta-6-vintage-vice-city-pack-guide)
+Everything in the pre-order bonus pack itself: [GTA 6 Vintage Vice City Pack: Every Item Included](/guides/gta-6-vintage-vice-city-pack-guide)
 
 ## August 27 Expectations
 

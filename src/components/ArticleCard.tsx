@@ -1,7 +1,7 @@
 import { Link } from '@/i18n/navigation'
 import type { Article } from '@/lib/types'
 import { RockstarImage } from '@/components/shared/RockstarImage'
-import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
+import { getArticleFallbackImage, articleTags, articlePath } from '@/lib/article-utils'
 
 const CAT_CLASS: Record<string, string> = {
   news:   'badge-news',
@@ -39,7 +39,7 @@ export function ArticleCard({
   if (featured) {
     return (
       <Link
-        href={`/news/${article.slug}`}
+        href={articlePath(article)}
         className="group block rounded-xl border border-white/[0.06] hover:border-flame/25 transition-all duration-300 overflow-hidden"
         style={{ background: '#0d0d0d' }}
       >
@@ -90,7 +90,7 @@ export function ArticleCard({
 
   return (
     <Link
-      href={`/news/${article.slug}`}
+      href={articlePath(article)}
       className="group block rounded-xl border border-white/[0.06] hover:border-flame/25 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden flex flex-col"
       style={{ background: '#0d0d0d' }}
     >

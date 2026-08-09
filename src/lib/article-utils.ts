@@ -1,4 +1,14 @@
 import { getImagesByTags, hashSeed } from './rockstar-images'
+import type { Article } from './types'
+
+// Guide URL restructuring (2026-08-09): guide-category articles live at
+// /guides/[slug] now, everything else stays at /news/[slug]. Single source
+// of truth for that split so ArticleCard, sitemap.ts, and any future caller
+// never hand-roll the /news/ prefix and drift out of sync with the redirect
+// in news/[slug]/page.tsx.
+export function articlePath(article: Pick<Article, 'category' | 'slug'>): string {
+  return article.category === 'guide' ? `/guides/${article.slug}` : `/news/${article.slug}`
+}
 
 // Placeholder pages created to fix dead internal links (2026-07-25) — real
 // content, but not Gate 1 editorial output and not "news." Excluded from the

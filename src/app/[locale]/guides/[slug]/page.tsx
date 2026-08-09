@@ -14,6 +14,12 @@ import { routing } from '@/i18n/routing'
 import { permanentRedirect } from '@/i18n/navigation'
 import type { Article } from '@/lib/types'
 
+// Mirrors src/app/[locale]/news/[slug]/page.tsx exactly (data fetching,
+// translation overlay, JSON-LD, layout) -- the only differences are the
+// category='guide' filter on getArticle and the /guides path everywhere
+// /news appeared. Guide URL restructuring (2026-08-09): the 13 published
+// guide-category articles now live here; /news/[slug] 301s old links in.
+
 export const revalidate = 300
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
@@ -28,9 +34,6 @@ function truncate(text: string, maxLength: number): string {
   return `${text.slice(0, maxLength - 1).trimEnd()}…`
 }
 
-// Google's structured-data (and OG) image requirements need a fully-qualified
-// URL -- confirmed live 2026-07-25 that stored/fallback images are relative
-// paths (served from the local image library), which fails rich-results eligibility.
 function absoluteUrl(url: string): string {
   return url.startsWith('http') ? url : `${siteUrl}${url}`
 }
@@ -41,13 +44,14 @@ async function getArticle(slug: string): Promise<Article | null> {
     .select('*')
     .eq('slug', slug)
     .eq('status', 'published')
+    .eq('category', 'guide')
     .single()
   return (data as Article | null) ?? null
 }
 
-// Phase 1A duplicate-article consolidation (2026-08-09): a slug that used to
-// be a live article can now be 'archived' with redirect_slug pointing at the
-// canonical survivor -- 301 there instead of 404ing a previously-indexed URL.
+// Same redirect_slug consolidation mechanism as news/[slug]/page.tsx
+// (migration 011) -- an archived guide can point at a canonical survivor
+// instead of 404ing a previously-indexed /guides/ URL.
 async function getRedirectTarget(slug: string): Promise<string | null> {
   const { data } = await supabase
     .from('articles')
@@ -66,11 +70,6 @@ interface Translation {
   faq_pairs: { question: string; answer: string }[] | null
 }
 
-// Overlays a completed translation onto the base (English) article --
-// every field NOT translated (images, dates, category, source, id, slug)
-// stays exactly as the base article has it. Returns null (not a partial
-// object) when no completed translation exists yet, so the caller can
-// show the "not translated yet" notice and fall back to English cleanly.
 async function getTranslation(articleId: string, locale: string): Promise<Translation | null> {
   if (locale === routing.defaultLocale) return null
   const { data } = await supabase
@@ -107,10 +106,6 @@ export async function generateMetadata({
     if (redirectTarget) return { title: 'Moved' }
     return { title: 'Not Found' }
   }
-  // Guide URL restructuring (2026-08-09): guide-category articles now live
-  // at /guides/[slug] -- this route just 301s there. See the matching
-  // permanentRedirect below in the page component.
-  if (article.category === 'guide') return { title: 'Moved' }
 
   const translation = await getTranslation(article.id, locale)
   const title = translation?.title ?? article.title
@@ -123,7 +118,7 @@ export async function generateMetadata({
   ))
 
   const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
-  const canonicalPath = `${prefix}/news/${slug}`
+  const canonicalPath = `${prefix}/guides/${slug}`
 
   return {
     title,
@@ -131,7 +126,7 @@ export async function generateMetadata({
     alternates: {
       canonical: `${siteUrl}${canonicalPath}`,
       languages: Object.fromEntries(
-        routing.locales.map((l) => [l, `${siteUrl}${l === routing.defaultLocale ? '' : `/${l}`}/news/${slug}`])
+        routing.locales.map((l) => [l, `${siteUrl}${l === routing.defaultLocale ? '' : `/${l}`}/guides/${slug}`])
       ),
     },
     openGraph: {
@@ -169,7 +164,7 @@ const CAT_CLASS: Record<string, string> = {
 
 const textShadow = '0 2px 20px rgba(0,0,0,0.9), 0 1px 6px rgba(0,0,0,0.8)'
 
-export default async function ArticlePage({
+export default async function GuidePage({
   params,
 }: {
   params: Promise<{ slug: string; locale: string }>
@@ -178,15 +173,8 @@ export default async function ArticlePage({
   const article = await getArticle(slug)
   if (!article) {
     const redirectTarget = await getRedirectTarget(slug)
-    if (redirectTarget) permanentRedirect({ href: `/news/${redirectTarget}`, locale })
+    if (redirectTarget) permanentRedirect({ href: `/guides/${redirectTarget}`, locale })
     notFound()
-  }
-  // Guide URL restructuring (2026-08-09): permanent redirect, not a client
-  // nav -- next-intl's permanentRedirect issues a real 308 (same mechanism
-  // migration 011's redirect_slug path already uses) that carries the
-  // locale prefix automatically, so this covers all 8 locales in one path.
-  if (article.category === 'guide') {
-    permanentRedirect({ href: `/guides/${slug}`, locale })
   }
 
   const translation = await getTranslation(article.id, locale)
@@ -194,10 +182,6 @@ export default async function ArticlePage({
   const title = translation?.title ?? article.title
   const excerptText = translation?.excerpt ?? article.excerpt
   const contentText = translation?.content ?? article.content
-  // Defensive: a translation row's faq_pairs has been observed stored as a
-  // JSON string instead of a real array on rare bad rows (ds_translate.py
-  // now normalizes this at write time, but this guards existing/future
-  // data quirks from ever 500ing the page instead of just showing no FAQ).
   const rawFaqPairs = translation?.faq_pairs ?? article.faq_pairs
   const faqPairs = Array.isArray(rawFaqPairs) ? rawFaqPairs : []
 
@@ -211,21 +195,13 @@ export default async function ArticlePage({
     article.slug
   )
 
-  // articleJsonLd and breadcrumbJsonLd are ALWAYS computed fresh here, never
-  // from the stored article.schema_article/schema_breadcrumb columns --
-  // confirmed live 2026-07-25 that the stored version had datePublished/
-  // dateModified baked in as null (content_agent.py's schema_generator node
-  // ran before publish_date was known) and used the wrong domain (its
-  // SITE_URL fell back to non-www; this site's real canonical is www).
-  // Computing fresh means every article gets correct data with no need to
-  // backfill/repair already-stored rows.
   const ogImage = absoluteUrl(article.og_image_url ?? article.featured_image_url ?? getArticleFallbackImage(
     articleTags({ category: article.category, article_type: article.article_type, title: article.title }),
     article.slug
   ))
 
   const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
-  const canonicalUrl = `${siteUrl}${prefix}/news/${slug}`
+  const canonicalUrl = `${siteUrl}${prefix}/guides/${slug}`
 
   const articleJsonLd = {
     '@context': 'https://schema.org',
@@ -242,11 +218,6 @@ export default async function ArticlePage({
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl },
   }
 
-  // FAQ content itself (not a timestamp or URL) is safe to trust from
-  // storage -- fall back to computing it from faq_pairs if schema_faq
-  // wasn't populated for this row. Only used for the base (English)
-  // locale's pre-computed schema; translated locales compute it fresh
-  // from the translated faqPairs below.
   const faqJsonLd = (!translation ? article.schema_faq : null) ?? (
     faqPairs && faqPairs.length >= 3
       ? {
@@ -266,7 +237,7 @@ export default async function ArticlePage({
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: t('home'), item: `${siteUrl}${prefix}/` },
-      { '@type': 'ListItem', position: 2, name: 'News', item: `${siteUrl}${prefix}/news` },
+      { '@type': 'ListItem', position: 2, name: 'Guides', item: `${siteUrl}${prefix}/guides` },
       { '@type': 'ListItem', position: 3, name: title, item: canonicalUrl },
     ],
   }
@@ -297,7 +268,7 @@ export default async function ArticlePage({
           <nav className="flex items-center gap-2 mb-5 text-[11px] font-ibm" style={{ color: 'rgba(255,255,255,0.45)' }}>
             <a href={`${prefix}/`} className="hover:text-white transition-colors">{t('home')}</a>
             <span>/</span>
-            <a href={`${prefix}/news`} className="hover:text-white transition-colors">News</a>
+            <a href={`${prefix}/guides`} className="hover:text-white transition-colors">Guides</a>
             <span>/</span>
             <span style={{ color: 'rgba(255,255,255,0.6)' }} className="truncate max-w-[200px]">{title}</span>
           </nav>
@@ -351,9 +322,6 @@ export default async function ArticlePage({
           </p>
         )}
 
-        {/* Standard on every article going forward (Kelvin, 2026-08-06) --
-            lives in the shared template, not per-article content, so every
-            new article gets it automatically. */}
         <div className="mb-8 pb-6 border-b border-white/[0.06]">
           <ShareBar url={canonicalUrl} title={title} image={ogImage} />
         </div>

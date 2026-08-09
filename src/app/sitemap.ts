@@ -45,9 +45,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const { data } = await supabase
     .from('articles')
-    .select('id, slug, published_at')
+    .select('id, slug, category, published_at')
     .eq('status', 'published')
-  const articles = (data as { id: string; slug: string; published_at: string }[] | null) ?? []
+  const articles = (data as { id: string; slug: string; category: string; published_at: string }[] | null) ?? []
 
   // Only list a translated locale for an article if a completed
   // translation actually exists -- otherwise that URL just re-serves the
@@ -68,7 +68,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const articleRoutes: MetadataRoute.Sitemap = articles.flatMap((article) => {
     const availableLocales = [routing.defaultLocale, ...(translatedLocalesByArticle.get(article.id) ?? [])]
-    const route = `/news/${article.slug}`
+    // Guide URL restructuring (2026-08-09): guide-category articles are
+    // canonical at /guides/[slug] now -- list the redirect target here,
+    // not the old /news/ URL that 301s away from it.
+    const route = article.category === 'guide' ? `/guides/${article.slug}` : `/news/${article.slug}`
     return availableLocales.map((locale) => ({
       url: localizedUrl(route, locale),
       lastModified: new Date(article.published_at),
