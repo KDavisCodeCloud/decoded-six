@@ -3,12 +3,25 @@ import { NextResponse } from 'next/server'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SYSTEME_CONTACTS_URL = 'https://api.systeme.io/api/contacts'
 
+// Allowlist, not free-form client input -- a source tag becomes a real
+// systeme.io segment, so it's picked server-side from a known set rather
+// than trusting whatever string the client sends.
+const SOURCES = {
+  article: 'decodedsix-article',
+  aug27: 'decodedsix_aug27_waitlist',
+} as const
+type SourceKey = keyof typeof SOURCES
+
 export async function POST(request: Request) {
   let email: string | undefined
+  let sourceKey: SourceKey = 'article'
 
   try {
     const body = await request.json()
     email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : undefined
+    if (typeof body?.source === 'string' && body.source in SOURCES) {
+      sourceKey = body.source as SourceKey
+    }
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
@@ -34,7 +47,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         email,
-        fields: [{ slug: 'source', value: 'decodedsix-article' }],
+        fields: [{ slug: 'source', value: SOURCES[sourceKey] }],
       }),
     })
 

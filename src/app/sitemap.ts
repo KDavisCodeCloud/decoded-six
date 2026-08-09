@@ -7,7 +7,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.c
 // Was missing 4 real, nav-linked pages (map/vehicles/characters/rumors) --
 // they were still crawlable via internal links, but excluding them from the
 // sitemap denied Google an explicit discovery/priority signal for them.
-const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy', '/map', '/vehicles', '/characters', '/rumors']
+const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy', '/map', '/vehicles', '/characters', '/rumors', '/gta-6-complete-guide']
 
 function localizedUrl(route: string, locale: string): string {
   const prefix = locale === routing.defaultLocale ? '' : `/${locale}`

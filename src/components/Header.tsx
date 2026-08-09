@@ -4,6 +4,7 @@ import { Link } from '@/i18n/navigation'
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { TranslateButton } from './TranslateButton'
+import { Aug27StickyBar } from './Aug27StickyBar'
 
 export function Header() {
   const t = useTranslations('nav')
@@ -20,6 +21,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-void/90 backdrop-blur-md border-b border-white/[0.06]">
+      <Aug27StickyBar />
       <div className="container">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}

@@ -11,6 +11,7 @@ import { ShareBar } from '@/components/shared/ShareBar'
 import { HeroImage } from '@/components/HeroImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
 import { routing } from '@/i18n/routing'
+import { permanentRedirect } from '@/i18n/navigation'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
@@ -42,6 +43,20 @@ async function getArticle(slug: string): Promise<Article | null> {
     .eq('status', 'published')
     .single()
   return (data as Article | null) ?? null
+}
+
+// Phase 1A duplicate-article consolidation (2026-08-09): a slug that used to
+// be a live article can now be 'archived' with redirect_slug pointing at the
+// canonical survivor -- 301 there instead of 404ing a previously-indexed URL.
+async function getRedirectTarget(slug: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('articles')
+    .select('redirect_slug')
+    .eq('slug', slug)
+    .eq('status', 'archived')
+    .not('redirect_slug', 'is', null)
+    .maybeSingle()
+  return (data as { redirect_slug: string } | null)?.redirect_slug ?? null
 }
 
 interface Translation {
@@ -87,7 +102,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug, locale } = await params
   const article = await getArticle(slug)
-  if (!article) return { title: 'Not Found' }
+  if (!article) {
+    const redirectTarget = await getRedirectTarget(slug)
+    if (redirectTarget) return { title: 'Moved' }
+    return { title: 'Not Found' }
+  }
 
   const translation = await getTranslation(article.id, locale)
   const title = translation?.title ?? article.title
@@ -153,7 +172,11 @@ export default async function ArticlePage({
 }) {
   const { slug, locale } = await params
   const article = await getArticle(slug)
-  if (!article) notFound()
+  if (!article) {
+    const redirectTarget = await getRedirectTarget(slug)
+    if (redirectTarget) permanentRedirect({ href: `/news/${redirectTarget}`, locale })
+    notFound()
+  }
 
   const translation = await getTranslation(article.id, locale)
   const isUntranslated = locale !== routing.defaultLocale && !translation

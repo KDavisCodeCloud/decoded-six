@@ -24,8 +24,9 @@ export function Footer() {
             <a href="mailto:hello@decodedsix.com" className="hover:text-quiet transition-colors">{t('contact')}</a>
           </nav>
         </div>
-        <div className="mt-8 pt-6 border-t border-white/[0.04] text-center text-whisper text-xs">
-          &copy; {new Date().getFullYear()} {siteName}. {t('trademark')}
+        <div className="mt-8 pt-6 border-t border-white/[0.04] text-center text-whisper text-xs space-y-2">
+          <p>{t('affiliateDisclosure')}</p>
+          <p>&copy; {new Date().getFullYear()} {siteName}. {t('trademark')}</p>
         </div>
       </div>
     </footer>

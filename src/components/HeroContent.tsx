@@ -62,16 +62,23 @@ export function HeroContent({ launchDate }: { launchDate: string }) {
       </motion.div>
 
       {/* CTAs */}
-      <motion.div variants={item} className="mt-8 flex items-center gap-3">
+      <motion.div variants={item} className="mt-8 flex items-center gap-3 flex-wrap">
         <Link
-          href="/map"
+          href="/gta-6-complete-guide"
           className="px-5 py-2.5 rounded-lg text-sm font-bold text-white"
           style={{ background: 'linear-gradient(90deg, #ec1272, #7c3aed)' }}
+        >
+          Everything Confirmed
+        </Link>
+        <Link
+          href="/map"
+          className="px-5 py-2.5 rounded-lg text-sm font-bold text-bright border border-white/40 hover:border-white/70 transition-colors backdrop-blur-sm"
+          style={{ background: 'rgba(255,255,255,0.08)' }}
         >
           Explore the Map
         </Link>
         <Link
-          href="/news"
+          href="/rumors"
           className="px-5 py-2.5 rounded-lg text-sm font-bold text-bright border border-white/40 hover:border-white/70 transition-colors backdrop-blur-sm"
           style={{ background: 'rgba(255,255,255,0.08)' }}
         >

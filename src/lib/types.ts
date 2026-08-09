@@ -48,6 +48,19 @@ export interface Article {
   og_image_url: string | null
 }
 
+export interface Rumor {
+  id: string
+  product_id: string
+  title: string
+  summary: string
+  status: 'unconfirmed' | 'confirmed' | 'debunked'
+  source_name: string | null
+  source_url: string | null
+  category: string | null
+  last_updated: string
+  created_at: string
+}
+
 export interface MediaAsset {
   id: string
   product_id: string

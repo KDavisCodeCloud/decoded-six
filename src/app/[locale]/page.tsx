@@ -43,19 +43,8 @@ async function getLatest(): Promise<Article[]> {
   return rows.filter(a => !UTILITY_PAGE_SLUGS.has(a.slug)).slice(0, 7)
 }
 
-async function getRumors(): Promise<Article[]> {
-  const { data } = await supabase
-    .from('articles')
-    .select('id, title, slug, category, published_at')
-    .eq('status', 'published')
-    .eq('category', 'rumor')
-    .order('published_at', { ascending: false })
-    .limit(6)
-  return (data as Article[]) ?? []
-}
-
 export default async function HomePage() {
-  const [articles, rumors] = await Promise.all([getLatest(), getRumors()])
+  const articles = await getLatest()
   const [featured, ...rest] = articles
 
   const launchDate = process.env.NEXT_PUBLIC_LAUNCH_DATE || '2026-11-19'
@@ -195,48 +184,21 @@ export default async function HomePage() {
                 </h2>
               </div>
 
-              {rumors.length > 0 ? (
-                <div className="space-y-0">
-                  {rumors.map((r, i) => (
-                    <a
-                      key={r.id}
-                      href={`/news/${r.slug}`}
-                      className="flex items-start gap-3 py-3.5 hover:bg-white/[0.03] transition-colors -mx-3 px-3 rounded"
-                      style={{ borderBottom: i < rumors.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
-                    >
-                      <span className="font-ibm text-[9px] font-bold uppercase tracking-wider mt-0.5 shrink-0" style={{ color: '#f0975a' }}>
-                        UNCONFIRMED
-                      </span>
-                      <span className="font-heading font-semibold text-[14px] leading-snug text-bright">
-                        {r.title}
-                      </span>
-                    </a>
-                  ))}
+              <a
+                href="/rumors"
+                className="flex items-center justify-between rounded-xl p-5 border hover:border-white/20 transition-colors"
+                style={{ background: '#0d0d0d', borderColor: 'rgba(255,255,255,0.08)' }}
+              >
+                <div>
+                  <p className="font-heading font-bold text-bright text-[15px] mb-1">Every leak, tracked</p>
+                  <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Unconfirmed, confirmed, and debunked — updated as Rockstar talks.
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-0">
-                  {[
-                    'GTA 6 Vice City map allegedly 5× larger than GTA 5',
-                    'Jason rumored to have solo story arc before Lucia chapters',
-                    'Aircraft carriers confirmed in leaked mission briefings',
-                    'GTA Online launch rumored 3 months post single-player',
-                    'Weapon wheel redesign spotted in internal QA footage',
-                  ].map((title, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-3 py-3.5"
-                      style={{ borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
-                    >
-                      <span className="font-ibm text-[9px] font-bold uppercase tracking-wider mt-0.5 shrink-0" style={{ color: '#f0975a' }}>
-                        UNCONFIRMED
-                      </span>
-                      <span className="font-heading font-semibold text-[14px] leading-snug text-bright">
-                        {title}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                <span className="font-ibm text-[11px] font-bold tracking-wider shrink-0 ml-3" style={{ color: '#f0975a' }}>
+                  Latest rumors →
+                </span>
+              </a>
             </section>
 
             <section>
