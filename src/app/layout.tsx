@@ -77,6 +77,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             meta types only recognize content=, so this is spread as `any` to
             bypass that and render value= literally rather than being coerced. */}
         <meta {...({ name: 'impact-site-verification', value: '0df4b2cc-c4bc-4d85-a090-01f7f92145bd' } as any)} />
+        {/* Google AdSense site verification (client ca-pub-5317430228631558) —
+            rendered server-side in <head> on every route (this is the one
+            true root layout) so Google's verification crawler finds it
+            without needing to execute client JS. */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5317430228631558"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="font-body antialiased bg-void text-bright">
         <Suspense fallback={null}>
