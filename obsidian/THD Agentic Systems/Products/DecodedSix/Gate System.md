@@ -9,6 +9,10 @@ Metric: 20 published articles
 All: AI detection below 30%
 All: humanizer passed + human reviewed
 Unlocks: Apply for Google AdSense
+Status (2026-08-21): AdSense site-verification script live in production
+  (`src/app/layout.tsx`, client ca-pub-5317430228631558, confirmed in raw
+  HTML) — this is verification only, not the gate. Published-article count
+  and human-review status unchanged by this. See session log.
 
 ## Gate 2 — AdSense Approved
 Metric: AdSense account approved
