@@ -8,7 +8,7 @@
     "img_local": "affiliate/images/.jpg",
     "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
     "cta": "Get Yours Today",
-    "desc": "The console GTA 6 was built for. Haptic feedback, adaptive triggers, and Tempest 3D Audio — this is the definitive GTA 6 machine."
+    "desc": "The console GTA 6 was built for. Haptic feedback, adaptive triggers, and Tempest 3D Audio \u2014 this is the definitive GTA 6 machine."
   },
   {
     "asin": "",
@@ -44,7 +44,7 @@
     "desc": "2x performance over the original, larger screen, and the best portable gaming library on the planet."
   },
   {
-    "asin": "",
+    "asin": "B09X7MKPWY",
     "title": "DualSense Wireless Controller",
     "category": "Controllers",
     "price": "",
@@ -52,7 +52,7 @@
     "img_local": "affiliate/images/.jpg",
     "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
     "cta": "Get Yours Today",
-    "desc": "GTA 6 is built around it. Haptic feedback, adaptive triggers, and an integrated speaker — feel every crash, shot, and engine rev."
+    "desc": "GTA 6 is built around it. Haptic feedback, adaptive triggers, and an integrated speaker \u2014 feel every crash, shot, and engine rev."
   },
   {
     "asin": "",
@@ -77,7 +77,7 @@
     "desc": "Hall Effect joysticks, 1000Hz polling rate, remappable bumpers. Pro features at a fraction of the price."
   },
   {
-    "asin": "",
+    "asin": "B09ZLRCH1H",
     "title": "SteelSeries Arctis Nova Pro Wireless",
     "category": "Headsets",
     "price": "",
@@ -85,7 +85,7 @@
     "img_local": "affiliate/images/.jpg",
     "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
     "cta": "Get Yours Today",
-    "desc": "Multi-device wireless, hybrid ANC, hot-swappable battery. The headset that never makes you choose between platforms."
+    "desc": "Multi-device wireless (PS5 + PC), hybrid ANC, hot-swappable battery. Premium option for players on both platforms."
   },
   {
     "asin": "",
@@ -96,7 +96,7 @@
     "img_local": "affiliate/images/.jpg",
     "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
     "cta": "Get Yours Today",
-    "desc": "Built for PS5. Massive upgrade over the original — pairs directly with your console for GTA 6 immersive audio."
+    "desc": "Built for PS5. Massive upgrade over the original \u2014 pairs directly with your console for GTA 6 immersive audio."
   },
   {
     "asin": "",
@@ -173,10 +173,10 @@
     "img_local": "affiliate/images/.jpg",
     "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
     "cta": "Get Yours Today",
-    "desc": "Spacious, durable, and built for a real setup. Cable management built in — no more chaos behind the monitor."
+    "desc": "Spacious, durable, and built for a real setup. Cable management built in \u2014 no more chaos behind the monitor."
   },
   {
-    "asin": "",
+    "asin": "B0B7CKZGN6",
     "title": "WD_Black SN850X NVMe SSD",
     "category": "Storage",
     "price": "",
@@ -195,7 +195,7 @@
     "img_local": "affiliate/images/.jpg",
     "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
     "cta": "Get Yours Today",
-    "desc": "Stream GTA 6 day one in 4K. Plug between your console and PC — zero lag passthrough, instant broadcast quality."
+    "desc": "Stream GTA 6 day one in 4K. Plug between your console and PC \u2014 zero lag passthrough, instant broadcast quality."
   },
   {
     "asin": "",
@@ -218,5 +218,49 @@
     "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
     "cta": "Get Yours Today",
     "desc": "Extend your reach, tighten your aim. The cheapest upgrade with the most immediate feel difference on DualSense."
+  },
+  {
+    "asin": "B0BHJDY57J",
+    "title": "Samsung 990 Pro 2TB SSD (Heatsink)",
+    "category": "Storage",
+    "price": "",
+    "img_url": "",
+    "img_local": "affiliate/images/.jpg",
+    "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
+    "cta": "Get Yours Today",
+    "desc": "PS5 requires a heatsink on any internal SSD -- this is the pre-integrated version. Fastest, most-recommended PS5 storage upgrade ahead of GTA 6."
+  },
+  {
+    "asin": "B0BSYFB99D",
+    "title": "DualSense Edge Wireless Controller (White)",
+    "category": "Controllers",
+    "price": "",
+    "img_url": "",
+    "img_local": "affiliate/images/.jpg",
+    "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
+    "cta": "Get Yours Today",
+    "desc": "Swappable thumbsticks, rear paddles, adjustable trigger stops, multiple profiles. Built for GTA Online players who want every edge."
+  },
+  {
+    "asin": "B08FC6Y4VG",
+    "title": "DualSense Charging Station (Official)",
+    "category": "Controllers",
+    "price": "",
+    "img_url": "",
+    "img_local": "affiliate/images/.jpg",
+    "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
+    "cta": "Get Yours Today",
+    "desc": "Charges two DualSense controllers at once. The backup-controller problem GTA Online's long sessions create, solved in one dock."
+  },
+  {
+    "asin": "B0CMDH9M5W",
+    "title": "Sony Pulse Elite Wireless Headset",
+    "category": "Headsets",
+    "price": "",
+    "img_url": "",
+    "img_local": "affiliate/images/.jpg",
+    "link": "https://www.amazon.com/dp/?tag=decodedsix-20",
+    "cta": "Get Yours Today",
+    "desc": "Built specifically for PS5's Tempest 3D Audio, with the tightest system-level integration of any PS5 headset. The intended way to hear GTA 6."
   }
 ]
