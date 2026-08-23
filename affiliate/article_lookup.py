@@ -136,7 +136,18 @@ def render_card(product: dict) -> str:
     # parsing and dumps the rest of the card as literal escaped text.
     return (
         f'<div style="background:#0d0f14;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:24px 0;font-family:\'IBM Plex Sans\',sans-serif;">'
-        f'<img src="{img_src}" alt="" style="width:100%;max-height:280px;object-fit:cover;border-radius:8px;background:#070910;" loading="lazy" />'
+        # This inline style is NOT what actually controls rendering on
+        # decodedsix.com -- src/components/shared/ArticleMarkdown.tsx's
+        # custom img() component strips every prop but src/alt and forces
+        # its own hardcoded className/style on every image in an article.
+        # That hardcoded object-cover is what cropped the Secretlab chair
+        # photo down to just the seat and armrests (reported by owner
+        # 2026-08-23); fixed there (object-contain), not here. Kept
+        # object-fit:contain here anyway as the correct value for any
+        # other consumer of render_card() that isn't filtered through
+        # that component (e.g. a future admin preview or a different
+        # site), so this template is still correct in isolation.
+        f'<img src="{img_src}" alt="" style="width:100%;max-height:320px;object-fit:contain;border-radius:8px;background:#070910;" loading="lazy" />'
         f'<p style="margin:12px 0 4px 0;font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:16px;color:#eef2f5;">{title}</p>'
         f'<p style="margin:0 0 8px 0;font-size:13px;line-height:1.5;color:#9aa4ad;">{desc}</p>'
         f'{price_html}'

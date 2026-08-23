@@ -140,7 +140,18 @@ const components: Components = {
         <img
           src={src}
           alt={alt ?? ''}
-          className="w-full rounded-lg object-cover"
+          // object-contain, not object-cover -- cover fills the box and
+          // crops whatever overflows it. That's fine for wide editorial
+          // screenshots (roughly matching this box's aspect ratio
+          // already), but it silently cropped a portrait product photo
+          // down to just the seat and armrests on the gaming-chair
+          // affiliate card (reported by owner 2026-08-23, screenshot
+          // showed the Secretlab TITAN Evo with its back and base cut
+          // off). contain always shows the whole image, letterboxed
+          // against the site background if the aspect ratio doesn't
+          // match -- the right tradeoff any time the image is something
+          // a reader needs to see in full, not just decorative.
+          className="w-full rounded-lg object-contain bg-black/20"
           style={{ maxHeight: '480px' }}
           loading="lazy"
         />
