@@ -110,18 +110,35 @@ def render_card(product: dict) -> str:
 
     price_html = f'<span style="color:#f5a623;font-weight:700;font-size:15px;">{price}</span>' if price else ""
 
-    return f'''<div style="display:flex;gap:16px;align-items:center;background:#0d0f14;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:24px 0;font-family:'IBM Plex Sans',sans-serif;">
-  <img src="{img_src}" alt="{title}" style="width:96px;height:96px;object-fit:contain;border-radius:8px;background:#070910;flex-shrink:0;" loading="lazy" />
-  <div style="flex:1;min-width:0;">
-    <p style="margin:0 0 4px 0;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;color:#eef2f5;">{title}</p>
-    <p style="margin:0 0 8px 0;font-size:13px;line-height:1.5;color:#9aa4ad;">{desc}</p>
-    {price_html}
-    <div style="margin-top:8px;">
-      <a href="{link}" target="_blank" rel="nofollow sponsored noopener noreferrer" style="display:inline-block;background:#f5a623;color:#070910;font-weight:700;font-size:13px;padding:8px 16px;border-radius:8px;text-decoration:none;">{cta} →</a>
-    </div>
-    <p style="margin:8px 0 0 0;font-size:10px;color:#5b6673;">As an Amazon Associate, DecodedSix earns from qualifying purchases.</p>
-  </div>
-</div>'''
+    # Deliberately emitted as ONE line with no leading indentation anywhere,
+    # not the more readable multi-line block this used to be. CommonMark's
+    # raw-HTML-block rules end a block on the first blank line, and when
+    # `price` is empty (true for every product in products.json today),
+    # the old template's `{price_html}` sat alone on its own
+    # whitespace-only line -- read as blank -- which silently terminated
+    # the raw-HTML block right there. Everything after it (the CTA <a> and
+    # the disclosure <p>, both indented >=4 spaces) then got reparsed from
+    # scratch as an indented code block instead of HTML, rendering as
+    # literal escaped text on the live site (confirmed 2026-08-23 on the
+    # published gaming-chair article -- the button and disclosure line
+    # showed up as raw monospace code, right where the blank line was).
+    # A single line has no blank line and no leading indentation to
+    # misparse, so this failure mode isn't reachable regardless of which
+    # optional fields are empty.
+    return (
+        f'<div style="display:flex;gap:16px;align-items:center;background:#0d0f14;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:24px 0;font-family:\'IBM Plex Sans\',sans-serif;">'
+        f'<img src="{img_src}" alt="{title}" style="width:96px;height:96px;object-fit:contain;border-radius:8px;background:#070910;flex-shrink:0;" loading="lazy" />'
+        f'<div style="flex:1;min-width:0;">'
+        f'<p style="margin:0 0 4px 0;font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:16px;color:#eef2f5;">{title}</p>'
+        f'<p style="margin:0 0 8px 0;font-size:13px;line-height:1.5;color:#9aa4ad;">{desc}</p>'
+        f'{price_html}'
+        f'<div style="margin-top:8px;">'
+        f'<a href="{link}" target="_blank" rel="nofollow sponsored noopener noreferrer" style="display:inline-block;background:#f5a623;color:#070910;font-weight:700;font-size:13px;padding:8px 16px;border-radius:8px;text-decoration:none;">{cta} →</a>'
+        f'</div>'
+        f'<p style="margin:8px 0 0 0;font-size:10px;color:#5b6673;">As an Amazon Associate, DecodedSix earns from qualifying purchases.</p>'
+        f'</div>'
+        f'</div>'
+    )
 
 
 def lookup_products(query: str, limit: int = 3) -> list[dict]:
