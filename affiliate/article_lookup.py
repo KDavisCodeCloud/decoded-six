@@ -110,33 +110,40 @@ def render_card(product: dict) -> str:
 
     price_html = f'<span style="color:#f5a623;font-weight:700;font-size:15px;">{price}</span>' if price else ""
 
-    # Deliberately emitted as ONE line with no leading indentation anywhere,
-    # not the more readable multi-line block this used to be. CommonMark's
-    # raw-HTML-block rules end a block on the first blank line, and when
-    # `price` is empty (true for every product in products.json today),
-    # the old template's `{price_html}` sat alone on its own
-    # whitespace-only line -- read as blank -- which silently terminated
-    # the raw-HTML block right there. Everything after it (the CTA <a> and
-    # the disclosure <p>, both indented >=4 spaces) then got reparsed from
-    # scratch as an indented code block instead of HTML, rendering as
-    # literal escaped text on the live site (confirmed 2026-08-23 on the
-    # published gaming-chair article -- the button and disclosure line
-    # showed up as raw monospace code, right where the blank line was).
-    # A single line has no blank line and no leading indentation to
-    # misparse, so this failure mode isn't reachable regardless of which
-    # optional fields are empty.
+    # Stacked (image on top, text below), not side-by-side -- side-by-side
+    # doesn't survive this site's rendering pipeline. ArticleMarkdown.tsx's
+    # custom `img()` component override ignores every attribute on the raw
+    # <img> tag except src/alt and forces its own `w-full` + `maxHeight:
+    # 480px` figure wrapper on every image in an article, full editorial
+    # width, regardless of what width/height this template asks for. That
+    # broke the old flex-row card (96x96 thumbnail on the left, text on
+    # the right): the image rendered at full article width instead of
+    # 96px, squeezing the text column into a few characters per line
+    # (confirmed 2026-08-23 on the live Samsung Odyssey Neo G8 card).
+    # Building the card as a natural top-to-bottom stack works WITH that
+    # forced full-width image behavior instead of fighting it.
+    #
+    # alt is deliberately empty: the same img() override also auto-adds a
+    # <figcaption>{alt}</figcaption> under every image, which would repeat
+    # the product title a second time directly above this card's own
+    # styled title line. Marking the photo decorative (alt="") suppresses
+    # that caption -- acceptable here since the very next line is this
+    # card's own title text, so nothing is lost for a screen reader.
+    #
+    # Still one line, no internal blank lines or indentation -- see the
+    # note above this function's return in the previous revision: a blank
+    # or indented line here silently breaks CommonMark's raw-HTML-block
+    # parsing and dumps the rest of the card as literal escaped text.
     return (
-        f'<div style="display:flex;gap:16px;align-items:center;background:#0d0f14;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:24px 0;font-family:\'IBM Plex Sans\',sans-serif;">'
-        f'<img src="{img_src}" alt="{title}" style="width:96px;height:96px;object-fit:contain;border-radius:8px;background:#070910;flex-shrink:0;" loading="lazy" />'
-        f'<div style="flex:1;min-width:0;">'
-        f'<p style="margin:0 0 4px 0;font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:16px;color:#eef2f5;">{title}</p>'
+        f'<div style="background:#0d0f14;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:24px 0;font-family:\'IBM Plex Sans\',sans-serif;">'
+        f'<img src="{img_src}" alt="" style="width:100%;max-height:280px;object-fit:cover;border-radius:8px;background:#070910;" loading="lazy" />'
+        f'<p style="margin:12px 0 4px 0;font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:16px;color:#eef2f5;">{title}</p>'
         f'<p style="margin:0 0 8px 0;font-size:13px;line-height:1.5;color:#9aa4ad;">{desc}</p>'
         f'{price_html}'
         f'<div style="margin-top:8px;">'
         f'<a href="{link}" target="_blank" rel="nofollow sponsored noopener noreferrer" style="display:inline-block;background:#f5a623;color:#070910;font-weight:700;font-size:13px;padding:8px 16px;border-radius:8px;text-decoration:none;">{cta} →</a>'
         f'</div>'
         f'<p style="margin:8px 0 0 0;font-size:10px;color:#5b6673;">As an Amazon Associate, DecodedSix earns from qualifying purchases.</p>'
-        f'</div>'
         f'</div>'
     )
 
