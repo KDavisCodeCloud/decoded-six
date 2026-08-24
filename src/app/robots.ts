@@ -5,7 +5,17 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.c
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: '*', allow: '/', disallow: ['/dashboard/', '/api/'] },
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: [
+          '/dashboard/',
+          '/api/',
+          '/*/opengraph-image',
+          '/opengraph-image',
+          '/opengraph-image*',
+        ],
+      },
       { userAgent: 'GPTBot', allow: '/' },
       { userAgent: 'ClaudeBot', allow: '/' },
       { userAgent: 'PerplexityBot', allow: '/' },

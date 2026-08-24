@@ -1,16 +1,25 @@
+import type { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
+import { localeAlternates } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
 
-export const metadata = {
-  title: 'GTA 6 News',
-  description: 'All the latest GTA 6 updates, leaks, and breaking news — updated continuously.',
-  alternates: { canonical: '/news' },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'GTA 6 News',
+    description: 'All the latest GTA 6 updates, leaks, and breaking news — updated continuously.',
+    alternates: localeAlternates('/news', locale),
+  }
 }
 
 const CATS = ['all', 'news', 'rumor', 'guide', 'event', 'update'] as const

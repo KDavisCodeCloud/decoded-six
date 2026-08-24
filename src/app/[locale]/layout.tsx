@@ -3,9 +3,8 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 import { routing } from '@/i18n/routing'
+import { localeAlternates } from '@/lib/seo'
 import { Aug27Popup } from '@/components/Aug27Popup'
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
 // OG locale tags use underscore region codes, not the URL's hyphenated
 // BCP-47 codes (en-GB -> en_GB). 'en' (the site's un-prefixed default)
@@ -26,15 +25,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
 
   return {
-    alternates: {
-      canonical: `${prefix}/`,
-      languages: Object.fromEntries(
-        routing.locales.map((l) => [l, `${siteUrl}${l === routing.defaultLocale ? '' : `/${l}`}/`])
-      ),
-    },
+    alternates: localeAlternates('/', locale),
     openGraph: { locale: OG_LOCALE[locale] },
   }
 }

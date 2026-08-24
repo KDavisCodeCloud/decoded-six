@@ -1,14 +1,23 @@
+import type { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
+import { localeAlternates } from '@/lib/seo'
 import type { Rumor } from '@/lib/types'
 
 export const revalidate = 60
 
-export const metadata = {
-  title: 'GTA 6 Rumors',
-  description: 'Unconfirmed GTA 6 leaks, insider reports, and speculation — tracked and verified as Rockstar confirms details.',
-  alternates: { canonical: '/rumors' },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'GTA 6 Rumors',
+    description: 'Unconfirmed GTA 6 leaks, insider reports, and speculation — tracked and verified as Rockstar confirms details.',
+    alternates: localeAlternates('/rumors', locale),
+  }
 }
 
 type StatusFilter = 'all' | 'unconfirmed' | 'confirmed' | 'debunked'

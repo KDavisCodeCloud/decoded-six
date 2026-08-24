@@ -1,16 +1,25 @@
+import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
 import { MapClientLoader } from '@/components/map/MapClientLoader'
 import { supabase } from '@/lib/supabase'
+import { localeAlternates } from '@/lib/seo'
 import type { MapMarker, MapArea } from '@/lib/types'
 
 export const revalidate = 300
 
-export const metadata = {
-  title: 'GTA 6 Interactive Map',
-  description: 'An interactive map of the GTA 6 world — locations, points of interest, and areas confirmed so far.',
-  alternates: { canonical: '/map' },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'GTA 6 Interactive Map',
+    description: 'An interactive map of the GTA 6 world — locations, points of interest, and areas confirmed so far.',
+    alternates: localeAlternates('/map', locale),
+  }
 }
 
 async function getMapData() {

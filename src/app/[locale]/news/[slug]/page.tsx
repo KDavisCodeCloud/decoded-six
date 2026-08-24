@@ -12,6 +12,7 @@ import { HeroImage } from '@/components/HeroImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
 import { routing } from '@/i18n/routing'
 import { permanentRedirect } from '@/i18n/navigation'
+import { localeAlternates } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
@@ -128,12 +129,7 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: {
-      canonical: `${siteUrl}${canonicalPath}`,
-      languages: Object.fromEntries(
-        routing.locales.map((l) => [l, `${siteUrl}${l === routing.defaultLocale ? '' : `/${l}`}/news/${slug}`])
-      ),
-    },
+    alternates: localeAlternates(`/news/${slug}`, locale),
     openGraph: {
       title,
       description,

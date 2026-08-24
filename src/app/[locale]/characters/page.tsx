@@ -1,11 +1,20 @@
+import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { CharactersDirectory } from '@/components/CharactersDirectory'
+import { localeAlternates } from '@/lib/seo'
 
-export const metadata = {
-  title: 'GTA 6 Characters',
-  description: 'Every officially confirmed GTA 6 character — name, role, and what Rockstar has actually said about each.',
-  alternates: { canonical: '/characters' },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'GTA 6 Characters',
+    description: 'Every officially confirmed GTA 6 character — name, role, and what Rockstar has actually said about each.',
+    alternates: localeAlternates('/characters', locale),
+  }
 }
 
 export default function CharactersPage() {

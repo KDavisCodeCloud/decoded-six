@@ -1,10 +1,19 @@
+import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
+import { localeAlternates } from '@/lib/seo'
 
-export const metadata = {
-  title: 'About & Editorial Policy',
-  description: 'Who runs this site, how content is made, and where it comes from.',
-  alternates: { canonical: '/about' },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'About & Editorial Policy',
+    description: 'Who runs this site, how content is made, and where it comes from.',
+    alternates: localeAlternates('/about', locale),
+  }
 }
 
 const CONTACT_EMAIL = 'hello@decodedsix.com'
