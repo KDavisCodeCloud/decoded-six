@@ -1,8 +1,14 @@
 """
 DSX-CA1 — DecodedSix Content Agent
 
-Produces 3 articles/week: Tuesday=news, Thursday=evergreen, Saturday=conversion.
-Triggered by n8n via POST /agents/decodedsix/content.
+Produces 3 articles/week on the existing n8n cadence: Tuesday=news,
+Thursday=evergreen, Saturday=conversion. As of 2026-08-27, run_content_agent
+also accepts 'feature', 'breaking_news', 'exclusive', and 'deep_dive' as
+article_type -- these aren't part of that fixed weekly cadence yet (that's a
+separate change, in whatever caller decides which type to request on a given
+day); 'exclusive'/'deep_dive' specifically are always manually triggered
+(topic_seed supplied directly), same pattern as the TGG exclusive published
+2026-08-27. Triggered by n8n via POST /agents/decodedsix/content.
 
 Node pipeline (mirrors LangGraph pattern, no external graph dependency):
   topic_picker → [news_scraper] → writer → faq_generator → schema_generator
@@ -40,6 +46,112 @@ MODEL = "claude-sonnet-4-6"
 AGENT_ID = "dsx-ca1"
 
 SITE_URL = os.getenv("NEXT_PUBLIC_SITE_URL", "https://www.thedecodedsix.com")
+
+# Word-count floors are MINIMUMS the writer prompt is told to reach, and the
+# actual enforcement point (_node_validator checks these, not just the
+# prompt). Added 2026-08-27 -- the old validator hardcoded a flat <1000
+# check regardless of type, which didn't match its own docstring (said
+# 1200) and had no concept of a short breaking-news piece or a genuine
+# long-form exclusive.
+WORD_COUNT_FLOORS = {
+    "news": 800,
+    "feature": 1200,
+    "evergreen": 1500,
+    "conversion": 1200,
+    "exclusive": 2000,
+    "deep_dive": 2000,
+    "breaking_news": 400,
+}
+
+# Confirmed-systems knowledge base, sourced from TGG's July 13, 2026 visit to
+# Rockstar North (2.5 hours of gameplay watched with Rob Nelson, co-head of
+# GTA 6 development). Real, attributed, on-record source -- same tier as the
+# Dazed exclusive, not raw leak/speculation. Injected into the writer's
+# system prompt for 'feature' articles and any article whose topic matches
+# one of these systems, so the agent cites real specifics instead of
+# generating another generic piece with no real facts behind it. Every claim
+# from this block must be attributed to TGG/Rob Nelson in the article body --
+# never presented as Rockstar's own official statement.
+CONFIRMED_SYSTEMS_KB = """
+CRIMINAL PROFILE SYSTEM (not "honor system"):
+- No visible bar -- tracked in a Jason/Lucia menu tab
+- High profile = being a good criminal (clean jobs, no unnecessary kills)
+- Low profile = chaotic/excessive violence
+- Point of no return: logo cracks/shatters, cannot recover for that playthrough
+- Rob Nelson: "You have to make a lot more decisions. Yes, all the time."
+
+RELATIONSHIP SYSTEM:
+- Jason/Lucia relationship status, same menu tab as Criminal Profile, no visible bar
+- Built through texting, dates, gym visits together, holding hands while walking
+
+MAP SIZE (Rob Nelson confirmed figures):
+- Full map: 2x GTA 5, 3x Red Dead Redemption 2
+- Vice City alone: 2x the size of Los Santos
+- Vice City and surrounds: 11x Los Santos and surrounds
+
+HUD:
+- Top left: Health, Stamina, Focus bars (permanently + temporarily upgradeable)
+- Top right: Bank (purple icon), Cash, Duffel bag -- three separate money states
+- Focus = slow time + see weak points on NPCs/vehicles (not Dead Eye)
+
+MONEY / ECONOMY:
+- Bank deposits require a physical ATM visit -- no phone deposits
+- Cash lost on death; duffel bag loot needs a fence before it's usable
+- Fence system is relationship-based, unlocks capabilities over time (e.g. tracker removal)
+
+POLICE SYSTEM:
+- Police NOT on minimap
+- 1-5 stars: inner dark search circle + larger outer search area -- escape both to lose cops
+- 6 stars: map-wide search, hard to reach
+- Cars have GPS trackers (all cop cars, many civilian cars)
+- Cops recognize car driven, outfit, weapon held, whether Jason+Lucia were together
+- Tires matter -- blown tires make driving dramatically harder
+- Pay and sprays return but unlock progressively
+
+FUEL SYSTEM: Confirmed, exists, EV charging exists, designed not to be a major inconvenience.
+
+GYM SYSTEM:
+- Buy membership at front desk, vending machines sell temporary-boost consumables
+- 3 exercises of the same type = full workout ring = timed stat boost
+- Fully optional, never required for story completion
+
+PHONE APPS: Buckme (banking), Ride Me (Uber equivalent), Scooter Bros (call your
+personal vehicle -- new for single player), What Up (texting), Fitness app.
+In-game social media: NPCs post geotagged content; you can go watch it unfold.
+
+GUNPLAY: No auto-aim, aim assist only. Kill cams (RDR2/Max Payne style).
+
+DRIVING: Heavier/weightier than GTA 5, higher top speeds. Rear-wheel-drive cars
+spin out under hard acceleration -- physics matter. Rob Nelson: "a mix between
+GTA 4 and GTA 5 but even better."
+
+Source for all of the above: TGG (YouTube), July 13, 2026 visit to Rockstar
+North with Rob Nelson, published August 27, 2026.
+"""
+
+_CONFIRMED_SYSTEM_KEYWORDS = (
+    "criminal profile", "relationship system", "map size", "hud",
+    "money and economy", "police system", "fuel", "gym system",
+    "phone apps", "gunplay", "driving physics",
+)
+
+# One 'feature' deep-dive per system -- rotated the same way evergreen
+# keywords rotate, but sourced from CONFIRMED_SYSTEMS_KB instead of a
+# generic keyword list, so 'feature' articles go deep on something Pulse
+# actually has real sourced facts for, not another generic guide.
+CONFIRMED_SYSTEM_TOPICS = [
+    "GTA 6 Criminal Profile system explained",
+    "GTA 6 relationship system between Jason and Lucia",
+    "GTA 6 map size compared to GTA 5 and Red Dead Redemption 2",
+    "GTA 6 HUD explained: health, stamina, focus, and the three money states",
+    "GTA 6 money and economy: bank, cash, duffel bag, and the fence system",
+    "GTA 6 police system: search circles, trackers, and losing a wanted level",
+    "GTA 6 fuel and electric vehicle charging",
+    "GTA 6 gym system: memberships, workouts, and stat boosts",
+    "GTA 6 phone apps: Buckme, Ride Me, Scooter Bros, and in-game social media",
+    "GTA 6 gunplay: aim assist and kill cams explained",
+    "GTA 6 driving physics: weight, top speed, and rear-wheel-drive handling",
+]
 
 
 class ContentAgentError(RuntimeError):
@@ -106,12 +218,29 @@ def _audit(sb: Any, article_id: Optional[str], action: str, result: str, error: 
 
 # ── Node 1: topic_picker ─────────────────────────────────────────────────────
 
-def _node_topic_picker(state: dict) -> dict:
+def _node_topic_picker(state: dict, sb: Any) -> dict:
     """
     Selects or validates the topic seed for the article type.
-    For news: topic_seed comes from caller (n8n passes RSS headline).
+    For news/breaking_news: topic_seed comes from caller (n8n passes RSS headline).
+    For exclusive/deep_dive: always caller-supplied (manually triggered --
+      see module docstring); this function only passes it through.
+    For feature: rotates through CONFIRMED_SYSTEM_TOPICS (real sourced
+      systems, not a generic keyword list).
     For evergreen: picks from docs/evergreen_keywords.txt if no seed given.
     For conversion: picks from docs/affiliate_products.json if no seed given.
+
+    Two things added 2026-08-27 to fix the confirmed root cause of near-
+    duplicate rejected articles (the old version had zero awareness of what
+    was already published/archived, so the same keyword phrase could get
+    picked twice -- e.g. gta-6-online-multiplayer-features and its "-guide"
+    twin, both later rejected):
+
+    1. Thin-article expansion check (feature/news, no seed only): looks for
+       an existing published article under its type's word-count floor
+       before generating anything new. Priority #3 from the 2026-08-27 spec.
+    2. Duplicate-topic check (feature/evergreen auto-picks only -- never
+       overrides a caller-supplied seed): skips a candidate topic if its
+       title-word overlap with any existing article title exceeds 50%.
     """
     article_type = state["article_type"]
     topic_seed = shield.sanitize(state.get("topic_seed", "").strip())
@@ -120,12 +249,74 @@ def _node_topic_picker(state: dict) -> dict:
         state["topic"] = topic_seed
         return state
 
-    if article_type == "evergreen":
+    if article_type in ("news", "feature"):
+        floor = WORD_COUNT_FLOORS.get(article_type, 800)
+        try:
+            thin = (
+                sb.table("articles")
+                .select("id, title, slug, content, word_count")
+                .eq("product_id", "gta-hub")
+                .eq("status", "published")
+                .lt("word_count", floor)
+                .not_.is_("word_count", "null")
+                .order("word_count")
+                .limit(1)
+                .execute()
+            )
+            if thin.data:
+                target = thin.data[0]
+                state["topic"] = f"Expand existing article: {target['title']}"
+                state["expand_article_id"] = target["id"]
+                state["expand_existing_content"] = target["content"]
+                return state
+        except Exception as e:
+            log.warning("[%s] thin-article lookup failed (non-blocking): %s", AGENT_ID, e)
+
+    def _topic_already_covered(candidate: str) -> bool:
+        try:
+            existing = (
+                sb.table("articles")
+                .select("title")
+                .eq("product_id", "gta-hub")
+                .in_("status", ["published", "archived", "pending_review"])
+                .execute()
+            )
+        except Exception as e:
+            log.warning("[%s] duplicate-topic lookup failed (non-blocking): %s", AGENT_ID, e)
+            return False
+        candidate_words = set(candidate.lower().split())
+        for row in existing.data or []:
+            title_words = set((row.get("title") or "").lower().split())
+            if not candidate_words or not title_words:
+                continue
+            overlap = len(candidate_words & title_words) / len(candidate_words | title_words)
+            if overlap > 0.5:
+                return True
+        return False
+
+    if article_type == "feature":
+        lines = CONFIRMED_SYSTEM_TOPICS
+        idx = state.get("article_count", 0) % len(lines)
+        for offset in range(len(lines)):
+            candidate = lines[(idx + offset) % len(lines)]
+            if not _topic_already_covered(candidate):
+                state["topic"] = candidate
+                return state
+        state["topic"] = lines[idx]  # every system already covered -- fall through, still caught downstream
+
+    elif article_type == "evergreen":
         if KEYWORD_LIST_PATH.exists():
             lines = [l.strip() for l in KEYWORD_LIST_PATH.read_text().splitlines() if l.strip()]
-            # Rotate through keywords by using article count as index
             idx = state.get("article_count", 0) % len(lines) if lines else 0
-            state["topic"] = lines[idx] if lines else "GTA 6 guide"
+            if lines:
+                for offset in range(len(lines)):
+                    candidate = lines[(idx + offset) % len(lines)]
+                    if not _topic_already_covered(candidate):
+                        state["topic"] = candidate
+                        return state
+                state["topic"] = lines[idx]
+            else:
+                state["topic"] = "GTA 6 guide"
         else:
             state["topic"] = "GTA 6 complete beginner guide"
 
@@ -140,7 +331,7 @@ def _node_topic_picker(state: dict) -> dict:
             state["topic"] = "Best gaming setup for GTA 6"
             state["affiliate_products"] = []
 
-    else:  # news — n8n should always supply a seed; fallback to a general topic
+    else:  # news / breaking_news / exclusive / deep_dive — n8n or caller should always supply a seed
         state["topic"] = "GTA 6 latest news"
 
     return state
@@ -322,24 +513,79 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
 
     type_instructions = {
         "news": (
-            "Write a GTA 6 news article (1,200–1,500 words). "
+            f"Write a GTA 6 news article. Minimum {WORD_COUNT_FLOORS['news']} words -- "
+            "reach that floor, don't treat it as a ceiling. "
             "Category: 'news'. Lead with the most newsworthy fact. "
-            "Label any unconfirmed information as 'reportedly' or 'according to leakers'. "
             "Cite at least one official source (Rockstar Newswire, Take-Two, or major outlet)."
         ),
+        "breaking_news": (
+            f"Write a GTA 6 breaking-news article. Minimum {WORD_COUNT_FLOORS['breaking_news']} "
+            "words. Only for a SAME-DAY confirmed announcement -- if the news isn't from "
+            "today, this is the wrong type, use 'news' instead. Category: 'news'. Must "
+            "include a '## What This Means' section, even if brief. Lead with the confirmed "
+            "fact itself as the first sentence, no preamble."
+        ),
+        "feature": (
+            f"Write a GTA 6 feature breakdown: one confirmed gameplay system, mechanic, or "
+            f"character, covered in depth. Minimum {WORD_COUNT_FLOORS['feature']} words -- "
+            "reach that floor, don't treat it as a ceiling. Category: 'news' or 'guide' "
+            "(pick whichever fits -- a mechanic breakdown tied to today's news is 'news', a "
+            "durable reference piece is 'guide'). Go deep on ONE system -- do not spread "
+            "thin across several unrelated systems in one article."
+        ),
         "evergreen": (
-            "Write a GTA 6 evergreen reference article (1,500–2,500 words). "
+            f"Write a GTA 6 evergreen reference article ({WORD_COUNT_FLOORS['evergreen']}–2,500 words). "
             "Category: 'guide'. Cover the topic comprehensively. "
             "Use ## and ### headings throughout. Include a comparison table if relevant."
         ),
         "conversion": (
-            "Write a GTA 6 conversion article (1,200–2,000 words) recommending products. "
+            f"Write a GTA 6 conversion article ({WORD_COUNT_FLOORS['conversion']}–2,000 words) "
+            "recommending products. "
             "Category: 'guide'. Include a 'Quick Picks' affiliate section in the first 300 words. "
             "Repeat the primary affiliate recommendation in the conclusion. "
             f"Available products to recommend: {json.dumps(affiliate_products[:5])}. "
-            "Make product recommendations natural and specific to GTA 6 gaming use cases."
+            "Make product recommendations natural and specific to GTA 6 gaming use cases. "
+            "Only write conversion content tied to a confirmed GTA 6 feature -- not generic "
+            "gaming gear with no GTA 6 connection."
+        ),
+        "exclusive": (
+            f"Write a GTA 6 exclusive deep-dive. Minimum {WORD_COUNT_FLOORS['exclusive']} words "
+            "-- reach that floor, don't treat it as a ceiling. Category: 'news'. Required "
+            "structure, in order: intro, 4+ '##' sections, a "
+            "'## Frequently Asked Questions' section (minimum 3 Q&A pairs), a "
+            "'## What's Still Unknown' section, and a closing '## What This Means for "
+            "Launch' section. Cross-link to at least 3 existing DecodedSix articles using "
+            "[INTERNAL_LINK:slug] placeholders."
+        ),
+        "deep_dive": (
+            f"Write a GTA 6 deep-dive. Minimum {WORD_COUNT_FLOORS['deep_dive']} words -- reach "
+            "that floor, don't treat it as a ceiling. Category: 'guide' or 'news' (pick "
+            "whichever fits the topic). Required structure, in order: intro, 4+ '##' "
+            "sections, a '## Frequently Asked Questions' section (minimum 3 Q&A pairs), a "
+            "'## What's Still Unknown' section, and a closing '## What This Means for "
+            "Launch' section. Cross-link to at least 3 existing DecodedSix articles using "
+            "[INTERNAL_LINK:slug] placeholders."
         ),
     }
+
+    # Real sourced material for the 11 confirmed systems (TGG / Rob Nelson,
+    # Rockstar North, 2026-07-13) -- given to the writer whenever the topic
+    # is actually one of these systems, so it writes from real facts instead
+    # of generating another generic piece with nothing behind it. Must be
+    # attributed to TGG/Rob Nelson in the article body, never presented as
+    # Rockstar's own official statement (enforced by instruction here, same
+    # as every other confirmed-vs-speculation rule -- there's no code-level
+    # check that an attribution phrase is present).
+    knowledge_block = ""
+    if article_type == "feature" or any(kw in topic.lower() for kw in _CONFIRMED_SYSTEM_KEYWORDS):
+        knowledge_block = (
+            "\n\nCONFIRMED SOURCE MATERIAL -- TGG (YouTube), July 13, 2026 visit to "
+            "Rockstar North with Rob Nelson (co-head of GTA 6 development). Use this as "
+            "real fact for this article. Attribute every claim from it to TGG and/or Rob "
+            "Nelson explicitly (e.g. 'Rob Nelson confirmed to TGG that...') -- never "
+            "present it as Rockstar's own official statement, since it wasn't published "
+            "through Rockstar's own channels:\n" + CONFIRMED_SYSTEMS_KB
+        )
 
     # Select contextually relevant images from the official Rockstar press kit.
     # No fixed cap (raised from the old limit=4) -- Kelvin's standing rule as of
@@ -379,21 +625,42 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
 
     context_block = f"\n\nRecent related content for context:\n{scraped}" if scraped else ""
 
+    content_standard = (
+        "CONTENT STANDARD (applies to every article regardless of type):\n"
+        "- Confirmed facts: label as confirmed and name the source (Rockstar Newswire, "
+        "Take-Two, or the specific outlet/person who confirmed it -- e.g. 'Rob Nelson "
+        "confirmed to TGG'). Do not present a third-party outlet's report as if it came "
+        "from Rockstar directly.\n"
+        "- Speculation: label it as speculation explicitly ('reportedly', 'according to "
+        "leakers', 'unconfirmed'). Never present speculation as confirmed fact.\n"
+        "- Every article must answer, somewhere in the body: what is this, how does it "
+        "work, what does it mean for the player, and what's still unknown. Don't skip "
+        "the last one just because it's less exciting to write.\n"
+        "- Do not write a generic 'everything we know' article unless it is genuinely "
+        "comprehensive -- 1,500+ words across multiple distinct subsections. A short "
+        "'everything we know' piece is exactly the thin, generic content this standard "
+        "exists to prevent.\n\n"
+    )
+
     system = (
         f"{voice}\n\n"
         "You are DSX-CA1, the DecodedSix content agent. "
         f"{type_instructions[article_type]}\n\n"
-        "CONTENT QUALITY RULES (enforce all 10):\n"
+        + content_standard
+        + knowledge_block
+        + "\n\n"
+        "CONTENT QUALITY RULES (enforce all 9):\n"
         "1. First paragraph answers search intent immediately — no preamble.\n"
         "2. Never write 'In this article we will explore' or similar meta-commentary.\n"
-        "3. No unsubstantiated claims. Label speculation as 'reportedly' or 'according to leakers'.\n"
-        "4. Conversion articles: affiliate links in first 300 words AND conclusion.\n"
-        "5. Link to at least 3 other DecodedSix articles by slug (use [INTERNAL_LINK:slug] placeholder).\n"
-        "6. Cite at least 1 official source by URL.\n"
-        "7. End with a '## Frequently Asked Questions' section with minimum 3 Q&A pairs.\n"
-        "8. Excerpt (meta description): 150–160 characters, includes primary keyword.\n"
-        "9. Slug: lowercase, hyphenated, includes primary keyword, max 60 characters.\n"
-        "10. Word count floor: 1,200 words minimum.\n\n"
+        "3. Conversion articles: affiliate links in first 300 words AND conclusion.\n"
+        "4. Link to at least 3 other DecodedSix articles by slug (use [INTERNAL_LINK:slug] placeholder).\n"
+        "5. Cite at least 1 official source by URL.\n"
+        "6. End with a '## Frequently Asked Questions' section with minimum 3 Q&A pairs.\n"
+        "7. Excerpt (meta description): 150–160 characters, includes primary keyword.\n"
+        "8. Slug: lowercase, hyphenated, includes primary keyword, max 60 characters.\n"
+        f"9. Word count floor for this article_type ({article_type}): "
+        f"{WORD_COUNT_FLOORS.get(article_type, 800)} words minimum -- this is enforced by "
+        "the validator, not just requested here. Reach it.\n\n"
         "MARKDOWN FORMAT RULES (non-negotiable):\n"
         "- content MUST be clean markdown — use ## for major sections, ### for sub-sections.\n"
         "- Put a blank line between every paragraph. NEVER write multiple paragraphs as one block.\n"
@@ -713,15 +980,36 @@ def _node_affiliate_link_injector(state: dict) -> dict:
 def _node_validator(state: dict) -> dict:
     """
     Enforces hard quality gates. Raises ContentAgentError if gates fail.
-    Gates: word count ≥ 1200, FAQ count ≥ 3, slug ≤ 60 chars, excerpt ≤ 160 chars.
+    This is the actual enforcement mechanism -- the writer prompt's word-count
+    instructions are a request the model can ignore; this is what makes the
+    floor real. Rebuilt 2026-08-27: was a flat <1000 check regardless of
+    article_type (and didn't even match its own docstring, which said 1200)
+    -- now keys off WORD_COUNT_FLOORS per type, plus structural gates for
+    exclusive/deep_dive and breaking_news per the 2026-08-27 content standard.
+
+    Gates:
+    - word count >= WORD_COUNT_FLOORS[article_type]
+    - FAQ count >= 3 (all types except breaking_news, which the spec doesn't
+      require a FAQ section for -- forcing one onto a 400-word floor would
+      make the floor meaningless)
+    - slug <= 60 chars, excerpt <= 160 chars
+    - exclusive/deep_dive only: 4+ '##' sections, a "still unknown" section,
+      a "what this means" section, 3+ real cross-links (from
+      internal_link_injector's state["internal_links_used"])
+    - breaking_news only: a "what this means" section
     """
     errors: list[str] = []
+    article_type = state.get("article_type", "news")
+    floor = WORD_COUNT_FLOORS.get(article_type, 800)
 
-    if state.get("word_count", 0) < 1000:
-        errors.append(f"word_count={state.get('word_count')} is below 1,000 minimum")
+    if state.get("word_count", 0) < floor:
+        errors.append(
+            f"word_count={state.get('word_count')} is below the {floor}-word "
+            f"minimum for article_type={article_type!r}"
+        )
 
     faq = state.get("faq_pairs") or []
-    if len(faq) < 3:
+    if article_type != "breaking_news" and len(faq) < 3:
         errors.append(f"faq_pairs has {len(faq)} items — minimum 3 required")
 
     if len(state.get("slug", "")) > 60:
@@ -729,6 +1017,27 @@ def _node_validator(state: dict) -> dict:
 
     if len(state.get("excerpt", "")) > 160:
         errors.append(f"excerpt is {len(state['excerpt'])} chars — maximum 160")
+
+    content = state.get("content", "")
+    content_lower = content.lower()
+
+    if article_type in ("exclusive", "deep_dive"):
+        h2_count = len(re.findall(r"^## ", content, flags=re.MULTILINE))
+        if h2_count < 4:
+            errors.append(f"{article_type} requires 4+ '##' sections, found {h2_count}")
+        if "still unknown" not in content_lower:
+            errors.append(f"{article_type} requires a \"What's Still Unknown\" section")
+        if "what this means" not in content_lower:
+            errors.append(f"{article_type} requires a \"What This Means for Launch\" section")
+        links_used = state.get("internal_links_used") or []
+        if len(links_used) < 3:
+            errors.append(
+                f"{article_type} requires 3+ cross-links to existing articles, "
+                f"found {len(links_used)}"
+            )
+
+    if article_type == "breaking_news" and "what this means" not in content_lower:
+        errors.append("breaking_news requires a \"What This Means\" section")
 
     if errors:
         raise ContentAgentError("validator", state.get("article_id"),
@@ -918,14 +1227,18 @@ def run_content_agent(
     Raises ContentAgentError if any node fails.
 
     Args:
-        article_type: 'news' | 'evergreen' | 'conversion'
+        article_type: 'news' | 'evergreen' | 'conversion' | 'feature' |
+            'exclusive' | 'deep_dive' | 'breaking_news' (added 2026-08-27;
+            'exclusive'/'deep_dive' are always manually seeded -- see module
+            docstring -- not part of the automated n8n cadence)
         topic_seed: headline, keyword, or product name (n8n passes this from RSS/list)
         publish_date: ISO date string for scheduled publish (optional)
         supabase_client: injectable for testing
         anthropic_client: injectable for testing
     """
-    if article_type not in ("news", "evergreen", "conversion"):
-        raise ValueError(f"article_type must be news/evergreen/conversion, got {article_type!r}")
+    valid_types = ("news", "evergreen", "conversion", "feature", "exclusive", "deep_dive", "breaking_news")
+    if article_type not in valid_types:
+        raise ValueError(f"article_type must be one of {valid_types}, got {article_type!r}")
 
     sb = supabase_client or _supabase()
     ai = anthropic_client or _anthropic()
@@ -947,7 +1260,7 @@ def run_content_agent(
     article_id: Optional[str] = None
 
     try:
-        state = _node_topic_picker(state)
+        state = _node_topic_picker(state, sb)
         state = _node_news_scraper(state)
         state = _node_image_fetcher(state)   # before writer — passes hero_image_url to prompt
         state = _node_writer(state, ai)
