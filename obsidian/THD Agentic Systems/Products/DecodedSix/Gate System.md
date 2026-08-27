@@ -13,6 +13,13 @@ Status (2026-08-21): AdSense site-verification script live in production
   (`src/app/layout.tsx`, client ca-pub-5317430228631558, confirmed in raw
   HTML) — this is verification only, not the gate. Published-article count
   and human-review status unchanged by this. See session log.
+Status (2026-08-27): Kelvin submitted the AdSense application. Got a
+  6-item site audit back and worked through it same-day — 3 of the 6 were
+  already fine (footer link, NewsArticle schema, share buttons all already
+  correct/built), 3 were real (FAQ schema threshold, forced-new-tab
+  internal links, missing hero image alt text) and got fixed. See session
+  log for the full breakdown. This is application review remediation, not
+  a new gate metric — approval status itself still pending.
 
 ## Gate 2 — AdSense Approved
 Metric: AdSense account approved
