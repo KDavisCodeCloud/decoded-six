@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { soundManager, SoundEvents } from '@/lib/sounds'
+import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 import type { Article } from '@/lib/types'
 
 const CAT_CLASS: Record<string, string> = {
@@ -78,11 +79,18 @@ export default function ContentPage() {
     }
   }, [])
 
-  const filtered = articles.filter(a =>
+  // Excludes the same utility placeholder pages the main dashboard overview
+  // and Gate 1 exclude (UTILITY_PAGE_SLUGS) -- this page previously counted
+  // them, so "X live" here and "X ART"/Gate 1 progress on /dashboard could
+  // silently disagree the moment a utility page gets published. Editorial
+  // articles only, same definition everywhere now.
+  const editorial = articles.filter(a => !UTILITY_PAGE_SLUGS.has(a.slug))
+
+  const filtered = editorial.filter(a =>
     !search || a.title.toLowerCase().includes(search.toLowerCase())
   )
 
-  const totalWords = articles.reduce((sum, a) => sum + (a.word_count ?? 0), 0)
+  const totalWords = editorial.reduce((sum, a) => sum + (a.word_count ?? 0), 0)
 
   return (
     <>
@@ -94,7 +102,7 @@ export default function ContentPage() {
           <div>
             <h1 className="font-pricedown text-gta-gold text-3xl leading-none">PUBLISHED ARTICLES</h1>
             <p className="text-quiet text-sm mt-1">
-              {loading ? 'Loading...' : `${articles.length} live · ${totalWords.toLocaleString()} total words`}
+              {loading ? 'Loading...' : `${editorial.length} live · ${totalWords.toLocaleString()} total words`}
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -117,12 +125,12 @@ export default function ContentPage() {
         </div>
 
         {/* Stat strip */}
-        {!loading && articles.length > 0 && (
+        {!loading && editorial.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
             {[
-              { label: 'Published', value: articles.length },
-              { label: 'Avg. words', value: Math.round(totalWords / articles.length).toLocaleString() },
-              { label: 'Agent written', value: articles.filter(a => a.agent_generated).length },
+              { label: 'Published', value: editorial.length },
+              { label: 'Avg. words', value: Math.round(totalWords / editorial.length).toLocaleString() },
+              { label: 'Agent written', value: editorial.filter(a => a.agent_generated).length },
             ].map(stat => (
               <div key={stat.label} className="dash-card p-4">
                 <p className="text-whisper text-xs uppercase tracking-widest mb-1">{stat.label}</p>

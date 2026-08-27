@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server'
+import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 
 const GATE_DEFS = [
   { id: 'GATE_1',   label: 'Gate 1',    desc: '20 articles published → Apply AdSense' },
@@ -26,6 +27,20 @@ interface GateRow {
 export default async function GatesPage() {
   const supabase = await createClient()
 
+  // The 'monetization_gates' table this page was built to read does not
+  // exist in the database (confirmed 2026-08-27 -- PostgREST schema-cache
+  // error, no migration ever created it, nothing else in the codebase
+  // writes to it). Every gate silently showed 0 progress regardless of
+  // real state as a result -- including Gate 1, whose actual condition (20
+  // articles published) had already been cleared for a while by the time
+  // this was caught. Rather than stand up a table + a sync mechanism for
+  // one gate, Gate 1 is now computed live from `articles` here, the same
+  // definition /dashboard's overview and /dashboard/content use
+  // (product_id='gta-hub', status='published', minus UTILITY_PAGE_SLUGS).
+  // Gates 2-12 still depend on data this app doesn't track anywhere yet
+  // (AdSense approval, session counts, affiliate revenue) -- they keep
+  // reading the missing table for now and will keep showing 0/pending
+  // until that's built; that's real remaining scope, not fixed here.
   let gateRows: GateRow[] = []
   try {
     const { data } = await supabase
@@ -34,10 +49,28 @@ export default async function GatesPage() {
       .eq('product_id', 'decodedsix')
     gateRows = (data as GateRow[]) ?? []
   } catch {
-    // DB not yet connected — show empty state
+    // Table doesn't exist / DB not yet connected — show empty state for
+    // whichever gates aren't overridden below.
   }
 
   const gateMap = new Map<string, GateRow>(gateRows.map(g => [g.gate_id, g]))
+
+  const { data: articleRows } = await supabase
+    .from('articles')
+    .select('id, slug, status')
+    .eq('product_id', 'gta-hub')
+  const publishedEditorialCount = (articleRows ?? []).filter(
+    a => a.status === 'published' && !UTILITY_PAGE_SLUGS.has(a.slug)
+  ).length
+  const GATE_1_TARGET = 20
+  gateMap.set('GATE_1', {
+    gate_id: 'GATE_1',
+    status: publishedEditorialCount >= GATE_1_TARGET ? 'cleared' : 'pending',
+    current_value: publishedEditorialCount,
+    target_value: GATE_1_TARGET,
+    unlocked_at: gateMap.get('GATE_1')?.unlocked_at ?? null,
+  })
+
   const cleared = GATE_DEFS.filter(g => gateMap.get(g.id)?.status === 'cleared').length
 
   return (
