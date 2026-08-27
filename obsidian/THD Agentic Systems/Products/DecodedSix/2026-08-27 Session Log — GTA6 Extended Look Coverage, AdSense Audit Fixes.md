@@ -43,6 +43,21 @@ Also populated `faq_pairs` for the 4 articles Kelvin specified content for (Rele
 - Commit `e689e1c`, pushed to `origin/master` (gh CLI 2.4.0's git-credential helper is still broken on this box — same issue as jarvis-decoded; worked around by reading the OAuth token straight out of `~/.config/gh/hosts.yml` and pushing to an inline authenticated URL, not persisted into `.git/config`)
 - Article content (all 11 new articles, the 4 `faq_pairs` rows, the internal links, the 20 backfilled `featured_image_alt` values) is Supabase data, not repo files — no git diff for those, verify directly against the `articles` table
 
+## Same-Day Follow-Up — GSC Read, 404s, Thin Content
+Kelvin brought a Google Search Console read later the same day: US underperforming (150 impressions/3 clicks = 2% CTR), Japan now #1 country (10 clicks/85 impressions, was 0 a few days prior), 44 pages "crawled — not indexed," 5 reported 404s. No GSC API access exists in this environment — asked Kelvin for the real export, he said work from DB inference instead, so everything below is verified against the repo/DB directly, not a real GSC list.
+
+**404s — found 31, not 5.** Only 5 of 36 archived articles had `redirect_slug` set. The other 31 had nothing — real dead ends for anyone who still has the old URL indexed or bookmarked. Mapped all 31 to topically-matched live articles (release-date cluster → `gta-6-release-date-november-19-2026-pricing`, Vice City cluster → `gta-6-vice-city-location-guide`, characters cluster → `gta-6-characters-every-confirmed-name-role-detail`, pre-reveal Extended Look hype cluster → today's real main roundup, 5 with no topical match → `decoded-six-is-live` as hub fallback) and set `redirect_slug` on all 31. No code change needed — the existing redirect mechanism in `news/[slug]/page.tsx` already picks this up.
+
+**Thin content — 10 of today's 11 new articles were 168-272 words.** Real, verifiable contributor to the "crawled not indexed" count (Google's own stated reasons: thin content, near-duplicate content — this matches both). Expanded all 10 to 353-452 words using additional real facts already gathered in research (not padding) — RDR2 honor-system comparison, Bautista's background, Ernesto/Raymond raid context, hair/weather rendering specifics, etc.
+
+**Found but NOT resolved — 3 clusters of live, currently-published pages competing on the same topic:** release-date (2 pages), Vice City locations (3 pages, one of them today's new thin one), characters (2 pages). This is a more direct explanation for weak US CTR than title wording — two of our own pages splitting ranking signal for the same query. Recommended the same archive+redirect consolidation treatment as the 31 dead ones; Kelvin hadn't decided as of this entry.
+
+**US CTR title guidance given, but caveated.** No real per-page GSC data was available, so this was general best-practice (lead with a specific/dated/numbered detail instead of generic "Everything Confirmed" phrasing every competing GTA6 site also uses) rather than a targeted per-page fix. Revisit with real data if Kelvin ever exports the actual GSC Performance-by-page report.
+
+**OneLink (Amazon UK Associates) still blocked** — needs the real OneTag snippet from Amazon before it can go in `layout.tsx`. Not actionable yet.
+
+**Everything committed:** nothing — all of this is Supabase data (redirect_slug, content, word_count columns), no repo files touched.
+
 ## Related Notes
 → [[DecodedSix Master Reference]]
 → [[Gate System]]
