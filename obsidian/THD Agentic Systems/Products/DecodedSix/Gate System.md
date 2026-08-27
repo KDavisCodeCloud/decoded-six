@@ -20,6 +20,16 @@ Status (2026-08-27): Kelvin submitted the AdSense application. Got a
   internal links, missing hero image alt text) and got fixed. See session
   log for the full breakdown. This is application review remediation, not
   a new gate metric — approval status itself still pending.
+Status (2026-08-27, later): Gate 1's article-count condition (20 published)
+  is actually CLEARED — 49 published editorial articles, confirmed live
+  against the real `articles` table. This was invisible on the dashboard's
+  own Gate Tracker page until today: it read from a `monetization_gates`
+  table that turned out to not exist in the database at all (no migration
+  ever created it), so Gate 1 silently showed 0/20 regardless of real
+  state. Fixed — Gate 1 now computes live from `articles`, same definition
+  the dashboard overview uses. AI-detection/human-review sub-conditions on
+  Gate 1 aren't independently verified (no tooling checks those), but the
+  article-count condition itself is real and cleared.
 
 ## Gate 2 — AdSense Approved
 Metric: AdSense account approved
