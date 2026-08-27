@@ -244,7 +244,7 @@ export default async function ArticlePage({
   // locale's pre-computed schema; translated locales compute it fresh
   // from the translated faqPairs below.
   const faqJsonLd = (!translation ? article.schema_faq : null) ?? (
-    faqPairs && faqPairs.length >= 3
+    faqPairs && faqPairs.length >= 1
       ? {
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
@@ -287,7 +287,7 @@ export default async function ArticlePage({
       <Header />
 
       {/* ── CINEMATIC ARTICLE HERO ───────────────────────────── */}
-      <HeroImage src={article.featured_image_url ?? heroImage} credit={article.featured_image_credit ?? '© Rockstar Games'}>
+      <HeroImage src={article.featured_image_url ?? heroImage} alt={article.featured_image_alt ?? title} credit={article.featured_image_credit ?? '© Rockstar Games'}>
         <div className="max-w-3xl w-full">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 mb-5 text-[11px] font-ibm" style={{ color: 'rgba(255,255,255,0.45)' }}>

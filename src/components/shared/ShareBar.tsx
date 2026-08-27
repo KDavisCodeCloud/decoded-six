@@ -58,7 +58,7 @@ export function ShareBar({ url, title, image }: ShareBarProps) {
   }
 
   function handleX() {
-    openShareWindow(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`)
+    openShareWindow(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`${title} via @decodedsix`)}`)
   }
 
   function handleFacebook() {

@@ -71,11 +71,16 @@ const components: Components = {
     return <em className="italic text-quiet">{children}</em>
   },
   a({ href, children }) {
+    // Internal links (site-relative, or absolute against our own domain)
+    // navigate in-tab like normal site nav -- only external citations open
+    // in a new tab. Previously every link forced target="_blank", which
+    // made in-body internal links (e.g. to /guides/...) behave like an
+    // external source instead of site navigation.
+    const isInternal = !!href && (href.startsWith('/') || href.includes('thedecodedsix.com'))
     return (
       <a
         href={href ?? '#'}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...(!isInternal && { target: '_blank', rel: 'noopener noreferrer' })}
         className="text-flame hover:underline underline-offset-2"
       >
         {children}

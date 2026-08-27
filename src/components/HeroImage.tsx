@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 interface Props {
   src: string
+  alt: string
   credit?: string
   minHeight?: string
   children: ReactNode
@@ -13,11 +14,13 @@ interface Props {
  * shipped inline in src/app/news/[slug]/page.tsx — same visual treatment,
  * reusable for category pages too.
  */
-export function HeroImage({ src, credit = '© Rockstar Games', minHeight = '55vh', children }: Props) {
+export function HeroImage({ src, alt, credit = '© Rockstar Games', minHeight = '55vh', children }: Props) {
   return (
     <section className="relative overflow-hidden" style={{ minHeight }}>
       <div
         className="absolute inset-0"
+        role="img"
+        aria-label={alt}
         style={{ backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center' }}
       />
       <div
