@@ -7,9 +7,18 @@
    - Official GTA 6 trailers
    - Official Rockstar press releases and social media
 
-2. Anything NOT from those sources is SPECULATION. No exceptions.
+2. Anything NOT from those sources is SPECULATION, with one named exception below.
    - Fan sites, wikis, leaker accounts, YouTube breakdowns, gaming blogs = speculation
    - GTA Online mechanics = GTA 5, not GTA 6. Do not transfer them to GTA 6 articles.
+
+2a. Third-party sources cited by name (e.g. TGG, IGN) may be labeled
+    confirmed-with-source-named rather than speculation when the source has
+    direct verified access (e.g. a named journalist's own on-record
+    interview with Rockstar North staff, not a secondhand report or a leak).
+    Label these with the real, specific source every time ("per TGG's July
+    13, 2026 interview with Rob Nelson," not a bare "confirmed") — never
+    blend them into the same unlabeled "confirmed" tier as official Rockstar
+    content itself.
 
 3. Label speculation clearly and inline every time:
    "fans speculate," "based on GTA Online's model," "if Rockstar follows past patterns"
