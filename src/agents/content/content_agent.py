@@ -217,6 +217,65 @@ def _is_blocked_topic(topic: str) -> bool:
     return any(kw in lower for kw in _BLOCKED_TOPIC_KEYWORDS)
 
 
+# Saturation check (added 2026-09-02, Kelvin): before auto-generating an
+# article with no caller-supplied topic_seed, check how many published
+# articles already exist in the same primary category. At 2+, auto-pick is
+# blocked for that category -- the caller must supply topic_seed explicitly
+# to write another one. Directly motivated by this session's own output:
+# 8 gear/affiliate articles got generated in one batch (headsets, storage,
+# router, capture card, PS5 Pro...) while the site actually needed
+# character/regional/mechanic content instead. Keyword-bucketed rather than
+# using article_type or the affiliate_products.json category field alone,
+# since the saturation problem spans both conversion articles (gear) and
+# deep_dive/news articles (pre-order, physical edition, map regions) --
+# same failure mode either way: an auto-picker generating another article
+# on a topic the site already has enough of.
+TOPIC_CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "headset": ("headset", "pulse elite", "astro a50", "tempest 3d audio", "turtle beach"),
+    "storage": ("ssd", "storage space", "external drive", "game drive"),
+    "display": ("monitor", "oled tv", "gaming monitor", "4k tv"),
+    "networking": ("router", "wifi", "wi-fi", "reduces lag", "lag reduction"),
+    "streaming": ("capture card", "streaming setup", "record gameplay", "4k60"),
+    "ps5_pro": ("ps5 pro", "playstation 5 pro"),
+    "disc_drive": ("disc drive",),
+    "mobile_controller": ("backbone", "remote play", "kishi"),
+    "pre_order": ("pre-order", "preorder", "pre order"),
+    "physical_edition": ("physical edition", "code in a box", "code-in-a-box"),
+    "map_regions": ("confirmed regions", "leonida map", "vice city location"),
+    "robbery_heist": ("robbery system", "greed vs speed"),
+}
+CATEGORY_SATURATION_LIMIT = 2
+
+
+def _classify_topic_category(topic: str) -> Optional[str]:
+    lower = topic.lower()
+    for category, keywords in TOPIC_CATEGORY_KEYWORDS.items():
+        if any(kw in lower for kw in keywords):
+            return category
+    return None
+
+
+def _category_published_count(category: str, sb: Any) -> int:
+    keywords = TOPIC_CATEGORY_KEYWORDS.get(category, ())
+    if not keywords:
+        return 0
+    try:
+        result = sb.table("articles").select("title").eq("status", "published").execute()
+    except Exception as e:
+        log.warning("[%s] category saturation lookup failed (non-blocking, treated as not "
+                    "saturated): %s", AGENT_ID, e)
+        return 0
+    titles = [(row.get("title") or "").lower() for row in (result.data or [])]
+    return sum(1 for t in titles if any(kw in t for kw in keywords))
+
+
+def _category_saturated(topic: str, sb: Any) -> bool:
+    category = _classify_topic_category(topic)
+    if category is None:
+        return False
+    return _category_published_count(category, sb) >= CATEGORY_SATURATION_LIMIT
+
+
 class ContentAgentError(RuntimeError):
     """Raised when any node fails. Includes node name and article_id if available."""
 
@@ -314,6 +373,15 @@ def _node_topic_picker(state: dict, sb: Any) -> dict:
     2. Duplicate-topic check (feature/evergreen auto-picks only -- never
        overrides a caller-supplied seed): skips a candidate topic if its
        title-word overlap with any existing article title exceeds 50%.
+
+    Category saturation check (added 2026-09-02, feature/evergreen/conversion
+    auto-picks only -- never overrides a caller-supplied seed): skips a
+    candidate whose keyword-bucketed category (see TOPIC_CATEGORY_KEYWORDS)
+    already has >= CATEGORY_SATURATION_LIMIT published articles. If every
+    candidate for that article_type is either already-covered or saturated,
+    raises ContentAgentError instead of falling back to a saturated topic --
+    the caller must supply topic_seed explicitly to add another article to
+    an already-saturated category.
     """
     article_type = state["article_type"]
     topic_seed = shield.sanitize(state.get("topic_seed", "").strip())
@@ -376,15 +444,28 @@ def _node_topic_picker(state: dict, sb: Any) -> dict:
                 return True
         return False
 
+    def _saturation_error(candidates: list[str]) -> ContentAgentError:
+        blocked = sorted({_classify_topic_category(c) for c in candidates if _classify_topic_category(c)})
+        return ContentAgentError(
+            "topic_picker", None,
+            ValueError(
+                f"Every auto-pick candidate for article_type={article_type!r} is either "
+                f"already covered or its category is saturated (>= {CATEGORY_SATURATION_LIMIT} "
+                f"published articles already): {blocked}. Supply topic_seed explicitly to "
+                f"write another article in a saturated category, or add new candidates "
+                f"outside those categories."
+            ),
+        )
+
     if article_type == "feature":
         lines = CONFIRMED_SYSTEM_TOPICS
         idx = state.get("article_count", 0) % len(lines)
         for offset in range(len(lines)):
             candidate = lines[(idx + offset) % len(lines)]
-            if not _topic_already_covered(candidate):
+            if not _topic_already_covered(candidate) and not _category_saturated(candidate, sb):
                 state["topic"] = candidate
                 return state
-        state["topic"] = lines[idx]  # every system already covered -- fall through, still caught downstream
+        raise _saturation_error(lines)
 
     elif article_type == "evergreen":
         if KEYWORD_LIST_PATH.exists():
@@ -393,10 +474,10 @@ def _node_topic_picker(state: dict, sb: Any) -> dict:
             if lines:
                 for offset in range(len(lines)):
                     candidate = lines[(idx + offset) % len(lines)]
-                    if not _topic_already_covered(candidate):
+                    if not _topic_already_covered(candidate) and not _category_saturated(candidate, sb):
                         state["topic"] = candidate
                         return state
-                state["topic"] = lines[idx]
+                raise _saturation_error(lines)
             else:
                 state["topic"] = "GTA 6 guide"
         else:
@@ -405,10 +486,18 @@ def _node_topic_picker(state: dict, sb: Any) -> dict:
     elif article_type == "conversion":
         if AFFILIATE_LIST_PATH.exists():
             products = json.loads(AFFILIATE_LIST_PATH.read_text())
-            idx = state.get("article_count", 0) % len(products) if products else 0
-            product = products[idx] if products else {"name": "Best PS5 gaming headset", "category": "headset"}
-            state["topic"] = product.get("name", "Best gaming gear for GTA 6")
             state["affiliate_products"] = products
+            if products:
+                idx = state.get("article_count", 0) % len(products)
+                for offset in range(len(products)):
+                    product = products[(idx + offset) % len(products)]
+                    name = product.get("name", "")
+                    if not _topic_already_covered(name) and not _category_saturated(name, sb):
+                        state["topic"] = name or "Best gaming gear for GTA 6"
+                        return state
+                raise _saturation_error([p.get("name", "") for p in products])
+            else:
+                state["topic"] = "Best gaming setup for GTA 6"
         else:
             state["topic"] = "Best gaming setup for GTA 6"
             state["affiliate_products"] = []
@@ -754,15 +843,20 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "comprehensive -- 1,500+ words across multiple distinct subsections. A short "
         "'everything we know' piece is exactly the thin, generic content this standard "
         "exists to prevent.\n"
-        "- GTA 6 Online (the multiplayer mode) has NOT launched and has no confirmed "
-        "mechanics, features, or release date -- the only Tier 0 fact is that it "
-        "launches separately from single-player. Do not write this article as a guide, "
-        "feature, or 'everything you need to know' piece that treats GTA 6 Online as an "
-        "existing, explorable feature -- there is nothing real to guide a player through "
-        "yet. If the topic given to you is fundamentally about GTA 6 Online, the only "
-        "acceptable shape is a news/analysis piece whose entire point is stating plainly "
-        "that it isn't out, summarizing the few confirmed facts, and labeling everything "
-        "else speculation (see VOICE.md rule 5).\n\n"
+        "- GTA ONLINE BLACKOUT RULE (editorial, non-negotiable): no article about GTA "
+        "Online, the GTA Online economy, GTA Online launch timing, or anything "
+        "speculating about GTA 6's online multiplayer -- until Rockstar makes an "
+        "official announcement about it. No exceptions, including a 'debunking' or "
+        "'what's confirmed vs rumored' framing -- careful sourcing and clear speculation "
+        "labels are NOT a workaround for this rule. This is enforced in code before you "
+        "ever see the topic (see _is_blocked_topic), but if a topic somehow reaches you "
+        "that is fundamentally about GTA Online, do not write it -- that is the one "
+        "shape of request in this entire system you should refuse rather than complete. "
+        "A single sentence inside an article about something else (e.g. 'GTA Online "
+        "launches separately -- not covered here') is fine; a dedicated article, or one "
+        "that leans on GTA Online for its main premise, is not, no matter how it's "
+        "labeled or hedged.\n"
+        "See VOICE.md rule 5 for the full GTA Online blackout rule.\n\n"
     )
 
     system = (

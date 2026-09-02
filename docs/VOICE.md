@@ -46,19 +46,21 @@
    unless pulled directly from official Rockstar content.
    If Rockstar hasn't published it, don't state it as fact — period.
 
-5. Do not write an article whose main subject is GTA 6 Online (the
-   multiplayer mode) — full stop, no exceptions. It has not launched, and
-   the only Tier 0 fact about it is that it launches separately from
-   single-player. This applies even to an article that frames itself as
-   "debunking" it or explaining "what's confirmed vs. rumored" — Kelvin
-   rejected two such articles on 2026-09-02 specifically for being about
-   this topic at all, correctly-labeled speculation or not, so do not treat
-   careful sourcing/labeling as a workaround for this rule. If a topic seed
-   given to you is fundamentally about GTA 6 Online, decline it / do not
-   write it, rather than writing the most careful version possible of an
-   article that shouldn't exist yet. A single-sentence mention inside an
-   article about something else (e.g. "GTA Online launches separately —
-   not covered here") is fine; a dedicated article is not. Found
+5. GTA ONLINE BLACKOUT RULE — no article about GTA Online, the GTA Online
+   economy, GTA Online launch timing, or anything speculating about GTA 6's
+   online multiplayer, until Rockstar makes an official announcement about
+   it. Full stop, no exceptions. It has not launched, and the only Tier 0
+   fact about it is that it launches separately from single-player. This
+   applies even to an article that frames itself as "debunking" it or
+   explaining "what's confirmed vs. rumored" — Kelvin rejected two such
+   articles on 2026-09-02 specifically for being about this topic at all,
+   correctly-labeled speculation or not, so do not treat careful
+   sourcing/labeling as a workaround for this rule. If a topic seed given
+   to you is fundamentally about GTA 6 Online, decline it / do not write
+   it, rather than writing the most careful version possible of an article
+   that shouldn't exist yet. A single-sentence mention inside an article
+   about something else (e.g. "GTA Online launches separately — not
+   covered here") is fine; a dedicated article is not. Found
    2026-09-02: this was silently causing repeat articles via
    docs/evergreen_keywords.txt and n8n/daily_content_cron.json's rotation,
    both of which had "GTA 6 online multiplayer features" as an
