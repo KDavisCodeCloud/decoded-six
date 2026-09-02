@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -95,7 +95,12 @@ export async function POST(
     } else if (action === 'reject') {
       update = { ...update, status: 'archived' }
     } else {
-      update = { ...update, status: 'needs_revision', hitl_notes: notes! }
+      // 'revision_in_progress' (not 'needs_revision') so the article leaves
+      // the dashboard queue view immediately on click -- queue/page.tsx
+      // only fetches status IN ('pending_review','needs_revision'). The
+      // backend's revise agent moves it back to 'pending_review' (or
+      // 'needs_revision' again if it still doesn't pass) when it finishes.
+      update = { ...update, status: 'revision_in_progress', hitl_notes: notes! }
     }
   }
 
@@ -142,6 +147,18 @@ export async function POST(
     void triggerTranslation(id)
   }
 
+  // Fire-and-forget the actual revision agent. Unlike translation (which is
+  // a nice-to-have after a successful publish), a failed trigger here can't
+  // just be logged and dropped — the article was just moved to
+  // 'revision_in_progress', which queue/page.tsx doesn't display at all, so
+  // a silent failure would make the article vanish from the dashboard with
+  // no agent ever actually running. If the trigger can't be sent (API URL
+  // unset, backend unreachable), revert it to 'needs_revision' so it stays
+  // visible and reviewable instead of stuck in an invisible status forever.
+  if (action === 'revise') {
+    void triggerRevision(id, sb, notes!)
+  }
+
   return NextResponse.json({ success: true, article_id: id, action })
 }
 
@@ -158,4 +175,42 @@ function triggerTranslation(articleId: string): Promise<void> {
     .catch((err) => {
       console.error(`[translate-trigger] failed for article ${articleId}:`, err)
     })
+}
+
+async function triggerRevision(
+  articleId: string,
+  sb: SupabaseClient,
+  hitlNotes: string,
+): Promise<void> {
+  const apiUrl = process.env.DECODEDSIX_API_URL
+  const apiKey = process.env.DECODEDSIX_API_KEY
+
+  const revert = (reason: string) =>
+    sb.from('articles')
+      .update({ status: 'needs_revision', hitl_notes: `${hitlNotes}\n\n[revision trigger failed: ${reason}]` })
+      .eq('id', articleId)
+
+  if (!apiUrl) {
+    console.error(`[revise-trigger] DECODEDSIX_API_URL not set — reverting article ${articleId} to needs_revision`)
+    await revert('backend URL not configured')
+    return
+  }
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
+
+  try {
+    const res = await fetch(`${apiUrl}/agents/decodedsix/revise/${articleId}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ hitl_notes: hitlNotes }),
+    })
+    if (!res.ok) {
+      console.error(`[revise-trigger] backend returned ${res.status} for article ${articleId}`)
+      await revert(`backend returned ${res.status}`)
+    }
+  } catch (err) {
+    console.error(`[revise-trigger] failed for article ${articleId}:`, err)
+    await revert('backend unreachable')
+  }
 }

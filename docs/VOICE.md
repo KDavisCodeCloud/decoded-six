@@ -20,6 +20,24 @@
     blend them into the same unlabeled "confirmed" tier as official Rockstar
     content itself.
 
+2b. Source trust tiers — every factual claim carries one of these labels:
+    - TIER 0 (fully confirmed, no qualification): Rockstar Newswire, official
+      Rockstar channels (rockstargames.com, official trailers, official
+      social).
+    - TIER 1 (confirmed-with-source-named — verified direct Rockstar access,
+      per rule 2a): IGN (Rob Nelson interview, Rockstar North visit), TGG
+      (Rockstar North visit, July 13 2026), Eurogamer (Extended Look, direct
+      quotes), Game Informer (Extended Look, direct access), Kotaku
+      (Extended Look coverage).
+    - TIER 2 (reportable with attribution, still speculation-adjacent — not
+      "confirmed" under rule 2 unless the outlet is itself quoting a Tier 1
+      source): PC Gamer, VGC, GamesRadar, Polygon. Phrase as "reported by
+      [outlet]."
+    - TIER 3 (community observed — speculation, label explicitly per rule 3):
+      Reddit r/GTA6, GTA fan wikis. Label "fans have observed" or "community
+      reports, unverified by Rockstar."
+    Never present a lower tier's claim as if it came from a higher tier.
+
 3. Label speculation clearly and inline every time:
    "fans speculate," "based on GTA Online's model," "if Rockstar follows past patterns"
    Never present speculation as confirmed fact.

@@ -59,8 +59,33 @@ WORD_COUNT_FLOORS = {
     "evergreen": 1500,
     "conversion": 1200,
     "exclusive": 2000,
-    "deep_dive": 2000,
+    "deep_dive": 1200,
     "breaking_news": 400,
+}
+
+# Site category per article_type -- determines routing (articlePath() in
+# article-utils.ts sends 'guide' to /guides/[slug], everything else to
+# /news/[slug]). This dict was never extended when 'feature'/'exclusive'/
+# 'deep_dive'/'breaking_news' were added as article_type values on
+# 2026-08-27 -- output_formatter's lookup only had 'news'/'evergreen'/
+# 'conversion', so every non-original-3 article_type crashed with a
+# KeyError at the final DB insert step, after the full writer/FAQ/
+# validator pipeline had already run (and paid for) the real LLM calls.
+# Found 2026-09-02 when the first batch of deep_dive articles all failed
+# here. The writer's type_instructions ask it to "pick whichever fits"
+# for feature/deep_dive, but the writer's JSON output has no category
+# field to capture that pick -- category has only ever come from this
+# fixed article_type mapping. Defaulting the 4 added types to 'news'
+# matches how 'exclusive' was already treated in practice (the TGG
+# exclusive published 2026-08-27 used category='news').
+ARTICLE_TYPE_CATEGORY = {
+    "news": "news",
+    "evergreen": "guide",
+    "conversion": "guide",
+    "feature": "news",
+    "exclusive": "news",
+    "deep_dive": "news",
+    "breaking_news": "news",
 }
 
 # Confirmed-systems knowledge base, sourced from TGG's July 13, 2026 visit to
@@ -153,6 +178,23 @@ CONFIRMED_SYSTEM_TOPICS = [
     "GTA 6 driving physics: weight, top speed, and rear-wheel-drive handling",
 ]
 
+# Default seed for the topic_queue architecture (added 2026-09-02). Ordered,
+# sequential -- when a caller passes topic_queue, _node_topic_picker works
+# through it in order instead of self-discovering via CONFIRMED_SYSTEM_TOPICS/
+# evergreen_keywords/affiliate_products. This default list was originally
+# specced as 10 topics; 8 were dropped before seeding because they already
+# had a published article covering the same system (NPC System, Safe Houses,
+# Vehicle Damage and Physics, Combat System, Relationship System, Character
+# Customization, Story Structure, Activities and Side Content) -- confirmed
+# via a title-similarity check against the live articles table, not just the
+# weaker word-overlap check _topic_already_covered already does. Only the 2
+# topics below had no existing coverage.
+DEEP_DIVE_TOPIC_QUEUE_DEFAULT = [
+    "GTA 6 Robbery System — greed vs speed, fence system, car theft tiers",
+    "GTA 6 Money and Economy — three money states, ATM-only deposits, "
+    "fence pipeline, story money gates",
+]
+
 
 class ContentAgentError(RuntimeError):
     """Raised when any node fails. Includes node name and article_id if available."""
@@ -223,11 +265,21 @@ def _node_topic_picker(state: dict, sb: Any) -> dict:
     Selects or validates the topic seed for the article type.
     For news/breaking_news: topic_seed comes from caller (n8n passes RSS headline).
     For exclusive/deep_dive: always caller-supplied (manually triggered --
-      see module docstring); this function only passes it through.
+      see module docstring); this function only passes it through, unless
+      topic_queue is set (see below).
     For feature: rotates through CONFIRMED_SYSTEM_TOPICS (real sourced
       systems, not a generic keyword list).
     For evergreen: picks from docs/evergreen_keywords.txt if no seed given.
     For conversion: picks from docs/affiliate_products.json if no seed given.
+
+    topic_queue (added 2026-09-02): if state["topic_queue"] is a non-empty
+    list, it takes priority over every auto-discovery path below (though an
+    explicit topic_seed still wins over the queue, same as any other manual
+    override). Entries are consumed in order via state["queue_index"] --
+    the caller is responsible for persisting queue_index between runs, since
+    this agent is stateless per call. Once the queue is exhausted (index runs
+    past the end), topic_picker falls through to normal self-discovery for
+    that article_type instead of erroring.
 
     Two things added 2026-08-27 to fix the confirmed root cause of near-
     duplicate rejected articles (the old version had zero awareness of what
@@ -248,6 +300,15 @@ def _node_topic_picker(state: dict, sb: Any) -> dict:
     if topic_seed:
         state["topic"] = topic_seed
         return state
+
+    topic_queue = state.get("topic_queue") or []
+    if topic_queue:
+        idx = state.get("queue_index", 0)
+        if idx < len(topic_queue):
+            state["topic"] = shield.sanitize(topic_queue[idx])
+            state["queue_index"] = idx + 1
+            return state
+        # queue exhausted -- fall through to normal self-discovery below
 
     if article_type in ("news", "feature"):
         floor = WORD_COUNT_FLOORS.get(article_type, 800)
@@ -587,6 +648,26 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
             "through Rockstar's own channels:\n" + CONFIRMED_SYSTEMS_KB
         )
 
+    # Caller-supplied fact brief (added 2026-09-02, for manually-seeded batches
+    # like topic_queue articles) -- gives the writer real facts + required
+    # angle/format to use instead of letting it invent supporting specifics
+    # for a topic CONFIRMED_SYSTEMS_KB doesn't cover. Each fact line should
+    # already carry its own tier attribution (Tier 0/1/2/3) since the writer
+    # can't verify sourcing itself -- this is trusted input from the caller,
+    # not scraped or LLM-generated.
+    fact_brief = state.get("fact_brief", "")
+    fact_brief_block = ""
+    if fact_brief:
+        fact_brief_block = (
+            "\n\nREQUIRED FACTS AND ANGLE FOR THIS ARTICLE -- use these exact facts, "
+            "each already labeled with its source trust tier. Attribute every claim "
+            "per its stated tier (see SOURCE TRUST TIERS above). Do not invent "
+            "additional confirmed-sounding facts beyond what's given here or in "
+            "CONFIRMED SOURCE MATERIAL above -- if something isn't in either block, "
+            "it isn't confirmed, and must be labeled speculation or omitted:\n\n"
+            + fact_brief
+        )
+
     # Select contextually relevant images from the official Rockstar press kit.
     # No fixed cap (raised from the old limit=4) -- Kelvin's standing rule as of
     # 2026-07-25: every named person/place/thing that is the main subject of a
@@ -627,12 +708,24 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
 
     content_standard = (
         "CONTENT STANDARD (applies to every article regardless of type):\n"
-        "- Confirmed facts: label as confirmed and name the source (Rockstar Newswire, "
-        "Take-Two, or the specific outlet/person who confirmed it -- e.g. 'Rob Nelson "
-        "confirmed to TGG'). Do not present a third-party outlet's report as if it came "
-        "from Rockstar directly.\n"
-        "- Speculation: label it as speculation explicitly ('reportedly', 'according to "
-        "leakers', 'unconfirmed'). Never present speculation as confirmed fact.\n"
+        "SOURCE TRUST TIERS -- every factual claim must be labeled per its tier, and a "
+        "lower tier's claim must never be presented as if it came from a higher tier:\n"
+        "- TIER 0 (fully confirmed, no qualification needed): Rockstar Newswire, official "
+        "Rockstar channels (rockstargames.com, official trailers, official social).\n"
+        "- TIER 1 (confirmed-with-source-named -- verified direct Rockstar access): IGN "
+        "(Rob Nelson interview, Rockstar North visit), TGG (Rockstar North visit, July 13 "
+        "2026), Eurogamer (Extended Look, direct quotes), Game Informer (Extended Look, "
+        "direct access), Kotaku (Extended Look coverage). Attribute explicitly every time "
+        "(e.g. 'Rob Nelson confirmed to TGG that...') -- never blended into Tier 0.\n"
+        "- TIER 2 (reportable with attribution): PC Gamer, VGC, GamesRadar, Polygon. "
+        "Phrase as 'reported by [outlet]'. Not labeled confirmed unless the outlet is "
+        "itself quoting a Tier 1 source.\n"
+        "- TIER 3 (community observed, label explicitly): Reddit r/GTA6, GTA fan wikis. "
+        "Label 'fans have observed' or 'community reports, unverified by Rockstar' -- "
+        "never presented as fact.\n"
+        "- Anything not traceable to one of the tiers above is speculation: label it "
+        "explicitly ('reportedly', 'according to leakers', 'unconfirmed'). Never present "
+        "speculation as confirmed fact.\n"
         "- Every article must answer, somewhere in the body: what is this, how does it "
         "work, what does it mean for the player, and what's still unknown. Don't skip "
         "the last one just because it's less exciting to write.\n"
@@ -648,6 +741,7 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         f"{type_instructions[article_type]}\n\n"
         + content_standard
         + knowledge_block
+        + fact_brief_block
         + "\n\n"
         "CONTENT QUALITY RULES (enforce all 9):\n"
         "1. First paragraph answers search intent immediately — no preamble.\n"
@@ -856,6 +950,21 @@ def _node_schema_generator(state: dict) -> dict:
 
 # ── Node 6: internal_link_injector ───────────────────────────────────────────
 
+# Matches an already-resolved markdown link to another DecodedSix article/guide
+# ((?<!!) excludes image markdown, which uses the same [..](..) shape with a
+# leading '!'). Used only by revise_content_agent -- _node_internal_link_injector
+# above only detects unresolved [INTERNAL_LINK:slug] placeholders, which a
+# revision's starting content never has (the injector already resolved them
+# the first time this article was generated), so without this the validator
+# would always see internal_links_used=[] on every revision regardless of
+# how many real links the reviser actually preserved.
+_RESOLVED_INTERNAL_LINK_RE = re.compile(r'(?<!!)\[[^\]]+\]\((/(?:news|guides)/[a-z0-9-]+|/gta-6-complete-guide)\)')
+
+
+def _count_resolved_internal_links(content: str) -> list[str]:
+    return sorted(set(_RESOLVED_INTERNAL_LINK_RE.findall(content)))
+
+
 def _node_internal_link_injector(state: dict, sb: Any) -> dict:
     """
     Replaces [INTERNAL_LINK:slug] placeholders in content_html with real <a> tags.
@@ -1061,7 +1170,7 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
         "slug": state["slug"],
         "excerpt": state["excerpt"],
         "content": state["content"],
-        "category": {"news": "news", "evergreen": "guide", "conversion": "guide"}[state["article_type"]],
+        "category": ARTICLE_TYPE_CATEGORY[state["article_type"]],
         "status": "pending_review",
         "agent_generated": True,
         "published_at": state.get("publish_date") or datetime.now(timezone.utc).isoformat(),
@@ -1199,18 +1308,229 @@ def _fire_hitl_webhook(state: dict) -> None:
         return
     try:
         import httpx
-        cat_map = {"news": "news", "evergreen": "guide", "conversion": "guide"}
         httpx.post(url, json={
             "status": state.get("status", "pending_review"),
             "article_id": state.get("article_id"),
             "title": state.get("title", ""),
             "slug": state.get("slug", ""),
-            "category": cat_map.get(state.get("article_type", ""), "news"),
+            "category": ARTICLE_TYPE_CATEGORY.get(state.get("article_type", ""), "news"),
             "article_type": state.get("article_type", ""),
             "word_count": state.get("word_count", 0),
         }, timeout=5)
     except Exception as exc:
         log.warning("[%s] HITL webhook fire failed (non-blocking): %s", AGENT_ID, exc)
+
+
+# ── Node: reviser (used only by revise_content_agent) ─────────────────────────
+
+def _node_reviser(state: dict, anthropic_client: Any) -> dict:
+    """
+    Rewrites an EXISTING article's content to fix specific flagged issues,
+    rather than generating a new article from scratch. Reuses the same voice
+    file + content standard as _node_writer, but the instruction is "fix
+    exactly these problems, preserve everything else" instead of "write a
+    new article on this topic".
+    """
+    voice = _voice_context()
+    article = state["existing_article"]
+    hitl_notes = state["hitl_notes"]
+
+    system = (
+        f"{voice}\n\n"
+        "You are DSX-CA1, the DecodedSix content agent, in REVISION mode. "
+        "You are given an already-published-quality draft and a specific list of "
+        "problems a reviewer (human or automated QA) found with it. Fix ONLY those "
+        "problems. Do not rewrite sections that weren't flagged. Do not shorten the "
+        "article to fix a length complaint by cutting content -- add real material "
+        "instead. The current article already contains resolved markdown links to "
+        "other DecodedSix articles (e.g. '[GTA 6 Complete Guide](/gta-6-complete-guide)' "
+        "or '[some title](/news/some-slug)') and embedded press images "
+        "('![caption](url)' followed by an italic credit line) -- you MUST keep every "
+        "one of these in the revised content, in place, exactly as they appear, unless "
+        "the notes specifically flag one of them as wrong. Losing them is itself a "
+        "quality regression the validator will reject.\n\n"
+        "REVISION NOTES -- what's wrong and needs fixing:\n" + hitl_notes + "\n\n"
+        "CURRENT ARTICLE (JSON):\n" + json.dumps({
+            "title": article["title"],
+            "slug": article["slug"],
+            "excerpt": article["excerpt"],
+            "content": article["content"],
+        }) + "\n\n"
+        "Return ONLY valid JSON with exactly these keys: "
+        '"title", "slug", "excerpt", "content". '
+        "content is the full revised article body in markdown, same formatting "
+        "rules as before (## / ### headings, blank line between paragraphs, "
+        "- for bullets, **bold**, *italic*, no raw HTML). "
+        "No markdown fences around the JSON. No commentary outside the JSON object."
+    )
+
+    raw = ""
+    parsed = None
+    for attempt in range(2):
+        if attempt == 0:
+            messages = [{"role": "user", "content": "Revise the article now per the notes above."}]
+            temp = 0.4
+        else:
+            messages = [
+                {"role": "user", "content": "Revise the article now per the notes above."},
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": (
+                    "The JSON you returned has a syntax error. Fix ONLY the JSON syntax "
+                    "without changing any content. Make sure newlines inside the content "
+                    "string are escaped as \\n. Return the corrected JSON only, no commentary."
+                )},
+            ]
+            temp = 0.0
+
+        response = anthropic_client.messages.create(
+            model=MODEL, max_tokens=4096, temperature=temp,
+            system=system, messages=messages,
+        )
+        raw = "".join(b.text for b in response.content if b.type == "text")
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.MULTILINE).strip()
+        try:
+            parsed = json.loads(cleaned)
+            break
+        except json.JSONDecodeError as e:
+            if attempt == 1:
+                raise ContentAgentError("reviser", article["id"], ValueError(f"LLM returned invalid JSON after 2 attempts: {e}"))
+
+    for field in ("title", "slug", "excerpt", "content"):
+        if field not in parsed:
+            raise ContentAgentError("reviser", article["id"], ValueError(f"LLM output missing field '{field}'"))
+
+    content = parsed["content"]
+    state["title"] = parsed["title"]
+    state["slug"] = slugify(parsed["slug"])[:60] or article["slug"]
+    state["excerpt"] = parsed["excerpt"][:160]
+    state["content"] = content
+    state["word_count"] = len(content.split())
+    state["external_citation"] = article.get("external_citation") or ""
+    state["featured_image_url"] = article.get("featured_image_url")
+    return state
+
+
+def revise_content_agent(
+    article_id: str,
+    hitl_notes: str,
+    supabase_client: Optional[Any] = None,
+    anthropic_client: Optional[Any] = None,
+) -> dict:
+    """
+    Revises an EXISTING article in place (UPDATE, never INSERT) based on
+    hitl_notes -- either human-written (dashboard "Revise" button) or
+    agent-written (seo_aeo_audit's downgrade notes).
+
+    Expects the caller to have already set articles.status='revision_in_progress'
+    before calling this (removes it from the HITL queue view immediately,
+    per the dashboard's queue filter on pending_review/needs_revision only).
+
+    On success: article returns to status='pending_review' for a fresh human
+    look -- this never publishes directly, per this project's HITL
+    non-negotiable, even if every automated quality gate now passes.
+
+    On failure (LLM error, or the revision still doesn't clear validation):
+    article goes to status='needs_revision' with fresh notes explaining what's
+    still wrong, rather than a raw exception -- a revision attempt should
+    never leave the article stuck outside the queue with no visible next step.
+    """
+    sb = supabase_client or _supabase()
+    ai = anthropic_client or _anthropic()
+
+    existing = sb.table("articles").select(
+        "id, title, slug, excerpt, content, article_type, faq_pairs, "
+        "external_citation, featured_image_url, word_count"
+    ).eq("id", article_id).single().execute()
+    if not existing.data:
+        raise ContentAgentError("reviser", article_id, ValueError(f"Article {article_id} not found"))
+    article = existing.data
+    article_type = article.get("article_type") or "news"
+
+    state: dict = {
+        "article_id": article_id,
+        "article_type": article_type,
+        "existing_article": article,
+        "hitl_notes": shield.sanitize(hitl_notes),
+    }
+
+    try:
+        state = _node_reviser(state, ai)
+        state = _node_faq_generator(state, ai)
+        state = _node_schema_generator(state)
+        state = _node_internal_link_injector(state, sb)
+        # Merge in links the reviser preserved from the original content (see
+        # _count_resolved_internal_links docstring) -- _node_internal_link_injector
+        # alone only catches newly-added [INTERNAL_LINK:slug] placeholders.
+        preserved_links = _count_resolved_internal_links(state["content"])
+        state["internal_links_used"] = sorted(set(state.get("internal_links_used") or []) | set(preserved_links))
+        state = _node_affiliate_link_injector(state)
+
+        try:
+            state = _node_validator(state)
+        except ContentAgentError as validation_error:
+            # Revision didn't clear the gates -- send back to needs_revision
+            # with fresh notes instead of crashing. A human (or another
+            # revise click) can try again; the article stays visible either way.
+            sb.table("articles").update({
+                "status": "needs_revision",
+                "hitl_notes": f"Revision attempt did not pass validation: {validation_error.original}",
+                "title": state["title"],
+                "slug": state["slug"],
+                "excerpt": state["excerpt"],
+                "content": state["content"],
+                "word_count": state["word_count"],
+                "faq_pairs": state.get("faq_pairs"),
+                "internal_links_used": state.get("internal_links_used"),
+                "schema_article": state.get("schema_article"),
+                "schema_faq": state.get("schema_faq"),
+            }).eq("id", article_id).execute()
+            _audit(sb, article_id, "article_revised", "failure", error=str(validation_error))
+            return {"article_id": article_id, "slug": state["slug"], "status": "needs_revision"}
+
+        sb.table("articles").update({
+            "status": "pending_review",
+            "title": state["title"],
+            "slug": state["slug"],
+            "excerpt": state["excerpt"],
+            "content": state["content"],
+            "word_count": state["word_count"],
+            "faq_pairs": state.get("faq_pairs"),
+            "internal_links_used": state.get("internal_links_used"),
+            "affiliate_links": state.get("affiliate_links"),
+            "schema_article": state.get("schema_article"),
+            "schema_faq": state.get("schema_faq"),
+            "schema_breadcrumb": state.get("schema_breadcrumb"),
+            "hitl_notes": None,
+        }).eq("id", article_id).execute()
+
+        state = _node_humanizer(state, sb, ai)
+        state = _node_seo_aeo_audit(state, sb)
+
+        _audit(sb, article_id, "article_revised", "success")
+        _fire_hitl_webhook({**state, "status": state.get("status", "pending_review")})
+
+        return {
+            "article_id": article_id,
+            "slug": state["slug"],
+            "status": state.get("status", "pending_review"),
+        }
+
+    except ContentAgentError as exc:
+        sb.table("articles").update({
+            "status": "needs_revision",
+            "hitl_notes": f"Revision attempt failed: {exc.original}. Original notes: {hitl_notes}",
+        }).eq("id", article_id).execute()
+        _audit(sb, article_id, "article_revised", "failure", error=str(exc))
+        raise
+    except Exception as exc:
+        sb.table("articles").update({
+            "status": "needs_revision",
+            "hitl_notes": f"Revision attempt failed: {exc}. Original notes: {hitl_notes}",
+        }).eq("id", article_id).execute()
+        _audit(sb, article_id, "article_revised", "failure", error=str(exc))
+        raise ContentAgentError("unknown", article_id, exc) from exc
 
 
 # ── Main agent entry point ────────────────────────────────────────────────────
@@ -1219,11 +1539,14 @@ def run_content_agent(
     article_type: str,
     topic_seed: str = "",
     publish_date: Optional[str] = None,
+    topic_queue: Optional[list[str]] = None,
+    queue_index: int = 0,
+    fact_brief: str = "",
     supabase_client: Optional[Any] = None,
     anthropic_client: Optional[Any] = None,
 ) -> dict:
     """
-    Run DSX-CA1 for one article. Returns {article_id, slug, status}.
+    Run DSX-CA1 for one article. Returns {article_id, slug, status, queue_index}.
     Raises ContentAgentError if any node fails.
 
     Args:
@@ -1231,8 +1554,20 @@ def run_content_agent(
             'exclusive' | 'deep_dive' | 'breaking_news' (added 2026-08-27;
             'exclusive'/'deep_dive' are always manually seeded -- see module
             docstring -- not part of the automated n8n cadence)
-        topic_seed: headline, keyword, or product name (n8n passes this from RSS/list)
+        topic_seed: headline, keyword, or product name (n8n passes this from RSS/list).
+            Takes priority over topic_queue if both are given.
         publish_date: ISO date string for scheduled publish (optional)
+        topic_queue: ordered list of topics (added 2026-09-02). When set and
+            topic_seed is empty, topic_picker consumes entries in order
+            instead of self-discovering -- see _node_topic_picker. The
+            caller must persist the returned queue_index and pass it back in
+            on the next call to advance through the queue; this agent is
+            stateless per call and does not track queue position itself.
+        queue_index: position to resume topic_queue from (default 0 -- start
+            of queue). Ignored if topic_queue is empty.
+        fact_brief: caller-supplied, pre-tiered facts for the writer to use
+            verbatim instead of inventing supporting specifics (added
+            2026-09-02). See _node_writer for how it's injected.
         supabase_client: injectable for testing
         anthropic_client: injectable for testing
     """
@@ -1255,6 +1590,9 @@ def run_content_agent(
         "topic_seed": topic_seed,
         "publish_date": publish_date,
         "article_count": article_count,
+        "topic_queue": topic_queue or [],
+        "queue_index": queue_index,
+        "fact_brief": shield.sanitize(fact_brief),
     }
 
     article_id: Optional[str] = None
@@ -1283,6 +1621,7 @@ def run_content_agent(
             "article_id": article_id,
             "slug": state["slug"],
             "status": state.get("status", "pending_review"),
+            "queue_index": state.get("queue_index", queue_index),
         }
 
     except ContentAgentError as exc:

@@ -3,6 +3,7 @@ api/routes/content_agent.py
 
 POST /agents/decodedsix/content   — n8n triggers DSX-CA1, inserts article as pending_review
 POST /agents/decodedsix/publish/{article_id} — HITL approval fires this, sets status=published
+POST /agents/decodedsix/revise/{article_id} — dashboard "Revise" fires this, revises in place
 """
 
 from __future__ import annotations
@@ -35,6 +36,16 @@ class PublishResponse(BaseModel):
     success: bool
     article_id: str
     published_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+class ReviseRequest(BaseModel):
+    hitl_notes: str  # what needs to change, from the dashboard "Revise" click
+
+
+class ReviseResponse(BaseModel):
+    success: bool
+    article_id: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -109,6 +120,41 @@ async def publish_article(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/revise/{article_id}", response_model=ReviseResponse)
+async def revise_article(
+    article_id: str,
+    body: ReviseRequest,
+    background_tasks: BackgroundTasks,
+    _: None = Depends(require_api_key),
+) -> ReviseResponse:
+    """
+    Called by the dashboard's "Revise" flow. The Next.js API route
+    (src/app/api/articles/[id]/review/route.ts) already flipped
+    articles.status to 'revision_in_progress' before calling this -- that's
+    what removes the article from the HITL queue view immediately on click.
+    This endpoint runs the actual revision as a background task; the article
+    returns to 'pending_review' (or 'needs_revision' again if it still
+    doesn't pass) when the agent finishes.
+    """
+    if not body.hitl_notes.strip():
+        raise HTTPException(status_code=400, detail="hitl_notes required")
+
+    background_tasks.add_task(_run_revision, article_id, body.hitl_notes)
+    return ReviseResponse(success=True, article_id=article_id)
+
+
+def _run_revision(article_id: str, hitl_notes: str) -> None:
+    try:
+        from src.agents.content.content_agent import revise_content_agent
+        revise_content_agent(article_id=article_id, hitl_notes=hitl_notes)
+    except Exception as exc:
+        # Background task — revise_content_agent already wrote the article
+        # back to needs_revision and to audit_log before re-raising, so
+        # this is just the top-level log, same pattern as _run_agent below.
+        import logging
+        logging.getLogger(__name__).error("[dsx-ca1] revision run failed for %s: %s", article_id, exc)
 
 
 def _fire_distribution_webhook(article_id: str, slug: str) -> None:
