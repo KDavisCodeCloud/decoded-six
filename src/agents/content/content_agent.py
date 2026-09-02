@@ -196,6 +196,27 @@ DEEP_DIVE_TOPIC_QUEUE_DEFAULT = [
 ]
 
 
+# GTA 6 Online hasn't launched and has no confirmed mechanics -- Kelvin
+# rejected two 2026-09-02 articles about it even though both were carefully
+# labeled speculation/"what's confirmed vs rumored," so careful sourcing is
+# not a workaround for this rule (see VOICE.md rule 5). This is a hard
+# code-level gate, not just a prompt instruction, since an LLM "please
+# decline" instruction isn't a reliable technical control and the whole
+# point is to stop paying for a writer call on this topic at all, not just
+# hope the writer's framing is careful enough. Blocks on the topic string
+# containing "online" at all -- deliberately blunt for this narrow domain
+# (every topic here is already GTA-6-context, so "online" has no other
+# reasonable meaning) rather than trying to distinguish "about GTA Online"
+# from "mentions GTA Online in passing," since the observed rejections
+# didn't draw that line either.
+_BLOCKED_TOPIC_KEYWORDS = ("online",)
+
+
+def _is_blocked_topic(topic: str) -> bool:
+    lower = topic.lower()
+    return any(kw in lower for kw in _BLOCKED_TOPIC_KEYWORDS)
+
+
 class ContentAgentError(RuntimeError):
     """Raised when any node fails. Includes node name and article_id if available."""
 
@@ -732,7 +753,16 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "- Do not write a generic 'everything we know' article unless it is genuinely "
         "comprehensive -- 1,500+ words across multiple distinct subsections. A short "
         "'everything we know' piece is exactly the thin, generic content this standard "
-        "exists to prevent.\n\n"
+        "exists to prevent.\n"
+        "- GTA 6 Online (the multiplayer mode) has NOT launched and has no confirmed "
+        "mechanics, features, or release date -- the only Tier 0 fact is that it "
+        "launches separately from single-player. Do not write this article as a guide, "
+        "feature, or 'everything you need to know' piece that treats GTA 6 Online as an "
+        "existing, explorable feature -- there is nothing real to guide a player through "
+        "yet. If the topic given to you is fundamentally about GTA 6 Online, the only "
+        "acceptable shape is a news/analysis piece whose entire point is stating plainly "
+        "that it isn't out, summarizing the few confirmed facts, and labeling everything "
+        "else speculation (see VOICE.md rule 5).\n\n"
     )
 
     system = (
@@ -1599,6 +1629,15 @@ def run_content_agent(
 
     try:
         state = _node_topic_picker(state, sb)
+        if _is_blocked_topic(state.get("topic", "")):
+            raise ContentAgentError(
+                "topic_picker", None,
+                ValueError(
+                    f"Blocked topic (GTA 6 Online has not launched, no article about it "
+                    f"is generated regardless of framing -- see VOICE.md rule 5): "
+                    f"{state['topic']!r}"
+                ),
+            )
         state = _node_news_scraper(state)
         state = _node_image_fetcher(state)   # before writer — passes hero_image_url to prompt
         state = _node_writer(state, ai)

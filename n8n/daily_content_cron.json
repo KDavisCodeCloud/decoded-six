@@ -36,7 +36,7 @@
             {
               "id": "f862039a-9f7f-49cf-abd4-51276c5e2c51",
               "name": "topic_seed",
-              "value": "={{ [\"GTA 6 Vice City location details\", \"GTA 6 character and story rumors\", \"GTA 6 online multiplayer features\", \"GTA 6 release date and pricing news\", \"GTA 6 gameplay mechanics leaked details\"][$now.format('d') % 5] }}",
+              "value": "={{ [\"GTA 6 Vice City location details\", \"GTA 6 character and story rumors\", \"GTA 6 vehicle customization and mod shops\", \"GTA 6 release date and pricing news\", \"GTA 6 gameplay mechanics leaked details\"][$now.format('d') % 5] }}",
               "type": "string"
             },
             {
