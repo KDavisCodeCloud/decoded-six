@@ -231,7 +231,20 @@ export default function DashboardOverview() {
             {[
               { phase: 'Phase 1 — Foundation',           done: true },
               { phase: 'Phase 2 — Public Site Shell',    done: true },
-              { phase: 'Phase 3 — Content Pipeline',     done: false, active: true, note: `${stats.published}/20 articles — Gate 1` },
+              // Phase 3's done/note used to be hardcoded (done: false, always)
+              // regardless of real article count -- drifted from /dashboard/gates,
+              // which computes Gate 1 (>=20 published) live from the same
+              // `articles` query. Found 2026-09-02 when the two pages disagreed
+              // about whether Gate 1 was cleared. Now derived from the same
+              // stats.published this page already fetches, so it can't drift again.
+              {
+                phase: 'Phase 3 — Content Pipeline',
+                done: stats.published >= 20,
+                active: stats.published < 20,
+                note: stats.published >= 20
+                  ? `Gate 1 cleared — ${stats.published}/20 articles`
+                  : `${stats.published}/20 articles — Gate 1`,
+              },
               { phase: 'Phase 4 — Internal Dashboard',   done: true },
               { phase: 'Phase 5 — Interactive Map',      done: true, note: 'built, gated until launch' },
               { phase: 'Phase 6 — YouTube System',       done: false, note: 'gated behind AdSense' },
