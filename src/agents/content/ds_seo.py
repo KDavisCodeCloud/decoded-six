@@ -29,7 +29,14 @@ _STOPWORDS = {
     "a", "an", "the", "of", "in", "on", "for", "to", "and", "or", "is",
     "are", "how", "what", "your", "you", "with", "at", "by", "from",
 }
-_H2_RE = re.compile(r"<h2[\s>]", re.IGNORECASE)
+# Matches an HTML <h2> tag OR a markdown '## ' heading at the start of a line.
+# Found 2026-09-03: this only ever matched literal HTML, but every article
+# this pipeline generates is stored as raw markdown -- _md_to_html() exists in
+# content_agent.py but is never actually called anywhere in the pipeline, so
+# this check has been silently flagging "no <h2> tags found" on every article
+# ever audited, markdown headings notwithstanding. Real gap, not a style
+# preference: the check should test what's actually stored.
+_H2_RE = re.compile(r"<h2[\s>]|^##\s", re.IGNORECASE | re.MULTILINE)
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
