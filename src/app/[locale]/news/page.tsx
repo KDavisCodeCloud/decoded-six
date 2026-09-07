@@ -11,14 +11,23 @@ export const revalidate = 60
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>
+  searchParams: Promise<{ category?: string }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const { category } = await searchParams
   return {
     title: 'GTA 6 News',
     description: 'All the latest GTA 6 updates, leaks, and breaking news — updated continuously.',
     alternates: localeAlternates('/news', locale),
+    // Category filter views (?category=X) already canonicalize to the bare
+    // /news URL above -- an explicit noindex here removes any ambiguity for
+    // Google's own duplicate-content detection instead of leaving it to
+    // infer "no user-selected canonical" (GSC: "Duplicate without
+    // user-selected canonical" was showing up for these query variants).
+    ...(category ? { robots: { index: false, follow: true } } : {}),
   }
 }
 

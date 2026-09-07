@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { supabase } from '@/lib/supabase'
 import { routing } from '@/i18n/routing'
+import { localizedPath } from '@/lib/seo'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
@@ -9,9 +10,13 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.c
 // sitemap denied Google an explicit discovery/priority signal for them.
 const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy', '/map', '/vehicles', '/characters', '/rumors', '/gta-6-complete-guide']
 
+// Was previously concatenating `/${locale}` + route directly, which for the
+// homepage route ('/') produced trailing-slash URLs ('/de/') on every
+// non-default locale -- a URL that immediately 308s to '/de'. Delegates to
+// localizedPath so the sitemap and the canonical/hreflang tags (seo.ts) can
+// never drift out of sync on this again.
 function localizedUrl(route: string, locale: string): string {
-  const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
-  return `${siteUrl}${prefix}${route}`
+  return `${siteUrl}${localizedPath(route, locale)}`
 }
 
 // Without this, Next.js treats this route as static (no dynamic API used

@@ -9,14 +9,21 @@ export const revalidate = 60
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>
+  searchParams: Promise<{ status?: string }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const { status } = await searchParams
   return {
     title: 'GTA 6 Rumors',
     description: 'Unconfirmed GTA 6 leaks, insider reports, and speculation — tracked and verified as Rockstar confirms details.',
     alternates: localeAlternates('/rumors', locale),
+    // Status filter views (?status=X) canonicalize to bare /rumors above --
+    // explicit noindex removes the ambiguity that let Google's duplicate-
+    // content detection pick its own canonical instead of respecting it.
+    ...(status ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
