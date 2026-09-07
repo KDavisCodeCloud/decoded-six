@@ -30,6 +30,17 @@ Status (2026-08-27, later): Gate 1's article-count condition (20 published)
   the dashboard overview uses. AI-detection/human-review sub-conditions on
   Gate 1 aren't independently verified (no tooling checks those), but the
   article-count condition itself is real and cleared.
+Status (2026-09-07): Application still pending (confirmed by Kelvin).
+  Standing rule, easy to forget: the 5 utility-page slugs
+  (gta-6-money-spots, gta-6-tier-list, gta-6-weekly-challenges,
+  gta-6-trailer-breakdown, gta-6-system-requirements) stay `status: draft`
+  until 2026-11-26 (launch + 7 days) -- do not publish them before then,
+  even to fix a dead link or a GSC 404 report, without checking this note
+  first. Set 2026-07-25/26 specifically to protect this application from
+  thin/placeholder content; nearly got overridden today for exactly that
+  reason (see session log) before Kelvin caught it. If a live article links
+  to one of these slugs, remove/repoint the link instead of publishing the
+  target early.
 
 ## Gate 2 — AdSense Approved
 Metric: AdSense account approved
