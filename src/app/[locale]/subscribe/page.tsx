@@ -2,18 +2,13 @@ import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { NewsletterSignup } from '@/components/NewsletterSignup'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Subscribe',
     description: 'Get GTA 6 news, confirmed details, and launch-day updates the moment they drop.',
-    alternates: localeAlternates('/subscribe', locale),
+    alternates: unlocalizedAlternates('/subscribe'),
   }
 }
 

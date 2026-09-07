@@ -8,7 +8,18 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.c
 // Was missing 4 real, nav-linked pages (map/vehicles/characters/rumors) --
 // they were still crawlable via internal links, but excluding them from the
 // sitemap denied Google an explicit discovery/priority signal for them.
-const STATIC_ROUTES = ['/', '/news', '/guides', '/about', '/privacy', '/map', '/vehicles', '/characters', '/rumors', '/gta-6-complete-guide']
+const STATIC_ROUTES = ['/', '/news', '/about', '/vehicles', '/gta-6-complete-guide']
+
+// These render hardcoded English body copy for every locale (no
+// article_translations-style pipeline backing them) -- listing 7 untranslated
+// duplicates per route as if they were real language pages is what produced
+// GSC's "Duplicate without user-selected canonical" / "Alternate page with
+// proper canonical tag" on /fr/privacy, /en-GB/subscribe, /pt/rumors, etc.
+// Sitemap now lists only the one real (English) URL per route; the
+// locale-prefixed pages still render (nav/footer chrome localizes) but
+// canonical back to this URL -- see unlocalizedAlternates in lib/seo.ts.
+// Kelvin, 2026-09-07.
+const EN_ONLY_ROUTES = ['/privacy', '/map', '/characters', '/guides', '/rumors', '/subscribe']
 
 // Was previously concatenating `/${locale}` + route directly, which for the
 // homepage route ('/') produced trailing-slash URLs ('/de/') on every
@@ -43,10 +54,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   )
 
+  const enOnlyRoutes: MetadataRoute.Sitemap = EN_ONLY_ROUTES.map((route) => ({
+    url: `${siteUrl}${route}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.6,
+  }))
+
   const hasSupabaseCredentials = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   )
-  if (!hasSupabaseCredentials) return staticRoutes
+  if (!hasSupabaseCredentials) return [...staticRoutes, ...enOnlyRoutes]
 
   const { data } = await supabase
     .from('articles')
@@ -88,5 +106,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   })
 
-  return [...staticRoutes, ...articleRoutes]
+  return [...staticRoutes, ...enOnlyRoutes, ...articleRoutes]
 }

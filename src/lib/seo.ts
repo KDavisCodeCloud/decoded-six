@@ -31,3 +31,25 @@ export function localeAlternates(path: string, locale: string) {
     },
   }
 }
+
+// For routes whose body content is hardcoded English regardless of locale
+// (no article_translations-style pipeline backing them) -- unlike
+// localeAlternates, this does NOT self-canonicalize per locale or declare
+// hreflang alternates, because that would tell Google 7 near-identical
+// pages are legitimate language variants. Google's own duplicate-content
+// detection was already collapsing them (GSC: "Duplicate without
+// user-selected canonical" / "Alternate page with proper canonical tag" on
+// /fr/privacy, /fr/characters, /en-GB/subscribe, /en-GB/map, /pt/rumors,
+// /de/guides). Every locale variant of the route now canonicals to the one
+// real (English) page instead. The page itself keeps rendering at the
+// locale-prefixed URL (nav/footer chrome still localizes) -- this only
+// changes what we tell Google about it. Kelvin, 2026-09-07.
+export function unlocalizedAlternates(path: string) {
+  return {
+    canonical: `${siteUrl}${path}`,
+    languages: {
+      [routing.defaultLocale]: `${siteUrl}${path}`,
+      'x-default': `${siteUrl}${path}`,
+    },
+  }
+}

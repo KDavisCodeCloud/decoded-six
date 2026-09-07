@@ -4,21 +4,16 @@ import { Footer } from '@/components/Footer'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
 import { MapClientLoader } from '@/components/map/MapClientLoader'
 import { supabase } from '@/lib/supabase'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 import type { MapMarker, MapArea } from '@/lib/types'
 
 export const revalidate = 300
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'GTA 6 Interactive Map',
     description: 'An interactive map of the GTA 6 world — locations, points of interest, and areas confirmed so far.',
-    alternates: localeAlternates('/map', locale),
+    alternates: unlocalizedAlternates('/map'),
   }
 }
 

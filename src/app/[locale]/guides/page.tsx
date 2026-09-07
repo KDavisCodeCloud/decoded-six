@@ -4,21 +4,16 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'GTA 6 Guides',
     description: 'Strategy guides, walkthroughs, and how-tos for GTA 6 — updated as the game evolves.',
-    alternates: localeAlternates('/guides', locale),
+    alternates: unlocalizedAlternates('/guides'),
   }
 }
 
