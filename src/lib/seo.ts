@@ -45,11 +45,14 @@ export function localeAlternates(path: string, locale: string) {
 // locale-prefixed URL (nav/footer chrome still localizes) -- this only
 // changes what we tell Google about it. Kelvin, 2026-09-07.
 export function unlocalizedAlternates(path: string) {
+  // Same '/' + siteUrl concatenation pitfall as localizedPath -- avoid it
+  // here too rather than rely on Next's own trailing-slash normalization.
+  const canonical = `${siteUrl}${path === '/' ? '' : path}`
   return {
-    canonical: `${siteUrl}${path}`,
+    canonical,
     languages: {
-      [routing.defaultLocale]: `${siteUrl}${path}`,
-      'x-default': `${siteUrl}${path}`,
+      [routing.defaultLocale]: canonical,
+      'x-default': canonical,
     },
   }
 }

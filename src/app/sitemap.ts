@@ -8,7 +8,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.c
 // Was missing 4 real, nav-linked pages (map/vehicles/characters/rumors) --
 // they were still crawlable via internal links, but excluding them from the
 // sitemap denied Google an explicit discovery/priority signal for them.
-const STATIC_ROUTES = ['/', '/news', '/about', '/vehicles', '/gta-6-complete-guide']
+// gta-6-complete-guide is the one remaining route still on this list that
+// has the same hardcoded-English-body issue as everything in EN_ONLY_ROUTES
+// below -- flagged 2026-09-07, not yet remediated (owner hasn't approved
+// this one specifically).
+const STATIC_ROUTES = ['/gta-6-complete-guide']
 
 // These render hardcoded English body copy for every locale (no
 // article_translations-style pipeline backing them) -- listing 7 untranslated
@@ -18,8 +22,21 @@ const STATIC_ROUTES = ['/', '/news', '/about', '/vehicles', '/gta-6-complete-gui
 // Sitemap now lists only the one real (English) URL per route; the
 // locale-prefixed pages still render (nav/footer chrome localizes) but
 // canonical back to this URL -- see unlocalizedAlternates in lib/seo.ts.
-// Kelvin, 2026-09-07.
-const EN_ONLY_ROUTES = ['/privacy', '/map', '/characters', '/guides', '/rumors', '/subscribe']
+// Kelvin, 2026-09-07 (/privacy, /map, /characters, /guides, /rumors,
+// /subscribe); extended 2026-09-07 to the homepage, /news, /about,
+// /vehicles on owner approval -- same issue, same fix.
+const EN_ONLY_ROUTES: { route: string; priority: number }[] = [
+  { route: '/', priority: 1 },
+  { route: '/news', priority: 0.8 },
+  { route: '/about', priority: 0.8 },
+  { route: '/vehicles', priority: 0.8 },
+  { route: '/privacy', priority: 0.6 },
+  { route: '/map', priority: 0.6 },
+  { route: '/characters', priority: 0.6 },
+  { route: '/guides', priority: 0.6 },
+  { route: '/rumors', priority: 0.6 },
+  { route: '/subscribe', priority: 0.6 },
+]
 
 // Was previously concatenating `/${locale}` + route directly, which for the
 // homepage route ('/') produced trailing-slash URLs ('/de/') on every
@@ -47,18 +64,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: localizedUrl(route, locale),
       lastModified: new Date(),
       changeFrequency: 'weekly' as const,
-      priority: route === '/' ? 1 : 0.8,
+      priority: 0.8,
       alternates: {
         languages: Object.fromEntries(routing.locales.map((l) => [l, localizedUrl(route, l)])),
       },
     }))
   )
 
-  const enOnlyRoutes: MetadataRoute.Sitemap = EN_ONLY_ROUTES.map((route) => ({
-    url: `${siteUrl}${route}`,
+  const enOnlyRoutes: MetadataRoute.Sitemap = EN_ONLY_ROUTES.map(({ route, priority }) => ({
+    url: `${siteUrl}${route === '/' ? '' : route}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
-    priority: 0.6,
+    priority,
   }))
 
   const hasSupabaseCredentials = Boolean(

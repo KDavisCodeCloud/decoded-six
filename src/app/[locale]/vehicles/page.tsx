@@ -2,18 +2,13 @@ import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { VehicleGrid } from '@/components/VehicleGrid'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'GTA 6 Vehicles',
     description: 'Every confirmed GTA 6 vehicle — specs, images, and availability. Updated from official Rockstar sources.',
-    alternates: localeAlternates('/vehicles', locale),
+    alternates: unlocalizedAlternates('/vehicles'),
   }
 }
 

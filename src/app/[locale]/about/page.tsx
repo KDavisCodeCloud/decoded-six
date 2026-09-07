@@ -1,18 +1,13 @@
 import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'About & Editorial Policy',
     description: 'Who runs this site, how content is made, and where it comes from.',
-    alternates: localeAlternates('/about', locale),
+    alternates: unlocalizedAlternates('/about'),
   }
 }
 

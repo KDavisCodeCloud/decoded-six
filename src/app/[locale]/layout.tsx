@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 import { routing } from '@/i18n/routing'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 import { Aug27Popup } from '@/components/Aug27Popup'
 
 // OG locale tags use underscore region codes, not the URL's hyphenated
@@ -26,8 +26,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
 
+  // This generateMetadata's alternates only actually surface on the
+  // homepage -- every other [locale] route (about, news, guides, ...)
+  // exports its own generateMetadata whose alternates override this one.
+  // HomePage's body (HeroContent, region grid, category grid, etc.) is
+  // 100% hardcoded English regardless of locale -- same untranslated-
+  // duplicate-content pattern as privacy/characters/etc. (fixed
+  // 2026-09-07), so it gets the same unlocalizedAlternates treatment
+  // rather than falsely claiming 7 language variants exist.
   return {
-    alternates: localeAlternates('/', locale),
+    alternates: unlocalizedAlternates('/'),
     openGraph: { locale: OG_LOCALE[locale] },
   }
 }

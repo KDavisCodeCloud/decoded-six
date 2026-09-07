@@ -4,24 +4,21 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 60
 
 export async function generateMetadata({
-  params,
   searchParams,
 }: {
-  params: Promise<{ locale: string }>
   searchParams: Promise<{ category?: string }>
 }): Promise<Metadata> {
-  const { locale } = await params
   const { category } = await searchParams
   return {
     title: 'GTA 6 News',
     description: 'All the latest GTA 6 updates, leaks, and breaking news — updated continuously.',
-    alternates: localeAlternates('/news', locale),
+    alternates: unlocalizedAlternates('/news'),
     // Category filter views (?category=X) already canonicalize to the bare
     // /news URL above -- an explicit noindex here removes any ambiguity for
     // Google's own duplicate-content detection instead of leaving it to
