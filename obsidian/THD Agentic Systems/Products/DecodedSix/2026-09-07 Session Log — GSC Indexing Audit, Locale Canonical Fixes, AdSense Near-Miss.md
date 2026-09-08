@@ -13,7 +13,7 @@ Every static page on the site (`/`, `/about`, `/vehicles`, `/news`, `/privacy`, 
 
 **Fix:** added `unlocalizedAlternates()` — every locale variant of these routes now canonicals to the single English URL, no false hreflang claims. Sitemap lists one URL per route instead of 8. Locale-prefixed pages still render (chrome still localizes) — only the signal to Google changed. Done in two approval passes: `/privacy /characters /subscribe /map /guides /rumors` (commit `7684944`), then `/` `/about` `/vehicles` `/news` (commit `4de24be`) once the pattern was confirmed site-wide.
 
-**Not yet done:** `/gta-6-complete-guide` has the identical issue but wasn't covered by either approval — flagged in code, left alone.
+**Update, same day:** Kelvin approved the last remaining route too. `/gta-6-complete-guide` fixed the same way (commit `ed10459`) — every static route on the site had this issue, so all 11 are now consistent. Also deleted `sitemap.ts`'s `STATIC_ROUTES` machinery entirely since nothing was left to populate it; `EN_ONLY_ROUTES` is the only static-route list now.
 
 **HITL note:** no dashboard mechanism exists to approve a code/SEO change like this (it's built for content-article approval, not this class of action). Kelvin approved verbally in chat both times; logged as `audit_log` rows (`canonicalize_untranslated_locale_variant:<path>`, result `owner_approved_deployed_commit_<sha>`) since the dashboard has nothing to record it.
 
@@ -48,7 +48,8 @@ Logged the revert + reasoning to `audit_log` (`revert_utility_page_publish_self_
 - `aa8c0cc` — trailing-slash fix + query-param noindex
 - `7684944` — canonicalize-away for privacy/characters/subscribe/map/guides/rumors
 - `4de24be` — canonicalize-away for homepage/about/vehicles/news
-- All three deployed to production (`vercel --prod`, aliased to `www.thedecodedsix.com`), each verified live via curl against the actual served HTML, not just a clean build.
+- `ed10459` — canonicalize-away for gta-6-complete-guide (the last route with this issue) + removed sitemap.ts's dead STATIC_ROUTES machinery
+- All four deployed to production (`vercel --prod`, aliased to `www.thedecodedsix.com`), each verified live via curl against the actual served HTML, not just a clean build.
 - Article content changes (5 status reverts, 3 dead-link removals, all `audit_log` rows) are Supabase data — no git diff, verify against the `articles`/`audit_log` tables directly.
 
 ## Related Notes
