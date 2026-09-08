@@ -3,19 +3,14 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { NewsletterSignup } from '@/components/NewsletterSignup'
 import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
-import { localeAlternates } from '@/lib/seo'
+import { unlocalizedAlternates } from '@/lib/seo'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'GTA 6 Complete Guide: Release Date, Platforms, Map, Characters, and More',
     description:
       'Every confirmed GTA 6 detail in one place — release date, pricing, platforms, setting, protagonists, mechanics, vehicles, weapons, Online, pre-orders, and the August 27 Extended Look.',
-    alternates: localeAlternates('/gta-6-complete-guide', locale),
+    alternates: unlocalizedAlternates('/gta-6-complete-guide'),
   }
 }
 

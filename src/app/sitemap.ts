@@ -5,31 +5,23 @@ import { localizedPath } from '@/lib/seo'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
-// Was missing 4 real, nav-linked pages (map/vehicles/characters/rumors) --
-// they were still crawlable via internal links, but excluding them from the
-// sitemap denied Google an explicit discovery/priority signal for them.
-// gta-6-complete-guide is the one remaining route still on this list that
-// has the same hardcoded-English-body issue as everything in EN_ONLY_ROUTES
-// below -- flagged 2026-09-07, not yet remediated (owner hasn't approved
-// this one specifically).
-const STATIC_ROUTES = ['/gta-6-complete-guide']
-
-// These render hardcoded English body copy for every locale (no
-// article_translations-style pipeline backing them) -- listing 7 untranslated
-// duplicates per route as if they were real language pages is what produced
-// GSC's "Duplicate without user-selected canonical" / "Alternate page with
-// proper canonical tag" on /fr/privacy, /en-GB/subscribe, /pt/rumors, etc.
-// Sitemap now lists only the one real (English) URL per route; the
-// locale-prefixed pages still render (nav/footer chrome localizes) but
-// canonical back to this URL -- see unlocalizedAlternates in lib/seo.ts.
-// Kelvin, 2026-09-07 (/privacy, /map, /characters, /guides, /rumors,
-// /subscribe); extended 2026-09-07 to the homepage, /news, /about,
-// /vehicles on owner approval -- same issue, same fix.
+// Every static page on the site turned out to render hardcoded English body
+// copy regardless of locale (no article_translations-style pipeline backs
+// any of them) -- listing 7 untranslated duplicates per route as if they
+// were real language pages is what produced GSC's "Duplicate without
+// user-selected canonical" / "Alternate page with proper canonical tag" on
+// /fr/privacy, /en-GB/subscribe, /pt/rumors, etc. Sitemap lists only the one
+// real (English) URL per route; the locale-prefixed pages still render
+// (nav/footer chrome localizes) but canonical back to this URL -- see
+// unlocalizedAlternates in lib/seo.ts. Kelvin, 2026-09-07, in three
+// approval passes: /privacy /map /characters /guides /rumors /subscribe,
+// then / /news /about /vehicles, then /gta-6-complete-guide.
 const EN_ONLY_ROUTES: { route: string; priority: number }[] = [
   { route: '/', priority: 1 },
   { route: '/news', priority: 0.8 },
   { route: '/about', priority: 0.8 },
   { route: '/vehicles', priority: 0.8 },
+  { route: '/gta-6-complete-guide', priority: 0.8 },
   { route: '/privacy', priority: 0.6 },
   { route: '/map', priority: 0.6 },
   { route: '/characters', priority: 0.6 },
@@ -57,20 +49,6 @@ function localizedUrl(route: string, locale: string): string {
 export const dynamic = 'force-dynamic'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Static routes (nav/footer chrome is translated site-wide) list every
-  // locale, since the route genuinely exists and returns 200 for all 8.
-  const staticRoutes: MetadataRoute.Sitemap = STATIC_ROUTES.flatMap((route) =>
-    routing.locales.map((locale) => ({
-      url: localizedUrl(route, locale),
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-      alternates: {
-        languages: Object.fromEntries(routing.locales.map((l) => [l, localizedUrl(route, l)])),
-      },
-    }))
-  )
-
   const enOnlyRoutes: MetadataRoute.Sitemap = EN_ONLY_ROUTES.map(({ route, priority }) => ({
     url: `${siteUrl}${route === '/' ? '' : route}`,
     lastModified: new Date(),
@@ -81,7 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const hasSupabaseCredentials = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   )
-  if (!hasSupabaseCredentials) return [...staticRoutes, ...enOnlyRoutes]
+  if (!hasSupabaseCredentials) return enOnlyRoutes
 
   const { data } = await supabase
     .from('articles')
@@ -123,5 +101,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   })
 
-  return [...staticRoutes, ...enOnlyRoutes, ...articleRoutes]
+  return [...enOnlyRoutes, ...articleRoutes]
 }
