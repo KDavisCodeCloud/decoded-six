@@ -8,9 +8,14 @@ function getAdminClient() {
   )
 }
 
-// visitor_sessions tracking started 2026-07-14 — counts before that date
-// don't exist and never will. Low numbers here reflect that, not a bug.
-const TRACKING_STARTED = '2026-07-14'
+// Powers the small "Analytics" card on the main /dashboard overview.
+// Migrated 2026-09-14 from visitor_sessions to analytics_pageviews (see
+// 020_analytics_pageviews.sql) -- same response shape the overview card
+// already expects, just a richer backing table. The full breakdown (charts,
+// sources, countries, Mediavine tracker, bot activity) lives at
+// /dashboard/analytics, fetched server-side there instead of through this
+// route.
+const TRACKING_STARTED = '2026-09-14'
 
 export async function GET() {
   const db = getAdminClient()
@@ -20,7 +25,7 @@ export async function GET() {
   const weekStart = new Date(now.getTime() - 7 * 86400000)
 
   const { data: weekRows, error } = await db
-    .from('visitor_sessions')
+    .from('analytics_pageviews')
     .select('session_id, path, created_at')
     .eq('product_id', 'gta-hub')
     .gte('created_at', weekStart.toISOString())

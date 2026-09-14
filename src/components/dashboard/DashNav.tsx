@@ -11,6 +11,7 @@ const NAV = [
   { href: '/dashboard/agents',  label: 'Agents',     icon: '🤖' },
   { href: '/dashboard/content', label: 'Content',    icon: '📝' },
   { href: '/dashboard/map',     label: 'Map',        icon: '🗺️' },
+  { href: '/dashboard/analytics', label: 'Analytics', icon: '📈' },
 ]
 
 interface DashNavProps {

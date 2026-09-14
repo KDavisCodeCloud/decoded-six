@@ -194,7 +194,7 @@ export default function DashboardOverview() {
           </div>
 
           <div className="dash-vc-card">
-            <div className="dash-vc-label">TRAFFIC</div>
+            <div className="dash-vc-label">ANALYTICS</div>
             {!traffic ? (
               <div className="dash-vc-stat" style={{ fontSize: '22px' }}>LOADING…</div>
             ) : (
@@ -205,22 +205,17 @@ export default function DashboardOverview() {
                 <div className="text-sm font-heading text-whisper mb-3 space-y-1">
                   <div>{traffic.uniqueSessionsToday} unique visitors today</div>
                   <div>{traffic.pageviewsThisWeek} pageviews / {traffic.uniqueSessionsThisWeek} visitors this week</div>
-                  {traffic.topPages.length > 0 && (
-                    <div className="pt-1">
-                      {traffic.topPages.map(p => (
-                        <div key={p.path} className="flex justify-between">
-                          <span className="truncate">{p.path}</span>
-                          <span>{p.views}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                   <div className="text-xs opacity-50 pt-1">
                     Tracking started {traffic.trackingStarted} — low numbers reflect that, not a bug
                   </div>
                 </div>
               </>
             )}
+            <a href="/dashboard/analytics">
+              <button className="dash-vc-btn-cyan" style={{ width: '100%' }}>
+                FULL ANALYTICS →
+              </button>
+            </a>
           </div>
         </div>
 
