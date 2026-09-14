@@ -24,6 +24,7 @@ threshold — never skips HITL either way.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -87,6 +88,83 @@ ARTICLE_TYPE_CATEGORY = {
     "deep_dive": "news",
     "breaking_news": "news",
 }
+
+
+# Template rotation (added 2026-09-14, Kelvin) -- the likely driver of the
+# second AdSense "Low value content" rejection is structural uniformity:
+# every article shares the same skeleton (intro -> H2s -> FAQ block ->
+# takeaway). Individually fine, collectively reads as automated content at
+# scale. 4 structural templates, rotated deterministically.
+#
+# Hashed on `topic`, not the final `slug` -- the slug doesn't exist until
+# the writer's own LLM call returns it (see _node_writer), which is after
+# the point in the pipeline where the template has to already be chosen and
+# baked into the system prompt. topic maps ~1:1 to the eventual slug, so
+# this still gives the "deterministic but appears varied" rotation the spec
+# asks for -- re-running the same topic always yields the same template.
+# New articles only -- existing rows are not retrofitted (template_variant
+# is nullable; every reader treats NULL as template A, today's only shape).
+TEMPLATE_SPECS = {
+    "A": (
+        "STRUCTURE -- TEMPLATE A (\"Classic\"): intro paragraph, then '##' "
+        "sections, then end with a '## Frequently Asked Questions' section "
+        "(minimum 3 Q&A pairs), then a short closing takeaway paragraph."
+    ),
+    "B": (
+        "STRUCTURE -- TEMPLATE B (\"Q&A-led\"): open with a direct-answer "
+        "paragraph that states the core answer immediately -- no scene-setting, "
+        "no preamble. Then a '## The Details' section and further '##' "
+        "sections as needed. Do NOT write a visible '## Frequently Asked "
+        "Questions' section anywhere in the body -- FAQ data is generated "
+        "separately for schema markup only and will not be rendered as a "
+        "body block for this article."
+    ),
+    "C": (
+        "STRUCTURE -- TEMPLATE C (\"Analysis\"): narrative flow -- do NOT use "
+        "a uniform, predictable set of section headers, let headings follow "
+        "the actual argument instead. Include exactly one markdown comparison "
+        "table where relevant. Include a '## Frequently Asked Questions' "
+        "section (minimum 3 Q&A pairs) placed immediately after the SECOND "
+        "'##' section of the article, not at the end. Close with a "
+        "'## What's Still Unknown' section as the final section."
+    ),
+    "D": (
+        "STRUCTURE -- TEMPLATE D (\"Brief+Deep\"): open with a bolded "
+        "'**TL;DR**' line followed by exactly 3 bullet points summarizing the "
+        "article, then the full long-form body in '##' sections, then end "
+        "with a '## Frequently Asked Questions' section (minimum 3 Q&A pairs)."
+    ),
+}
+
+_INTRO_STYLES = ["a direct-answer opening", "scene-setting", "a question-led opening", "a stat-led opening"]
+_CLOSING_STYLES = ["a takeaway line", "an open question", "a what-to-watch note", "no closing line at all -- just stop after the last section"]
+
+_BANNED_REPEATED_PHRASES = (
+    "Here's what that means",
+    "Let's break it down",
+    "The bottom line",
+)
+
+
+def _stable_hash_index(s: str, n: int) -> int:
+    return int(hashlib.sha256(s.encode()).hexdigest(), 16) % n
+
+
+def _select_template_variant(topic: str) -> str:
+    return ["A", "B", "C", "D"][_stable_hash_index(topic, 4)]
+
+
+def _variance_block(topic: str, template_variant: str) -> str:
+    intro = _INTRO_STYLES[_stable_hash_index(topic + ":intro", len(_INTRO_STYLES))]
+    closing = _CLOSING_STYLES[_stable_hash_index(topic + ":closing", len(_CLOSING_STYLES))]
+    banned = "; ".join(f'"{p}"' for p in _BANNED_REPEATED_PHRASES)
+    return (
+        f"\n\n{TEMPLATE_SPECS[template_variant]}\n\n"
+        f"INTRO STYLE for this article: {intro}.\n"
+        f"CLOSING STYLE for this article: {closing}.\n"
+        f"Never use these banned phrases, in any article: {banned}. "
+        "Vary your language every time instead of reaching for a stock phrase.\n"
+    )
 
 # Confirmed-systems knowledge base, sourced from TGG's July 13, 2026 visit to
 # Rockstar North (2.5 hours of gameplay watched with Rob Nelson, co-head of
@@ -682,6 +760,9 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
     scraped = state.get("scraped_context", "")
     affiliate_products = state.get("affiliate_products", [])
 
+    template_variant = _select_template_variant(topic)
+    state["template_variant"] = template_variant
+
     type_instructions = {
         "news": (
             f"Write a GTA 6 news article. Minimum {WORD_COUNT_FLOORS['news']} words -- "
@@ -873,7 +954,9 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "3. Conversion articles: affiliate links in first 300 words AND conclusion.\n"
         "4. Link to at least 3 other DecodedSix articles by slug (use [INTERNAL_LINK:slug] placeholder).\n"
         "5. Cite at least 1 official source by URL.\n"
-        "6. End with a '## Frequently Asked Questions' section with minimum 3 Q&A pairs.\n"
+        "6. FAQ section (minimum 3 Q&A pairs): required, but WHERE it appears in the body "
+        "(or whether it appears in the body at all) is dictated by your assigned template "
+        "below -- follow that placement exactly, don't default to end-of-article.\n"
         "7. Excerpt (meta description): 150–160 characters, includes primary keyword.\n"
         "8. Slug: lowercase, hyphenated, includes primary keyword, max 60 characters.\n"
         f"9. Word count floor for this article_type ({article_type}): "
@@ -885,6 +968,7 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "- Use - for bullet lists, **text** for bold, *text* for italic.\n"
         "- Do NOT use HTML tags inside content. Pure markdown only.\n"
         + image_instruction
+        + _variance_block(topic, template_variant)
         + "\n\n"
         "Return ONLY valid JSON with exactly these keys: "
         '"title", "slug", "excerpt", "content", "external_citation". '
@@ -1310,6 +1394,7 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
         "schema_breadcrumb": state.get("schema_breadcrumb"),
         "word_count": state.get("word_count"),
         "featured_image_url": state.get("featured_image_url"),
+        "template_variant": state.get("template_variant"),
     }
 
     # The writer's LLM-generated slug can collide with a previously published

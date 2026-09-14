@@ -180,6 +180,9 @@ export default async function GuidePage({
   const contentText = translation?.content ?? article.content
   const rawFaqPairs = translation?.faq_pairs ?? article.faq_pairs
   const faqPairs = Array.isArray(rawFaqPairs) ? rawFaqPairs : []
+  // Template rotation (2026-09-14) -- see matching comment in news/[slug]/page.tsx.
+  const templateVariant = article.template_variant ?? 'A'
+  const hideVisibleFaqBlock = templateVariant === 'B' || templateVariant === 'C'
 
   const t = await getTranslations({ locale, namespace: 'article' })
   const tTranslate = await getTranslations({ locale, namespace: 'translate' })
@@ -323,10 +326,10 @@ export default async function GuidePage({
         </div>
 
         {contentText && (
-          <ArticleMarkdown content={contentText} stripFaq />
+          <ArticleMarkdown content={contentText} stripFaq={templateVariant !== 'C'} />
         )}
 
-        {faqPairs && faqPairs.length > 0 && (
+        {!hideVisibleFaqBlock && faqPairs && faqPairs.length > 0 && (
           <section className="mt-10 border-t border-white/[0.06] pt-8">
             <h2 className="font-heading font-bold text-2xl text-bright mb-6">{t('faqHeading')}</h2>
             <div className="space-y-5">

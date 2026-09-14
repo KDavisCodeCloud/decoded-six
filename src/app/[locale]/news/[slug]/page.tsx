@@ -174,7 +174,14 @@ export default async function ArticlePage({
   const article = await getArticle(slug)
   if (!article) {
     const redirectTarget = await getRedirectTarget(slug)
-    if (redirectTarget) permanentRedirect({ href: `/news/${redirectTarget}`, locale })
+    if (redirectTarget) {
+      // redirect_slug is normally a bare article slug (-> /news/{slug}), but
+      // can also be a literal site-relative path (e.g. '/gta-6-complete-guide')
+      // for archived articles with no topically-equivalent live article to
+      // redirect to -- distinguished by a leading '/'.
+      const href = redirectTarget.startsWith('/') ? redirectTarget : `/news/${redirectTarget}`
+      permanentRedirect({ href, locale })
+    }
     notFound()
   }
   // Guide URL restructuring (2026-08-09): permanent redirect, not a client
@@ -196,6 +203,15 @@ export default async function ArticlePage({
   // data quirks from ever 500ing the page instead of just showing no FAQ).
   const rawFaqPairs = translation?.faq_pairs ?? article.faq_pairs
   const faqPairs = Array.isArray(rawFaqPairs) ? rawFaqPairs : []
+  // Template rotation (2026-09-14): template_variant is per-article, chosen at
+  // write time (see content_agent.py TEMPLATE_SPECS), null/'A'/'D' render the
+  // FAQ as today's separate end-of-article block (stripped out of the body
+  // markdown via stripFaq); 'B' generates faq_pairs for schema only and never
+  // shows a visible block; 'C' writes the FAQ into the body itself (mid-article),
+  // so the body is NOT stripped and the separate end block is skipped to avoid
+  // showing it twice.
+  const templateVariant = article.template_variant ?? 'A'
+  const hideVisibleFaqBlock = templateVariant === 'B' || templateVariant === 'C'
 
   const t = await getTranslations({ locale, namespace: 'article' })
   const tTranslate = await getTranslations({ locale, namespace: 'translate' })
@@ -355,10 +371,10 @@ export default async function ArticlePage({
         </div>
 
         {contentText && (
-          <ArticleMarkdown content={contentText} stripFaq />
+          <ArticleMarkdown content={contentText} stripFaq={templateVariant !== 'C'} />
         )}
 
-        {faqPairs && faqPairs.length > 0 && (
+        {!hideVisibleFaqBlock && faqPairs && faqPairs.length > 0 && (
           <section className="mt-10 border-t border-white/[0.06] pt-8">
             <h2 className="font-heading font-bold text-2xl text-bright mb-6">{t('faqHeading')}</h2>
             <div className="space-y-5">
