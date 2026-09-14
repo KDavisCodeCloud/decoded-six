@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { MapPlaceholder } from '@/components/map/MapPlaceholder'
-import { MapClientLoader } from '@/components/map/MapClientLoader'
+import { SubmitLocationForm } from '@/components/map/SubmitLocationForm'
+import { MapPageClient } from './MapPageClient'
 import { supabase } from '@/lib/supabase'
 import { unlocalizedAlternates } from '@/lib/seo'
 import type { MapMarker, MapArea } from '@/lib/types'
@@ -35,15 +36,43 @@ async function getMapData() {
   }
 }
 
-export default async function MapPage() {
+async function getLinkedArticles(markers: MapMarker[]) {
+  const ids = [...new Set(markers.map(m => m.linked_article_id).filter((id): id is string => !!id))]
+  if (ids.length === 0) return {}
+  const { data } = await supabase
+    .from('articles')
+    .select('id, slug, title, category')
+    .in('id', ids)
+  const map: Record<string, { slug: string; title: string; category: string }> = {}
+  for (const row of data ?? []) {
+    map[row.id] = { slug: row.slug, title: row.title, category: row.category }
+  }
+  return map
+}
+
+function parseNumber(v: string | string[] | undefined): number | undefined {
+  if (typeof v !== 'string') return undefined
+  const n = Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
+
+export default async function MapPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const params = await searchParams
   const mapLive = process.env.NEXT_PUBLIC_MAP_LIVE === 'true'
 
   if (!mapLive) {
     return (
       <>
         <Header />
-        <main className="container py-16">
+        <main className="container py-16 flex flex-col gap-8">
           <MapPlaceholder />
+          <div className="max-w-lg mx-auto w-full">
+            <SubmitLocationForm mapLive={false} pickedCoords={null} />
+          </div>
         </main>
         <Footer />
       </>
@@ -51,6 +80,15 @@ export default async function MapPage() {
   }
 
   const { markers, areas } = await getMapData()
+  const linkedArticles = await getLinkedArticles(markers)
+
+  const initialMarkerId = typeof params.marker === 'string' ? params.marker : undefined
+  const lat = parseNumber(params.lat)
+  const lng = parseNumber(params.lng)
+  const zoom = parseNumber(params.z)
+  const initialView = lat !== undefined && lng !== undefined && zoom !== undefined
+    ? { lat, lng, zoom }
+    : undefined
 
   return (
     <>
@@ -69,9 +107,13 @@ export default async function MapPage() {
           </div>
         </div>
 
-        <div className="flex-1" style={{ height: 'calc(100vh - 200px)', minHeight: 500 }}>
-          <MapClientLoader markers={markers} areas={areas} />
-        </div>
+        <MapPageClient
+          markers={markers}
+          areas={areas}
+          linkedArticles={linkedArticles}
+          initialMarkerId={initialMarkerId}
+          initialView={initialView}
+        />
       </main>
       <Footer />
     </>

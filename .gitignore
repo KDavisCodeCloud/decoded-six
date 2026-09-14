@@ -9,3 +9,8 @@ __pycache__/
 .vercel
 .env*
 supabase/.temp/
+
+# Generated tile pyramid output (scripts/generate_map_tiles.mjs) -- rebuild
+# on demand from the real Leonida map image at launch; the placeholder run
+# against Tier 1 key art isn't meant to ship.
+public/map-tiles/

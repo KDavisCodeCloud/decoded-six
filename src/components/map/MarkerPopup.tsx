@@ -1,6 +1,6 @@
 import type { MapMarker } from '@/lib/types'
 
-const CATEGORY_LABELS: Record<string, string> = {
+export const CATEGORY_LABELS: Record<string, string> = {
   money_spot: 'Money Spot',
   vehicle_spawn: 'Vehicle Spawn',
   property: 'Property',

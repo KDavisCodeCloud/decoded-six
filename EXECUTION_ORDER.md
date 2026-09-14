@@ -57,18 +57,34 @@ Tuesday Sessions: Son (GTA content + approvals)
 - [ ] Revenue panel (placeholder until AdSense approved)
 
 ### Phase 5 — Interactive Map
-- [ ] Leaflet.js base map component built
-- [ ] All widget components built:
+- [x] Leaflet.js base map component built
+- [x] All widget components built:
   CategoryFilter, AreaOverlay, SearchBar,
   MoneyFilter, DailyTracker, MarkerPopup,
   MiniMap, MapPlaceholder
-- [ ] Map data schema seeded (migrations/002)
-- [ ] Feature flag confirmed working:
+  (2026-09-14: added LocationPanel — side panel/mobile
+  bottom sheet on marker click, replaces bare Popup —
+  and SubmitLocationForm for community submissions)
+- [x] Map data schema seeded (migrations/002)
+  (2026-09-14: 6 official region markers + 6 area
+  polygons — Vice City, Leonida Keys, Grassrivers,
+  Port Gellhorn, Ambrosia, Mount Kalaga National Park)
+- [x] Feature flag confirmed working:
   NEXT_PUBLIC_MAP_LIVE=false → placeholder
   NEXT_PUBLIC_MAP_LIVE=true → live map
+  (smoke-tested locally 2026-09-14, reverted to false —
+  production untouched, still false)
 - [ ] ds_map_scrape.py agent built
+  (file exists, still never run — out of this session's scope)
 - [ ] ds_map_daily.py daily location tracker built
-- [ ] Map HITL queue in dashboard
+  (file exists, still never run — out of this session's scope)
+- [x] Map HITL queue in dashboard
+  (2026-09-14: /dashboard/map — all statuses visible,
+  color-coded, inline approve/retire)
+- [x] Tile pipeline: scripts/generate_map_tiles.mjs +
+  MAP_TILE_URL/CRS.Simple mode in LeafletMap.tsx
+  (2026-09-14 — real Leonida image still pending;
+  tested against Tier 1 key art as placeholder)
 
 ### Phase 6 — YouTube System
 BUILD AFTER GATE 1 (AdSense approved)

@@ -13,11 +13,30 @@ const LeafletMap = dynamic(
   }
 )
 
+interface LinkedArticleInfo {
+  slug: string
+  title: string
+  category: string
+}
+
+interface DeepLinkView {
+  lat: number
+  lng: number
+  zoom: number
+}
+
 interface Props {
   markers: MapMarker[]
   areas: MapArea[]
+  linkedArticles?: Record<string, LinkedArticleInfo>
+  showAllStatuses?: boolean
+  onMarkerReviewed?: (id: string, action: 'approve' | 'retire') => void
+  initialMarkerId?: string
+  initialView?: DeepLinkView
+  pickingLocation?: boolean
+  onPickLocation?: (lat: number, lng: number) => void
 }
 
-export function MapClientLoader({ markers, areas }: Props) {
-  return <LeafletMap markers={markers} areas={areas} />
+export function MapClientLoader(props: Props) {
+  return <LeafletMap {...props} />
 }

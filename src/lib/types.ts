@@ -46,6 +46,8 @@ export interface Article {
   featured_image_credit: string | null
   featured_image_tier: 1 | 2 | 3 | null
   og_image_url: string | null
+  // Template rotation (017_template_variant.sql) -- null on every pre-2026-09-14 row
+  template_variant: 'A' | 'B' | 'C' | 'D' | null
 }
 
 export interface Rumor {
@@ -87,11 +89,14 @@ export interface MapMarker {
   difficulty: 'solo' | 'small_crew' | 'full_crew' | null
   verified: boolean
   source: 'community' | 'agent_scraped' | 'manual' | null
+  linked_article_id: string | null
   status: 'pending' | 'approved' | 'published' | 'retired'
   daily_reset: boolean
   last_confirmed: string | null
   created_at: string
   updated_at: string
+  submitted_ip: string | null
+  submitted_source_url: string | null
 }
 
 export interface MapArea {
