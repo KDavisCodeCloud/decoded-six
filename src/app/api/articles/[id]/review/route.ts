@@ -1,9 +1,37 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { NextResponse, type NextRequest } from 'next/server'
 
 type Action = 'approve' | 'reject' | 'revise' | 'unpublish'
+
+// Listing pages (news/guides) only carried a 60s `revalidate` export with no
+// event-driven invalidation anywhere in the codebase -- confirmed 2026-09-16
+// there wasn't a single revalidatePath/revalidateTag call in the whole repo.
+// Time-based ISR only refreshes on the NEXT request after the window elapses,
+// so a low-traffic route (the bare /news index gets far less direct traffic
+// than individual article permalinks or the homepage) can sit stale for far
+// longer than the nominal window in practice -- this is what actually
+// happened: /news was frozen for weeks even though the underlying data
+// changed constantly, while the homepage (same 60s config, more real
+// traffic) kept looking fresh. Firing this on every status change makes
+// freshness event-driven instead of dependent on traffic hitting the route
+// at the right moment.
+//
+// revalidatePath('/[locale]/news', 'layout') uses the literal bracket
+// pattern Next.js matches against every locale value, not just 'en' --
+// needed because next-intl's 'as-needed' prefix means the default locale
+// has no prefix (/news) while every other locale does (/fr/news, /ja/news).
+function revalidateArticleSurfaces(category: string, slug: string) {
+  const listingSegment = category === 'guide' ? 'guides' : 'news'
+  revalidatePath(`/${listingSegment}`)
+  revalidatePath(`/[locale]/${listingSegment}`, 'layout')
+  revalidatePath(`/${listingSegment}/${slug}`)
+  revalidatePath(`/[locale]/${listingSegment}/[slug]`, 'layout')
+  revalidatePath('/')
+  revalidatePath('/[locale]', 'layout')
+}
 
 export async function POST(
   request: NextRequest,
@@ -51,7 +79,7 @@ export async function POST(
 
   const { data: article } = await sb
     .from('articles')
-    .select('id, slug, status')
+    .select('id, slug, status, category')
     .eq('id', id)
     .single()
 
@@ -107,6 +135,12 @@ export async function POST(
   const { error } = await sb.from('articles').update(update).eq('id', id)
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Only approve/reject/unpublish change what's publicly visible --
+  // 'revise' just flips to revision_in_progress, nothing public changes.
+  if (action === 'approve' || action === 'reject' || action === 'unpublish') {
+    revalidateArticleSurfaces(article.category, article.slug)
   }
 
   await sb.from('audit_log').insert({
