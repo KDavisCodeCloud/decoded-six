@@ -21,9 +21,16 @@ router = APIRouter(prefix="/agents/decodedsix", tags=["content-agent"])
 
 
 class ContentRequest(BaseModel):
-    article_type: str           # 'news' | 'evergreen' | 'conversion'
+    article_type: str           # 'news' | 'evergreen' | 'conversion' | 'feature' | 'breaking_news' | 'exclusive' | 'deep_dive'
     topic_seed: str = ""        # headline, keyword, or product name from n8n
     publish_date: Optional[str] = None  # ISO date — optional scheduled publish date
+    # Additive (2026-09-17, discovery pipeline): run_content_agent() has
+    # accepted fact_brief since 2026-09-02 (caller-supplied, pre-tiered
+    # facts for the writer), but this route never exposed it, so nothing
+    # in production could ever actually pass one in. Approved topic_queue
+    # rows from the discovery pipeline attach their source URLs/angle here
+    # instead of the writer working from a bare topic string alone.
+    fact_brief: str = ""
 
 
 class ContentResponse(BaseModel):
@@ -55,14 +62,21 @@ async def trigger_content_agent(
     background_tasks: BackgroundTasks,
     _: None = Depends(require_api_key),
 ) -> ContentResponse:
-    if body.article_type not in ("news", "evergreen", "conversion"):
-        raise HTTPException(status_code=400, detail="article_type must be news, evergreen, or conversion")
+    # Widened 2026-09-17: run_content_agent() has supported 'feature',
+    # 'exclusive', 'deep_dive', and 'breaking_news' since 2026-08-27 (see its
+    # own WORD_COUNT_FLOORS dict), but this validation was never updated to
+    # match, so every one of those requests 400'd before ever reaching the
+    # agent -- a real blocker for the discovery pipeline, whose synthesis
+    # step can legitimately suggest 'feature' or 'breaking_news'.
+    valid_types = ("news", "evergreen", "conversion", "feature", "exclusive", "deep_dive", "breaking_news")
+    if body.article_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"article_type must be one of: {', '.join(valid_types)}")
 
     # DataSanitizationShield: reject suspicious topic seeds before they reach the pipeline
     if len(body.topic_seed) > 500 or any(c in body.topic_seed for c in ["<", ">", "`", ";"]):
         raise HTTPException(status_code=400, detail="Invalid topic_seed")
 
-    background_tasks.add_task(_run_agent, body.article_type, body.topic_seed, body.publish_date)
+    background_tasks.add_task(_run_agent, body.article_type, body.topic_seed, body.publish_date, body.fact_brief)
     return ContentResponse(success=True)
 
 
@@ -175,13 +189,14 @@ def _fire_distribution_webhook(article_id: str, slug: str) -> None:
         logging.getLogger(__name__).error("[dsx-publish] webhook fire failed: %s", exc)
 
 
-def _run_agent(article_type: str, topic_seed: str, publish_date: Optional[str]) -> None:
+def _run_agent(article_type: str, topic_seed: str, publish_date: Optional[str], fact_brief: str = "") -> None:
     try:
         from src.agents.content.content_agent import run_content_agent
         run_content_agent(
             article_type=article_type,
             topic_seed=topic_seed,
             publish_date=publish_date,
+            fact_brief=fact_brief,
         )
     except Exception as exc:
         # Background task — error is already written to audit_log by the agent itself

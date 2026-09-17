@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.articles import router as articles_router
 from api.routes.content_agent import router as content_agent_router
+from api.routes.discovery import router as discovery_router
 from api.routes.distribute import router as distribute_router
 from api.routes.events import router as events_router
 from api.routes.hitl_queue import router as hitl_queue_router
@@ -61,6 +62,7 @@ def health():
 
 app.include_router(pipeline_router)
 app.include_router(content_agent_router)
+app.include_router(discovery_router)
 app.include_router(articles_router)
 app.include_router(hitl_queue_router)
 app.include_router(map_markers_router)

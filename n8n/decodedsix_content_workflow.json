@@ -19,34 +19,14 @@
       }
     },
     {
-      "id": "set-article-type",
-      "name": "Set Article Type by Day",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [460, 300],
-      "parameters": {
-        "jsCode": "// Day of week: 2=Tuesday, 4=Thursday, 6=Saturday (UTC)\nconst day = new Date().getUTCDay();\nconst typeMap = { 2: 'news', 4: 'evergreen', 6: 'conversion' };\nconst articleType = typeMap[day] ?? 'news';\n\n// Publish date = tomorrow at 9am MST (UTC-7)\nconst publishDate = new Date();\npublishDate.setUTCDate(publishDate.getUTCDate() + 1);\npublishDate.setUTCHours(16, 0, 0, 0);\n\nreturn [{ json: { article_type: articleType, publish_date: publishDate.toISOString().split('T')[0] } }];"
-      }
-    },
-    {
-      "id": "get-news-topic",
-      "name": "Get News Topic (RSS or fallback)",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [680, 300],
-      "parameters": {
-        "jsCode": "const articleType = $input.first().json.article_type;\nconst publishDate = $input.first().json.publish_date;\n\n// Non-news types: skip RSS entirely, agent picks topic from its own lists\nif (articleType !== 'news') {\n  return [{ json: { article_type: articleType, topic_seed: '', publish_date: publishDate } }];\n}\n\n// News type: try RSS, fall back gracefully so workflow never stops on RSS failure\nlet headline = 'GTA 6 latest news';\ntry {\n  const feeds = [\n    'https://www.gamesradar.com/rss/gta-6/',\n    'https://www.reddit.com/r/GTA6/.rss?limit=5'\n  ];\n  for (const url of feeds) {\n    try {\n      const resp = await fetch(url, { headers: { 'User-Agent': 'DecodedSix/1.0' }, signal: AbortSignal.timeout(8000) });\n      if (!resp.ok) continue;\n      const xml = await resp.text();\n      // Try CDATA title first, then plain title\n      const cdata = xml.match(/<item>[\\s\\S]*?<title><!\\[CDATA\\[([^\\]]+)\\]\\]><\\/title>/);\n      const plain = xml.match(/<item>[\\s\\S]*?<title>([^<]+)<\\/title>/);\n      const found = cdata?.[1] || plain?.[1];\n      if (found && found.trim()) { headline = found.trim(); break; }\n    } catch (_) { /* try next feed */ }\n  }\n} catch (_) { /* use fallback headline */ }\n\nreturn [{ json: { article_type: articleType, topic_seed: headline, publish_date: publishDate } }];"
-      }
-    },
-    {
-      "id": "trigger-content-agent",
-      "name": "POST /agents/decodedsix/content",
+      "id": "trigger-discovery-generate-next",
+      "name": "POST /agents/decodedsix/discovery/generate-next",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 300],
+      "position": [460, 300],
       "parameters": {
         "method": "POST",
-        "url": "={{ $vars.DECODEDSIX_API_URL }}/agents/decodedsix/content",
+        "url": "={{ $vars.DECODEDSIX_API_URL }}/agents/decodedsix/discovery/generate-next",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -55,23 +35,6 @@
             {
               "name": "Content-Type",
               "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "article_type",
-              "value": "={{ $json.article_type }}"
-            },
-            {
-              "name": "topic_seed",
-              "value": "={{ $json.topic_seed }}"
-            },
-            {
-              "name": "publish_date",
-              "value": "={{ $json.publish_date }}"
             }
           ]
         },
@@ -89,23 +52,17 @@
       "name": "Check API Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 300],
+      "position": [680, 300],
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nif (!response.success) {\n  throw new Error(`Content agent failed: ${JSON.stringify(response)}`);\n}\nreturn [{ json: { status: 'queued', message: 'DSX-CA1 running in background — article will appear in HITL queue when ready' } }];"
+        "jsCode": "const response = $input.first().json;\nif (!response.success) {\n  // topic_queue being empty is not a failure -- it just means no topics\n  // have been approved from the dashboard yet. Log and stop quietly rather\n  // than throwing, so an empty queue doesn't page anyone.\n  return [{ json: { status: 'skipped', message: response.message ?? 'No queued topic to generate' } }];\n}\nreturn [{ json: { status: 'queued', queue_id: response.queue_id, message: 'DSX-CA1 running in background — article will appear in HITL queue when ready' } }];"
       }
     }
   ],
   "connections": {
     "Schedule Trigger": {
-      "main": [[{ "node": "Set Article Type by Day", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "POST /agents/decodedsix/discovery/generate-next", "type": "main", "index": 0 }]]
     },
-    "Set Article Type by Day": {
-      "main": [[{ "node": "Get News Topic (RSS or fallback)", "type": "main", "index": 0 }]]
-    },
-    "Get News Topic (RSS or fallback)": {
-      "main": [[{ "node": "POST /agents/decodedsix/content", "type": "main", "index": 0 }]]
-    },
-    "POST /agents/decodedsix/content": {
+    "POST /agents/decodedsix/discovery/generate-next": {
       "main": [[{ "node": "Check API Response", "type": "main", "index": 0 }]]
     }
   },
@@ -113,6 +70,6 @@
     "executionOrder": "v1"
   },
   "staticData": null,
-  "tags": ["decodedsix", "content-agent", "dsx-ca1"],
-  "notes": "Triggers Tue/Thu/Sat at 9am MST (16:00 UTC). Day maps to article_type: Tue=news, Thu=evergreen, Sat=conversion. RSS fetch is inside a Code node with timeout+fallback — workflow never fails on RSS error. FastAPI endpoint runs DSX-CA1 in background. Vars required: DECODEDSIX_API_URL, DECODEDSIX_API_KEY."
+  "tags": ["decodedsix", "content-agent", "dsx-ca1", "discovery"],
+  "notes": "Updated 2026-09-17: this workflow used to compute its own topic_seed (a dead GameSradar RSS feed with a hardcoded 'GTA 6 latest news' fallback, verbatim first-headline-found with no dedup) and pick article_type purely by day-of-week. It now just pulls the next human-APPROVED topic from topic_queue (see src/agents/discovery/ + the Topic Queue section on /dashboard/content) -- article_type and template are now intrinsic to the approved topic, not the day. If topic_queue is empty (nothing approved yet), the run is a no-op, not a failure -- populate the queue from the dashboard before this cron fires. Triggers Tue/Thu/Sat at 9am MST (16:00 UTC), same cadence as before. Vars required: DECODEDSIX_API_URL, DECODEDSIX_API_KEY."
 }

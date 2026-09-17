@@ -1,0 +1,140 @@
+{
+  "name": "DSX-Discovery Fetch + Synthesis — Every 4h",
+  "nodes": [
+    {
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger — Every 4h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "hoursInterval": 4 }
+          ]
+        }
+      }
+    },
+    {
+      "id": "trigger-discovery-run",
+      "name": "POST /agents/decodedsix/discovery/run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.DECODEDSIX_API_URL }}/agents/decodedsix/discovery/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "options": {
+          "timeout": 120000,
+          "response": { "response": { "neverError": true } }
+        }
+      }
+    },
+    {
+      "id": "success-check",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "success-cond",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "has-candidates-check",
+      "name": "Any Candidates Proposed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-candidates-cond",
+              "leftValue": "={{ $json.candidates_proposed }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "slack-candidates-ready",
+      "name": "Slack — Topics Ready for Review",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1120, 140],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": { "__rl": true, "mode": "name", "value": "#decodedsix-content" },
+        "text": "=🔎 Discovery cycle: {{ $json.candidates_proposed }} new topic(s) proposed, {{ $json.candidates_dropped }} dropped (dedup/blackout/no-angle). Review in the Topic Queue on /dashboard/content.",
+        "otherOptions": {}
+      },
+      "webhookId": null
+    },
+    {
+      "id": "slack-pipeline-failed",
+      "name": "Slack — Discovery Failed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [900, 420],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": { "__rl": true, "mode": "name", "value": "#decodedsix-alerts" },
+        "text": "=🚨 Discovery cycle failed: {{ $json.error }}",
+        "otherOptions": {}
+      },
+      "webhookId": null
+    }
+  ],
+  "connections": {
+    "Schedule Trigger — Every 4h": {
+      "main": [[{ "node": "POST /agents/decodedsix/discovery/run", "type": "main", "index": 0 }]]
+    },
+    "POST /agents/decodedsix/discovery/run": {
+      "main": [[{ "node": "Success?", "type": "main", "index": 0 }]]
+    },
+    "Success?": {
+      "main": [
+        [{ "node": "Any Candidates Proposed?", "type": "main", "index": 0 }],
+        [{ "node": "Slack — Discovery Failed", "type": "main", "index": 0 }]
+      ]
+    },
+    "Any Candidates Proposed?": {
+      "main": [
+        [{ "node": "Slack — Topics Ready for Review", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["decodedsix", "discovery", "dsx-ca1"],
+  "notes": "New 2026-09-17. Fetches all active discovery_sources (IGN, GameSpot, RockstarINTEL, Reddit r/GTA6, YouTube channels — see discovery_sources table, editable without a code change), clusters + synthesizes against published inventory + rejected topics, writes topic_candidates for human review on /dashboard/content's Topic Queue section. Does NOT generate any articles itself -- that's the separate Tue/Thu/Sat workflow (decodedsix_content_workflow.json), which now pulls from topic_queue (only populated once a human approves a candidate) instead of picking its own topic. Only fires a Slack notification when there's something to review or something broke -- a quiet cycle (0 candidates) is not an error and does not notify. Vars required: DECODEDSIX_API_URL, DECODEDSIX_API_KEY."
+}
