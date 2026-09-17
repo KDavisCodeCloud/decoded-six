@@ -43,10 +43,20 @@ def run_discovery_cycle(sb: Any, anthropic_client: Any) -> dict:
     )
     rejected_topics = [r["topic"] for r in rejected_rows]
 
+    # Candidates from a prior cycle a human hasn't reviewed yet -- without
+    # this, a second cycle before anyone acts on the first has no way to
+    # know a story is already sitting in the queue and proposes it again
+    # under slightly different phrasing (confirmed live 2026-09-17: two
+    # separate "Spotify x GTA 6 billboards" candidates from two cycles).
+    pending_rows = (
+        sb.table("topic_candidates").select("topic").eq("status", "proposed").execute().data or []
+    )
+    pending_topics = [r["topic"] for r in pending_rows]
+
     source_rows = sb.table("discovery_sources").select("id, default_tier").execute().data or []
     sources_by_id = {s["id"]: s for s in source_rows}
 
-    results = synthesize(clusters, published, rejected_topics, sources_by_id, anthropic_client)
+    results = synthesize(clusters, published, rejected_topics, sources_by_id, anthropic_client, pending_topics)
 
     proposed = 0
     dropped = 0

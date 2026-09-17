@@ -135,6 +135,7 @@ def _build_synthesis_prompt(
     clusters: list[dict],
     published_titles: list[dict],
     rejected_topics: list[str],
+    pending_topics: list[str],
 ) -> str:
     cluster_blocks = []
     for i, cluster in enumerate(clusters):
@@ -148,6 +149,7 @@ def _build_synthesis_prompt(
         f'- "{a["title"]}" (slug: {a["slug"]})' for a in published_titles
     )
     rejected_list = "\n".join(f'- "{t}"' for t in rejected_topics) or "(none yet)"
+    pending_list = "\n".join(f'- "{t}"' for t in pending_topics) or "(none yet)"
 
     return f"""You are helping a GTA 6 fan-news editorial team decide which incoming story
 candidates are worth writing about. Everything under CANDIDATE below is
@@ -164,6 +166,12 @@ via update_of_slug):
 PREVIOUSLY REJECTED TOPICS (a human editor already said no to something
 semantically equivalent to these -- do not re-propose a close match):
 {rejected_list}
+
+TOPICS ALREADY AWAITING HUMAN REVIEW FROM A PRIOR CYCLE (still sitting
+unreviewed in the Topic Queue -- do not propose a near-duplicate of one of
+these either; a human hasn't acted on it yet, so re-proposing it just
+clutters the queue with the same story twice):
+{pending_list}
 
 CANDIDATES TO EVALUATE:
 {chr(10).join(cluster_blocks)}
@@ -246,6 +254,7 @@ def synthesize(
     rejected_topics: list[str],
     sources_by_id: dict[str, dict],
     anthropic_client: Any,
+    pending_topics: Optional[list[str]] = None,
 ) -> list[dict]:
     """
     Returns a list of candidate dicts ready to insert into topic_candidates:
@@ -282,10 +291,15 @@ def synthesize(
         # for why (a single 71-cluster call truncated mid-JSON in production
         # and lost every candidate in the response). Each batch is scored
         # independently, so a failure in one batch doesn't take down the rest.
+        # running_pending accumulates topics this same run has already
+        # proposed in an earlier batch, on top of what was already sitting
+        # in the queue -- confirmed live 2026-09-17 that without this, batch
+        # 2 has no way to know batch 1 just proposed the same story.
+        running_pending = list(pending_topics or [])
         llm_results: list[dict] = []
         for batch_start in range(0, len(llm_clusters), BATCH_SIZE):
             batch = llm_clusters[batch_start:batch_start + BATCH_SIZE]
-            prompt = _build_synthesis_prompt(batch, published_arg, rejected_topics)
+            prompt = _build_synthesis_prompt(batch, published_arg, rejected_topics, running_pending)
             try:
                 batch_results = _call_synthesis_llm(prompt, anthropic_client)
             except Exception as e:
@@ -297,6 +311,8 @@ def synthesize(
             for r in batch_results:
                 if r.get("index") is not None:
                     r["index"] = r["index"] + batch_start
+                if not r.get("drop") and r.get("topic"):
+                    running_pending.append(r["topic"])
             llm_results.extend(batch_results)
 
         for r in llm_results:
