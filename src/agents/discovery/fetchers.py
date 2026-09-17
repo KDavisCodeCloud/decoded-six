@@ -36,6 +36,10 @@ USER_AGENT = "DecodedSix-Discovery/1.0 (+https://www.thedecodedsix.com)"
 _TAG_RE = _re.compile(r"<[^>]+>")
 
 
+_TRAILING_UNCLOSED_TAG_RE = _re.compile(r"<[^>]*$")
+_NUMERIC_ENTITY_RE = _re.compile(r"&#(\d+);")
+
+
 def _strip_html(text: str) -> str:
     """
     Reddit's Atom <content> for an image/link post is HTML (a <table> with
@@ -44,10 +48,20 @@ def _strip_html(text: str) -> str:
     href=...><img...' leaking straight into what's supposed to be a short
     text snippet. Applied to every fetcher's snippet, not just Reddit's,
     since any RSS/Atom source could in principle do the same.
+
+    Also confirmed live: some Reddit self/link posts have genuinely short
+    raw content that ends mid-tag (e.g. '...submitted by <a href="...' with
+    no closing '>' at all) -- _TAG_RE alone can't match an incomplete tag,
+    so a trailing unclosed one is stripped separately. Numeric HTML entities
+    (&#32; etc.) show up in the same content and are decoded too.
     """
     if not text:
         return ""
-    return _TAG_RE.sub(" ", text).replace("&amp;", "&").replace("&nbsp;", " ")
+    text = _TAG_RE.sub(" ", text)
+    text = _TRAILING_UNCLOSED_TAG_RE.sub("", text)
+    text = _NUMERIC_ENTITY_RE.sub(lambda m: chr(int(m.group(1))), text)
+    text = text.replace("&amp;", "&").replace("&nbsp;", " ")
+    return " ".join(text.split())
 
 
 class FetchedItem(TypedDict):
