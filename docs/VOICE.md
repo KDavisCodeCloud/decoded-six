@@ -72,6 +72,42 @@ and anything touching money spots, property costs, or mechanics — those are
 exactly the claims most likely to get lifted from GTA Online or fan
 speculation and stated as fact by mistake.
 
+## Word Count Rules — Non-Negotiable
+
+6. THE FAQ SECTION DOES NOT COUNT TOWARD THE WORD-COUNT FLOOR. The floor
+   applies to the article body only — everything except the in-body
+   "## Frequently Asked Questions" section (Templates A/C/D write FAQ
+   directly into the body; Template B has none). An article that hits its
+   floor only by counting FAQ text has not actually met it. Found
+   2026-09-18: a real published article measured 942 total words but only
+   387 of those were actual body content, and a real auto-generated draft
+   passed its 1500-word evergreen floor at 1748 total words while the body
+   itself was only 1272 — both were under-length articles that looked
+   compliant only because the FAQ padded the total. Enforced in code by
+   `_body_word_count()` in `content_agent.py` (duplicated locally in
+   `ds_humanizer.py` — see that file's comment for why), which every node
+   that sets `word_count` must use, never a raw `len(content.split())`.
+
+7. Per-type floors (`WORD_COUNT_FLOORS` in `content_agent.py`), body only:
+   news 800, feature 1200, evergreen 1500, conversion 1200, exclusive 2000,
+   deep_dive 1200, breaking_news 400. These are minimums the writer should
+   treat as a floor, not a ceiling — reach them with real substance, not by
+   padding, and never at the expense of the accuracy rules above.
+
+8. The humanizer's rewrite pass runs AFTER the floor gate and can still
+   change the body's length — its own word count must be re-verified
+   after it runs, not assumed from before the rewrite. Found 2026-09-18:
+   the humanizer's LLM call had its own output token cap set low enough to
+   truncate a long draft on rewrite, silently dropping a 2177-word body to
+   1466 — below its own floor — after the gate had already passed, with
+   the stored `word_count` column left stale at the pre-rewrite value and
+   never corrected. Fixed by raising the humanizer's output cap with real
+   headroom above every floor above, having it recompute and store
+   `word_count` itself after rewriting, and re-checking the floor
+   immediately afterward — if the humanized body is now short, the article
+   downgrades to `needs_revision` with a note explaining why, rather than
+   shipping to HITL review looking compliant when it silently isn't.
+
 ## Who Writes This Content
 A human GTA fan who plays seriously.
 Not a gaming journalist. Not a content farm.

@@ -64,6 +64,34 @@ WORD_COUNT_FLOORS = {
     "breaking_news": 400,
 }
 
+_FAQ_HEADING_RE = re.compile(r"^##\s*Frequently Asked Questions\s*$", re.MULTILINE | re.IGNORECASE)
+_NEXT_HEADING_RE = re.compile(r"\n##\s")
+
+
+def _body_word_count(content: str) -> int:
+    """
+    Word count for the WORD_COUNT_FLOORS gate and the stored word_count
+    column -- excludes the in-body '## Frequently Asked Questions' section
+    (Template A/C/D write FAQ directly into the body; Template B has none).
+    Confirmed live 2026-09-17: a real published article's floor was being
+    satisfied by padding the FAQ pairs rather than the article body itself
+    (942 total words, only 387 in the actual body) -- the FAQ is real content
+    but it isn't the article, and counting it let the body fall well short
+    of what the floor is meant to guarantee. Only the FIRST FAQ heading
+    matters; text after it up to the next '## ' heading is excluded.
+    Template A ends with a short closing paragraph after the FAQ with no
+    heading of its own to mark where FAQ ends -- that paragraph gets
+    conservatively excluded too rather than guessed at, which only makes
+    the floor slightly stricter than the literal "just the FAQ" ask, never
+    looser.
+    """
+    match = _FAQ_HEADING_RE.search(content)
+    if not match:
+        return len(content.split())
+    next_heading = _NEXT_HEADING_RE.search(content, match.end())
+    body = content[:match.start()] + (content[next_heading.start():] if next_heading else "")
+    return len(body.split())
+
 # Site category per article_type -- determines routing (articlePath() in
 # article-utils.ts sends 'guide' to /guides/[slug], everything else to
 # /news/[slug]). This dict was never extended when 'feature'/'exclusive'/
@@ -974,8 +1002,11 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         "7. Excerpt (meta description): 150–160 characters, includes primary keyword.\n"
         "8. Slug: lowercase, hyphenated, includes primary keyword, max 60 characters.\n"
         f"9. Word count floor for this article_type ({article_type}): "
-        f"{WORD_COUNT_FLOORS.get(article_type, 800)} words minimum -- this is enforced by "
-        "the validator, not just requested here. Reach it.\n\n"
+        f"{WORD_COUNT_FLOORS.get(article_type, 800)} words minimum in the article BODY -- "
+        "this excludes the FAQ section entirely, whether it's a Q&A block placed in the "
+        "body per your template or held out for schema markup only. The floor is enforced "
+        "by the validator against body word count specifically, not just requested here -- "
+        "a long FAQ does not help you reach it. Write real body substance to clear it.\n\n"
         "MARKDOWN FORMAT RULES (non-negotiable):\n"
         "- content MUST be clean markdown — use ## for major sections, ### for sub-sections.\n"
         "- Put a blank line between every paragraph. NEVER write multiple paragraphs as one block.\n"
@@ -1039,7 +1070,7 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
 
     slug = slugify(parsed["slug"])[:60]
     content = parsed["content"]
-    word_count = len(content.split())
+    word_count = _body_word_count(content)
 
     state["title"] = parsed["title"]
     state["slug"] = slug
@@ -1462,6 +1493,13 @@ def _node_humanizer(state: dict, sb: Any, ai: Any) -> dict:
     Runs ds_humanizer against the just-inserted article, rewriting its content
     in place (VOICE.md rewrite pass + mechanical no-em-dash/no-buzzword pass)
     before AI-detection scoring runs.
+
+    Re-checks the word-count floor after the rewrite and downgrades to
+    'needs_revision' if it's now short -- confirmed live 2026-09-18 that the
+    humanizer's rewrite can shrink a draft that had already cleared the
+    floor (was compounded by ds_humanizer's own max_tokens truncation bug,
+    fixed separately, but the floor should never again go unverified after
+    the last thing that's allowed to change article length runs).
     """
     article_id = state["article_id"]
 
@@ -1471,7 +1509,22 @@ def _node_humanizer(state: dict, sb: Any, ai: Any) -> dict:
         raise ContentAgentError("humanizer", article_id, exc) from exc
 
     state["humanizer_result"] = result
+    state["content"] = result["content"]
+    state["word_count"] = result["word_count"]
     _audit(sb, article_id, "humanizer_pass", "success")
+
+    floor = WORD_COUNT_FLOORS.get(state.get("article_type", "news"), 800)
+    if state["word_count"] < floor:
+        notes = (
+            f"Humanizer rewrite brought the article body to {state['word_count']} "
+            f"words, below the {floor}-word floor for article_type="
+            f"{state.get('article_type')!r}. Needs expansion, not just a tone pass."
+        )
+        sb.table("articles").update({
+            "status": "needs_revision", "hitl_notes": notes,
+        }).eq("id", article_id).execute()
+        state["status"] = "needs_revision"
+
     return state
 
 
@@ -1629,7 +1682,7 @@ def _node_reviser(state: dict, anthropic_client: Any) -> dict:
     state["slug"] = slugify(parsed["slug"])[:60] or article["slug"]
     state["excerpt"] = parsed["excerpt"][:160]
     state["content"] = content
-    state["word_count"] = len(content.split())
+    state["word_count"] = _body_word_count(content)
     state["external_citation"] = article.get("external_citation") or ""
     state["featured_image_url"] = article.get("featured_image_url")
     return state
@@ -1947,7 +2000,7 @@ def run_update_agent(
     was_published = article["status"] == "published"
     update: dict[str, Any] = {
         "content": new_content,
-        "word_count": len(new_content.split()),
+        "word_count": _body_word_count(new_content),
     }
     if was_published:
         update["status"] = "needs_revision"

@@ -23,6 +23,26 @@ VOICE_MD_PATH = REPO_ROOT / "docs" / "VOICE.md"
 MODEL = "claude-sonnet-4-6"
 AGENT_ID = "ds_humanizer"
 
+_FAQ_HEADING_RE = re.compile(r"^##\s*Frequently Asked Questions\s*$", re.MULTILINE | re.IGNORECASE)
+_NEXT_HEADING_RE = re.compile(r"\n##\s")
+
+
+def _body_word_count(content: str) -> int:
+    """
+    Same FAQ-exclusion logic as content_agent.py's _body_word_count --
+    duplicated (not imported) so this module has no hard dependency on
+    content_agent.py's internals, same reasoning as synthesis.py's
+    duplicated blackout check. Keep the two in sync if the rule changes.
+    """
+    if not content:
+        return 0
+    match = _FAQ_HEADING_RE.search(content)
+    if not match:
+        return len(content.split())
+    next_heading = _NEXT_HEADING_RE.search(content, match.end())
+    body = content[:match.start()] + (content[next_heading.start():] if next_heading else "")
+    return len(body.split())
+
 # Mechanically enforceable regardless of what the LLM rewrite produces —
 # docs/VOICE.md "Words That Never Appear" + rule 3.
 BANNED_WORDS = [
@@ -231,7 +251,15 @@ def humanize_article(
         )
         response = anthropic.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            # Was 2048 -- confirmed live 2026-09-18 that a real article whose
+            # draft was 2177 body words came back from this rewrite at only
+            # 1466, silently dropping it back below its own 1500-word floor
+            # after the floor gate had already passed. 2048 tokens is only
+            # ~1500 words at typical English density, well under this site's
+            # own highest floor (2000 for 'exclusive'), so any longer draft
+            # was guaranteed to get truncated here. Raised well above every
+            # WORD_COUNT_FLOORS value with real headroom for longer drafts.
+            max_tokens=8192,
             temperature=0.5,
             system=system,
             messages=[{"role": "user", "content": draft_content}],
@@ -239,10 +267,11 @@ def humanize_article(
         rewritten = "".join(block.text for block in response.content if block.type == "text")
 
         final_content = _mechanical_pass(rewritten)
+        word_count = _body_word_count(final_content)
 
         update_result = (
             supabase.table("articles")
-            .update({"content": final_content})
+            .update({"content": final_content, "word_count": word_count})
             .eq("id", article_id)
             .execute()
         )
@@ -251,7 +280,7 @@ def humanize_article(
 
         _write_audit(supabase, article_id, "humanize", "success")
 
-        return {"article_id": article_id, "content": final_content}
+        return {"article_id": article_id, "content": final_content, "word_count": word_count}
 
     except Exception as exc:
         try:
