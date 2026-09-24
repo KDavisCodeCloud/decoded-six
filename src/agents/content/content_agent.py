@@ -35,6 +35,7 @@ from typing import Any, Optional
 from slugify import slugify
 
 from src.agents.content.ds_humanizer import HumanizeError, humanize_article
+from src.agents.content.dedup_gate import check_topic_against_inventory, log_blocked
 
 log = logging.getLogger(__name__)
 
@@ -901,6 +902,22 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
             + fact_brief
         )
 
+    # Populated by the pre-generation dedup gate (dedup_gate.py) when its
+    # verdict is CLEAR -- the closest existing coverage, so the writer links
+    # to it instead of re-covering the same ground from scratch.
+    adjacent_articles = state.get("adjacent_articles") or []
+    adjacent_coverage_block = ""
+    if adjacent_articles:
+        adjacent_list = "\n".join(
+            f'- "{a["title"]}" -- use [INTERNAL_LINK:{a["slug"]}] if you reference this'
+            for a in adjacent_articles
+        )
+        adjacent_coverage_block = (
+            "\n\nADJACENT COVERAGE ALREADY ON THE SITE -- do not repeat this ground; "
+            "link to these instead wherever your article touches the same subject:\n"
+            + adjacent_list
+        )
+
     # Select contextually relevant images from the official Rockstar press kit.
     # No fixed cap (raised from the old limit=4) -- Kelvin's standing rule as of
     # 2026-07-25: every named person/place/thing that is the main subject of a
@@ -989,6 +1006,7 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
         + content_standard
         + knowledge_block
         + fact_brief_block
+        + adjacent_coverage_block
         + "\n\n"
         "CONTENT QUALITY RULES (enforce all 9):\n"
         "1. First paragraph answers search intent immediately — no preamble.\n"
@@ -1884,6 +1902,40 @@ def run_content_agent(
                     f"{state['topic']!r}"
                 ),
             )
+
+        # Mandatory pre-generation dedup gate (added 2026-09-24) -- runs for
+        # EVERY caller regardless of how the topic arrived (manual
+        # topic_seed, topic_queue, or auto-discovery), not skippable by any
+        # flag. Queries the articles table directly, never the live site --
+        # confirmed twice this project that the rendered site can serve
+        # stale content, so the DB is the only source of truth for what
+        # already exists. See dedup_gate.py for the full rationale.
+        gate = check_topic_against_inventory(state["topic"], state.get("fact_brief", ""), sb, ai)
+
+        if gate["verdict"] == "DUPLICATE":
+            log_blocked(sb, state["topic"], gate["matched_slugs"], gate["reason"])
+            raise ContentAgentError(
+                "dedup_gate", None,
+                ValueError(
+                    f"Topic blocked as a duplicate of {gate['matched_slugs']}: {gate['reason']}"
+                ),
+            )
+
+        if gate["verdict"] == "UPDATE" and gate["matched_slugs"]:
+            # Redirect entirely into the proven update-agent path instead of
+            # continuing this pipeline -- the topic already has a home.
+            return run_update_agent(
+                slug=gate["matched_slugs"][0],
+                topic=state["topic"],
+                fact_brief=state.get("fact_brief", ""),
+                supabase_client=sb,
+                anthropic_client=ai,
+            )
+
+        # CLEAR: proceed, carrying the closest existing coverage into the
+        # writer prompt so it links to (rather than re-covers) that ground.
+        state["adjacent_articles"] = gate["adjacent"]
+
         state = _node_news_scraper(state)
         state = _node_image_fetcher(state)   # before writer — passes hero_image_url to prompt
         state = _node_writer(state, ai)
