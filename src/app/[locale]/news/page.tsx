@@ -7,6 +7,9 @@ import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 import { unlocalizedAlternates } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
+// verify-deploy-2026-09-23: this comment exists only to force a second
+// Vercel build so the force-dynamic fix below can be confirmed to survive
+// a subsequent deploy, not just the one that introduced it.
 // Force-dynamic, not ISR -- confirmed 2026-09-23 this listing page's ISR
 // cache repeatedly went stale for weeks at a time because (a) it gets too
 // little direct traffic to trigger SWR background regen, and (b) every
