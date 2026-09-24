@@ -5,7 +5,11 @@ import { Footer } from '@/components/Footer'
 import { unlocalizedAlternates } from '@/lib/seo'
 import type { Rumor } from '@/lib/types'
 
-export const revalidate = 60
+// Force-dynamic, not ISR -- see news/page.tsx's comment for the full
+// diagnosis (2026-09-23). /rumors has no revalidatePath hook at all (no
+// pipeline writes to the rumors table programmatically), so it was even
+// more exposed to going stale than /news or /guides were.
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({
   searchParams,

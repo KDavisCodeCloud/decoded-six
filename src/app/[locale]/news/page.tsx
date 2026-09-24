@@ -7,7 +7,16 @@ import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 import { unlocalizedAlternates } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
-export const revalidate = 60
+// Force-dynamic, not ISR -- confirmed 2026-09-23 this listing page's ISR
+// cache repeatedly went stale for weeks at a time because (a) it gets too
+// little direct traffic to trigger SWR background regen, and (b) every
+// article status change made via a direct DB write (not the dashboard's
+// /api/articles/[id]/review route) never fires revalidatePath, so the
+// cache only ever resets on the next Vercel build. At this traffic level,
+// querying on every request costs milliseconds; a silently frozen listing
+// page has twice now hidden 3+ weeks of real content from visitors and
+// AdSense reviewers. Dynamic rendering eliminates the bug class outright.
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({
   searchParams,

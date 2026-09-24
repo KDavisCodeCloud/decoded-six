@@ -7,7 +7,9 @@ import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
 import { unlocalizedAlternates } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
-export const revalidate = 60
+// Force-dynamic, not ISR -- see news/page.tsx's comment for the full
+// diagnosis (2026-09-23). Same fix, same reasoning, applied here too.
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
