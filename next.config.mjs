@@ -31,15 +31,29 @@ const nextConfig = {
   //   no source emits them -- not in any component, not in any of the 181
   //   article bodies, not in the 492-URL sitemap, not in the live homepage
   //   HTML. Nothing to fix upstream; these only need somewhere to land.
+  // Each rule is declared twice: once unprefixed (next-intl's 'as-needed'
+  // prefixing means the default locale has NO prefix -- /news/x) and once
+  // with a :locale segment covering the other 7 (/fr/news/x, /ja/news/x...).
+  // The :locale variant preserves the locale through to the destination so a
+  // French visitor on a dead URL lands on the French version of the target,
+  // not the English one.
   async redirects() {
-    return [
-      { source: '/news/gta-6-map-locations', destination: '/guides/gta-6-vice-city-location-details-3', permanent: true },
-      { source: '/news/gta-6-money-spots', destination: '/gta-6-complete-guide', permanent: true },
-      { source: '/news/gta-6-online-money-spots-tracker', destination: '/gta-6-complete-guide', permanent: true },
-      { source: '/news/gta-6-edition-comparison-which-to-buy', destination: '/guides/gta-6-ultimate-edition-vs-standard-edition', permanent: true },
-      { source: '/$', destination: '/', permanent: true },
-      { source: '/&', destination: '/', permanent: true },
+    const rules = [
+      ['/news/gta-6-map-locations', '/guides/gta-6-vice-city-location-details-3'],
+      ['/news/gta-6-money-spots', '/gta-6-complete-guide'],
+      ['/news/gta-6-online-money-spots-tracker', '/gta-6-complete-guide'],
+      ['/news/gta-6-edition-comparison-which-to-buy', '/guides/gta-6-ultimate-edition-vs-standard-edition'],
+      ['/$', '/'],
+      ['/&', '/'],
     ]
+    return rules.flatMap(([source, destination]) => [
+      { source, destination, permanent: true },
+      {
+        source: `/:locale(en-GB|fr|de|ja|zh|pt|es)${source === '/' ? '' : source}`,
+        destination: `/:locale${destination === '/' ? '' : destination}`,
+        permanent: true,
+      },
+    ])
   },
   async headers() {
     return [

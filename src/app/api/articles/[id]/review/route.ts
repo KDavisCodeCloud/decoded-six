@@ -174,11 +174,31 @@ export async function POST(
 
   // Fire-and-forget: translate the article into all 7 supported locales
   // (Kelvin, 2026-08-07 — reach more people worldwide). Never blocks or
-  // fails the approve response even if DECODEDSIX_API_URL is unset or the
-  // backend is unreachable; ds_translate itself writes its own audit_log
-  // entries per locale, so a failure here is still visible there.
+  // fails the approve response.
+  //
+  // The old comment here claimed "a failure here is still visible" in
+  // ds_translate's own audit_log entries. That reasoning only holds if the
+  // request actually reaches ds_translate. It did not: confirmed 2026-10-01
+  // that DECODEDSIX_API_URL is set to an EMPTY STRING in Vercel production,
+  // so triggerTranslation's `if (!apiUrl) return` guard made every approval
+  // silently skip translation — no error, no log, no row. 8 published
+  // articles ended up with no translations at all and 5 more partial, which
+  // then surfaced as untranslated locale pages serving English. Awaiting it
+  // is NOT the fix (that would block the reviewer on 7 LLM translations);
+  // making the skip audible is.
   if (action === 'approve') {
-    void triggerTranslation(id)
+    if (!process.env.DECODEDSIX_API_URL) {
+      console.error(`[translate-trigger] DECODEDSIX_API_URL is unset/empty — translation SKIPPED for ${id}`)
+      await sb.from('audit_log').insert({
+        agent_id: 'dsx-hitl-dashboard',
+        action: 'translate_trigger_skipped',
+        article_id: id,
+        result: 'failure',
+        error: 'DECODEDSIX_API_URL unset or empty — article published untranslated',
+      })
+    } else {
+      void triggerTranslation(id)
+    }
   }
 
   // Fire-and-forget the actual revision agent. Unlike translation (which is

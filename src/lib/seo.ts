@@ -32,6 +32,43 @@ export function localeAlternates(path: string, locale: string) {
   }
 }
 
+// For ARTICLE routes, where a locale is only a real language variant if a
+// completed row exists in article_translations. Unlike localeAlternates,
+// which self-canonicalizes every locale unconditionally, this:
+//   - canonicals an untranslated locale back to the English URL, and
+//   - omits untranslated locales from hreflang entirely.
+//
+// Why (2026-10-01): /fr/guides/gta-6-pc-graphics-settings-optimization and
+// 86 others were serving the English body (the page falls back when no
+// translation exists) while declaring themselves canonical and advertising
+// all 8 locales as alternates. That tells Google 8 near-identical pages are
+// each originals -- the same "Duplicate without user-selected canonical"
+// shape already fixed for static chrome routes via unlocalizedAlternates on
+// 2026-09-07, just never applied to articles. The sitemap already got this
+// right (it filters on translation_status='completed'); the page metadata
+// contradicted it.
+//
+// This is self-healing: the moment ds_translate writes a completed row, the
+// locale reappears in hreflang and its canonical flips back to self. No
+// backfill step, no manual list to maintain.
+export function articleAlternates(path: string, locale: string, translatedLocales: Iterable<string>) {
+  const translated = new Set(translatedLocales)
+  // The default locale is the source of truth and always "translated".
+  const liveLocales = routing.locales.filter(
+    (l) => l === routing.defaultLocale || translated.has(l)
+  )
+  const isLive = locale === routing.defaultLocale || translated.has(locale)
+  const englishUrl = `${siteUrl}${path}`
+
+  return {
+    canonical: isLive ? `${siteUrl}${localizedPath(path, locale)}` : englishUrl,
+    languages: {
+      ...Object.fromEntries(liveLocales.map((l) => [l, `${siteUrl}${localizedPath(path, l)}`])),
+      'x-default': englishUrl,
+    },
+  }
+}
+
 // For routes whose body content is hardcoded English regardless of locale
 // (no article_translations-style pipeline backing them) -- unlike
 // localeAlternates, this does NOT self-canonicalize per locale or declare
