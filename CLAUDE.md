@@ -108,6 +108,38 @@ Then stop and wait.
 - Sound files in public/sounds/ only — never external URLs
 - No hardcoded API keys anywhere — always os.getenv() or process.env
 
+## Environment Variables — Vercel
+Never set a Vercel env var by piping the value into `vercel env add`. It
+writes an EMPTY STRING and reports success. Confirmed 2026-10-01 on CLI
+54.21.0 with both forms:
+
+    printf '%s' "$v" | vercel env add NAME production    -> ""
+    echo    "$v"     | vercel env add NAME production    -> ""
+
+This is how `DECODEDSIX_API_URL`/`DECODEDSIX_API_KEY` sat empty in
+production for 84 days. `triggerTranslation`'s `if (!apiUrl) return` guard
+then silently skipped translation on every HITL approval — 10 published
+articles with zero translations, 5 partial, 87 missing locale pages, no
+error anywhere.
+
+Use the REST API instead:
+
+    POST https://api.vercel.com/v10/projects/<projectId>/env
+         ?teamId=<orgId>&upsert=true
+    [{"key": "...", "value": "...", "type": "encrypted",
+      "target": ["production", "preview"]}]
+
+projectId/orgId are in `.vercel/project.json`; the token is in
+`~/.local/share/com.vercel.cli/auth.json`.
+
+Then ALWAYS verify by pulling the value back and comparing — an
+"upserted" response is not proof the value landed:
+
+    vercel env pull <tmpfile> --environment=production --yes
+
+Env changes need a NEW deployment to take effect (`vercel redeploy <url>`);
+editing the var alone changes nothing on the running site.
+
 ## LLM Routing
 Default: claude-sonnet-4-6 (all agents)
 High volume scraping: claude-haiku-4-5 (map scraper, news scraper)
