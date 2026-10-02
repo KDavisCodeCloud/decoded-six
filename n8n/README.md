@@ -19,17 +19,38 @@ The same value must be identical in all three places or workflows 401:
    against.
 2. **Vercel** production + preview — the HITL approve route sends it when
    triggering translation and revision.
-3. **n8n Cloud** (thedecodedsix.app.n8n.cloud) Settings > Variables — these
-   workflows send it: discovery_fetch_cron (every 4h),
-   decodedsix_content_workflow (Tue/Thu/Sat 16:00 UTC), map_scrape_workflow
-   (daily 15:00 UTC), weekly_shorts_trigger (Tue 14:00 UTC),
-   post_approval_distribution (webhook, 2 nodes).
+3. **n8n Cloud** (thedecodedsix.app.n8n.cloud) — only for whichever workflows
+   are actually imported AND actually reference the key. See the warning
+   below: the JSON in this directory is NOT the deployed state.
 
 n8n Cloud variables cannot be set from the CLI or from this repo — they are
-a manual dashboard edit. **Rotate all three in the same sitting**, n8n last,
-and remember the Railway and Vercel sides each need a redeploy to pick the
-new value up. Rotated 2026-10-01 from a 21-char passphrase to 32 random
-bytes (`openssl rand -base64 32`).
+a manual dashboard edit, under the **Variables tab on the Overview page**
+(alongside Workflows / Credentials / Executions), NOT under Settings or the
+Admin Panel. Rotate all three in the same sitting, and remember the Railway
+and Vercel sides each need a redeploy to pick the new value up. Rotated
+2026-10-01 from a 21-char passphrase to 32 random bytes
+(`openssl rand -base64 32`).
+
+## WARNING — this directory is a spec, not the deployed state
+Confirmed 2026-10-02 against the live n8n Cloud instance: the workflows
+running there do not match these files. The instance showed 8 workflows
+including "DecodedSix — Daily Content Cron" (still Published, even though
+`daily_content_cron.json` was retired from this repo in c35e2e4) and
+"decodedsix_content_flow" (no file here by that name), while
+`discovery_fetch_cron.json` ("DSX-Discovery Fetch + Synthesis — Every 4h")
+and `map_scrape_workflow.json` ("DecodedSix — Daily Map Scrape") did not
+appear at all — consistent with `topic_candidates` having received no rows
+since 2026-09-17.
+
+Never quote a cron schedule or an active-workflow claim out of these JSON
+files as if it were live. Check the n8n instance.
+
+Also note these files use `{{ $env.NAME }}`. On n8n **Cloud**, custom values
+are the Variables feature (`$vars.NAME`, Pro/Enterprise plans); `$env` reads
+the instance's own config env, which Cloud users cannot set and which is
+gated by `N8N_BLOCK_ENV_ACCESS_IN_NODE`. If an imported workflow fails on a
+credentials/auth step, suspect `$env` resolving to nothing before suspecting
+the key value itself.
 
 If the key is UNSET on Railway the API runs with no auth at all (dev mode,
 see api/auth.py) — a mismatch there fails open, not closed.
