@@ -201,16 +201,26 @@ export async function POST(
     }
   }
 
-  // Fire-and-forget the actual revision agent. Unlike translation (which is
-  // a nice-to-have after a successful publish), a failed trigger here can't
+  // Trigger the actual revision agent. Unlike translation (which is a
+  // nice-to-have after a successful publish), a failed trigger here can't
   // just be logged and dropped — the article was just moved to
   // 'revision_in_progress', which queue/page.tsx doesn't display at all, so
   // a silent failure would make the article vanish from the dashboard with
   // no agent ever actually running. If the trigger can't be sent (API URL
   // unset, backend unreachable), revert it to 'needs_revision' so it stays
   // visible and reviewable instead of stuck in an invisible status forever.
+  //
+  // AWAITED, not fire-and-forget. This was `void triggerRevision(...)`, which
+  // meant the revert above was itself fire-and-forget: the response returned,
+  // the serverless function terminated, and the pending revert never ran.
+  // That is exactly what happened to gta-vi-album-november-19-launch-date on
+  // 2026-09-23 21:06 — DECODEDSIX_API_URL was empty, the revert was queued and
+  // dropped, and the article sat invisible in 'revision_in_progress' for nine
+  // days. The whole point of the fallback is that it is guaranteed, so it has
+  // to complete before the handler returns. It costs one fetch to the backend,
+  // which already responds immediately (it queues the work in BackgroundTasks).
   if (action === 'revise') {
-    void triggerRevision(id, sb, notes!)
+    await triggerRevision(id, sb, notes!)
   }
 
   return NextResponse.json({ success: true, article_id: id, action })
