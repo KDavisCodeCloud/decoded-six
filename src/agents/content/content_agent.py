@@ -1273,6 +1273,97 @@ def _node_internal_link_injector(state: dict, sb: Any) -> dict:
     return state
 
 
+# Static routes that exist as real pages (src/app/[locale]/*/page.tsx), so an
+# internal link to one of these is valid even though it is not an article slug.
+STATIC_ROUTES = {
+    "/", "/about", "/characters", "/gta-6-complete-guide", "/guides", "/map",
+    "/news", "/privacy", "/rumors", "/subscribe", "/vehicles",
+}
+
+# Where a link that points at nothing gets sent instead. The complete guide is
+# the one evergreen hub that is always published and topically broad enough to
+# be a non-jarring landing spot from any article.
+LINK_FALLBACK = "/gta-6-complete-guide"
+
+_MD_LINK_RE = re.compile(r"(?<!!)\[([^\]]*)\]\((/[^)\s]*)\)")
+
+
+def _node_link_validator(state: dict, sb: Any) -> dict:
+    """
+    Hard gate on internal links: every site-relative href in the finished draft
+    must resolve to a real page -- a published article slug (at its canonical
+    /news/ or /guides/ path) or a known static route. Anything else is
+    rewritten to LINK_FALLBACK and logged.
+
+    Why this exists (2026-10-01): Google Search Console reported 8 URLs as
+    404. Tracing them back, the writer had invented internal links to slugs
+    that never existed -- '/gta-6-money-spots', '/gta-6-map',
+    '/gta-6-characters', '/gta-6-vice-city-locations' all shipped inside one
+    auto-generated published article. _node_internal_link_injector only ever
+    validated [INTERNAL_LINK:slug] placeholders, so a raw markdown link the
+    model wrote directly was never checked at all. It also silently emitted
+    '/news/{slug}' for placeholder slugs missing from its own validated
+    lookup, which produced the same class of dead URL.
+
+    This runs after the injector, against the final content, so it covers
+    both paths. A dead internal link is worse than no link: it costs crawl
+    budget, and it is exactly what an AdSense reviewer clicks into.
+    """
+    content = state.get("content") or ""
+    links = _MD_LINK_RE.findall(content)
+    if not links:
+        return state
+
+    candidates = {href.split("#")[0].split("?")[0].rstrip("/") or "/" for _, href in links}
+    slugs = {p.split("/")[-1] for p in candidates if p.startswith(("/news/", "/guides/"))}
+
+    live: dict[str, str] = {}
+    if slugs:
+        try:
+            res = (
+                sb.table("articles").select("slug, category")
+                .eq("status", "published").in_("slug", sorted(slugs)).execute()
+            )
+            live = {r["slug"]: (r.get("category") or "news") for r in (res.data or [])}
+        except Exception as e:
+            # Fail closed on the lookup, not open: if we cannot verify, we do
+            # not rewrite (rewriting every link on a transient DB blip would be
+            # worse than leaving them), but we do say so loudly.
+            log.error("[%s] link_validator slug lookup failed, skipping validation: %s", AGENT_ID, e)
+            return state
+
+    rewrites: list[str] = []
+
+    def _check(m: re.Match) -> str:
+        label, href = m.group(1), m.group(2)
+        path = href.split("#")[0].split("?")[0].rstrip("/") or "/"
+        if path in STATIC_ROUTES or path.startswith("/images/"):
+            return m.group(0)
+        if path.startswith(("/news/", "/guides/")):
+            slug = path.split("/")[-1]
+            category = live.get(slug)
+            if category is not None:
+                # Point at the canonical path for its category so the link does
+                # not take a needless 308 hop (news/[slug] redirects guides).
+                correct = f"/guides/{slug}" if category == "guide" else f"/news/{slug}"
+                if path != correct:
+                    rewrites.append(f"{href} -> {correct} (canonical path for category={category})")
+                    return f"[{label}]({correct})"
+                return m.group(0)
+        rewrites.append(f"{href} -> {LINK_FALLBACK} (no published page at this path)")
+        return f"[{label}]({LINK_FALLBACK})"
+
+    state["content"] = _MD_LINK_RE.sub(_check, content)
+    state["link_rewrites"] = rewrites
+
+    if rewrites:
+        log.warning("[%s] link_validator rewrote %d dead internal link(s): %s",
+                    AGENT_ID, len(rewrites), "; ".join(rewrites))
+        _audit(sb, state.get("article_id"), "internal_links_rewritten",
+               f"rewrote:{len(rewrites)}", error="; ".join(rewrites)[:2000])
+    return state
+
+
 AMAZON_AFFILIATE_TAG = "decodedsix-20"
 
 # Matches a markdown link whose URL is an amazon.com/.co.uk/etc host --
@@ -1759,6 +1850,7 @@ def revise_content_agent(
         # alone only catches newly-added [INTERNAL_LINK:slug] placeholders.
         preserved_links = _count_resolved_internal_links(state["content"])
         state["internal_links_used"] = sorted(set(state.get("internal_links_used") or []) | set(preserved_links))
+        state = _node_link_validator(state, sb)
         state = _node_affiliate_link_injector(state)
 
         try:
@@ -1942,6 +2034,7 @@ def run_content_agent(
         state = _node_faq_generator(state, ai)
         state = _node_schema_generator(state)
         state = _node_internal_link_injector(state, sb)
+        state = _node_link_validator(state, sb)
         state = _node_affiliate_link_injector(state)
         state = _node_validator(state)
         state = _node_output_formatter(state, sb)
