@@ -10,6 +10,30 @@ Set these under Settings > Variables:
 - N8N_WEBHOOK_BASE — n8n public URL for webhook triggers
 - SLACK_BOT_TOKEN — Slack bot token (if using Slack node)
 
+### DECODEDSIX_API_KEY is a THREE-sided shared secret
+The same value must be identical in all three places or workflows 401:
+
+1. **Railway** `decoded-six` service — the authoritative copy; this is what
+   `api/auth.py:require_api_key` compares `Authorization: Bearer <key>`
+   against, and what `api/routes/map_markers.py` compares `X-API-Key`
+   against.
+2. **Vercel** production + preview — the HITL approve route sends it when
+   triggering translation and revision.
+3. **n8n Cloud** (thedecodedsix.app.n8n.cloud) Settings > Variables — these
+   workflows send it: discovery_fetch_cron (every 4h),
+   decodedsix_content_workflow (Tue/Thu/Sat 16:00 UTC), map_scrape_workflow
+   (daily 15:00 UTC), weekly_shorts_trigger (Tue 14:00 UTC),
+   post_approval_distribution (webhook, 2 nodes).
+
+n8n Cloud variables cannot be set from the CLI or from this repo — they are
+a manual dashboard edit. **Rotate all three in the same sitting**, n8n last,
+and remember the Railway and Vercel sides each need a redeploy to pick the
+new value up. Rotated 2026-10-01 from a 21-char passphrase to 32 random
+bytes (`openssl rand -base64 32`).
+
+If the key is UNSET on Railway the API runs with no auth at all (dev mode,
+see api/auth.py) — a mismatch there fails open, not closed.
+
 ## Workflows
 - daily_content_cron.json — triggers content pipeline at 6 AM ET daily
 - hitl_notification.json — Slack alert when article enters HITL queue
