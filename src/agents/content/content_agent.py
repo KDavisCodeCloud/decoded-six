@@ -1315,7 +1315,12 @@ def _node_link_validator(state: dict, sb: Any) -> dict:
         return state
 
     candidates = {href.split("#")[0].split("?")[0].rstrip("/") or "/" for _, href in links}
-    slugs = {p.split("/")[-1] for p in candidates if p.startswith(("/news/", "/guides/"))}
+    # Collect the last segment of every internal path, not just /news/ and
+    # /guides/ ones -- a real published slug behind a wrong prefix (observed
+    # live 2026-10-01: '/articles/gta-6-extended-look-netflix-august-27', a
+    # route that does not exist) should be repaired to its canonical path
+    # rather than thrown away to the fallback.
+    slugs = {p.split("/")[-1] for p in candidates if p not in STATIC_ROUTES and not p.startswith("/images/")}
 
     live: dict[str, str] = {}
     if slugs:
@@ -1339,17 +1344,17 @@ def _node_link_validator(state: dict, sb: Any) -> dict:
         path = href.split("#")[0].split("?")[0].rstrip("/") or "/"
         if path in STATIC_ROUTES or path.startswith("/images/"):
             return m.group(0)
-        if path.startswith(("/news/", "/guides/")):
-            slug = path.split("/")[-1]
-            category = live.get(slug)
-            if category is not None:
-                # Point at the canonical path for its category so the link does
-                # not take a needless 308 hop (news/[slug] redirects guides).
-                correct = f"/guides/{slug}" if category == "guide" else f"/news/{slug}"
-                if path != correct:
-                    rewrites.append(f"{href} -> {correct} (canonical path for category={category})")
-                    return f"[{label}]({correct})"
-                return m.group(0)
+        slug = path.split("/")[-1]
+        category = live.get(slug)
+        if category is not None:
+            # Point at the canonical path for its category so the link does
+            # not take a needless 308 hop (news/[slug] redirects guides), and
+            # so a valid slug behind a bad prefix gets repaired, not discarded.
+            correct = f"/guides/{slug}" if category == "guide" else f"/news/{slug}"
+            if path != correct:
+                rewrites.append(f"{href} -> {correct} (canonical path for category={category})")
+                return f"[{label}]({correct})"
+            return m.group(0)
         rewrites.append(f"{href} -> {LINK_FALLBACK} (no published page at this path)")
         return f"[{label}]({LINK_FALLBACK})"
 
