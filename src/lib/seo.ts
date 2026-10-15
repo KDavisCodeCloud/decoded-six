@@ -49,10 +49,19 @@ export function localeAlternates(path: string, locale: string) {
 //
 // Readers are unaffected -- /fr/news/x still renders the French body at its
 // own URL. Only the indexing signals change:
-//   - every non-English article page canonicals to the English URL,
+//   - articleRobots() below marks every non-English article page noindex,
 //   - hreflang collapses to self + x-default (no cross-locale cluster),
-//   - and articleRobots() below marks non-English noindex.
+//   - and every page SELF-canonicals, English and non-English alike.
 // The sitemap lists English article URLs only.
+//
+// On that last point: an earlier draft of this plan had non-English pages
+// canonical to the English URL. That is wrong once noindex is doing the work.
+// Google's guidance is not to combine noindex with a cross-page canonical --
+// the two instructions conflict ("drop this page" vs "fold it into that one")
+// and the resolution is undefined. noindex + self-canonical says exactly one
+// unambiguous thing. The same conflict exists on /news?category=* and was
+// accepted there as harmless because /news is indexed on its own merits;
+// here there is no reason to introduce it at all.
 //
 // No longer takes translatedLocales: the hreflang cluster is gone, so the
 // article_translations lookup the call sites used to do is dead weight.
