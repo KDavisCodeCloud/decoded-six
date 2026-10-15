@@ -5,6 +5,12 @@ import MobileDashNav from '@/components/dashboard/MobileDashNav'
 
 export const metadata = {
   title: 'Mission Control — DecodedSix',
+  // robots.txt already carries `Disallow: /dashboard/`, but that blocks
+  // CRAWLING, not INDEXING -- a URL linked from anywhere external can still
+  // appear as a bare result with no snippet, and a disallowed page can never
+  // be read to discover a noindex. Belt and braces: this emits the directive
+  // on the page itself.
+  robots: { index: false },
 }
 
 export default async function DashboardLayout({
