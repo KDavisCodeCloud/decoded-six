@@ -32,41 +32,51 @@ export function localeAlternates(path: string, locale: string) {
   }
 }
 
-// For ARTICLE routes, where a locale is only a real language variant if a
-// completed row exists in article_translations. Unlike localeAlternates,
-// which self-canonicalizes every locale unconditionally, this:
-//   - canonicals an untranslated locale back to the English URL, and
-//   - omits untranslated locales from hreflang entirely.
+// For ARTICLE routes. ENGLISH IS THE ONLY INDEXED VERSION (2026-10-15).
 //
-// Why (2026-10-01): /fr/guides/gta-6-pc-graphics-settings-optimization and
-// 86 others were serving the English body (the page falls back when no
-// translation exists) while declaring themselves canonical and advertising
-// all 8 locales as alternates. That tells Google 8 near-identical pages are
-// each originals -- the same "Duplicate without user-selected canonical"
-// shape already fixed for static chrome routes via unlocalizedAlternates on
-// 2026-09-07, just never applied to articles. The sitemap already got this
-// right (it filters on translation_status='completed'); the page metadata
-// contradicted it.
+// History: this used to advertise every locale with a completed
+// article_translations row as a real hreflang alternate, self-canonicalling
+// each one. That was the correct fix for the previous bug (untranslated
+// locales serving English while claiming to be originals), but it left 504
+// machine-translated article URLs indexable against 72 English ones -- 87%
+// of the article surface was machine output.
 //
-// This is self-healing: the moment ds_translate writes a completed row, the
-// locale reappears in hreflang and its canonical flips back to self. No
-// backfill step, no manual list to maintain.
-export function articleAlternates(path: string, locale: string, translatedLocales: Iterable<string>) {
-  const translated = new Set(translatedLocales)
-  // The default locale is the source of truth and always "translated".
-  const liveLocales = routing.locales.filter(
-    (l) => l === routing.defaultLocale || translated.has(l)
-  )
-  const isLive = locale === routing.defaultLocale || translated.has(locale)
+// The site is being suppressed, not merely ranked low: ~0 impressions for
+// seven weeks across 248 indexed pages, no manual action in GSC, and the TGG
+// exclusive does not surface in Google even on an exact-quote search of its
+// own body text. Bulk machine translation at that ratio is the most likely
+// cause, so the locale pages come out of the index entirely.
+//
+// Readers are unaffected -- /fr/news/x still renders the French body at its
+// own URL. Only the indexing signals change:
+//   - every non-English article page canonicals to the English URL,
+//   - hreflang collapses to self + x-default (no cross-locale cluster),
+//   - and articleRobots() below marks non-English noindex.
+// The sitemap lists English article URLs only.
+//
+// No longer takes translatedLocales: the hreflang cluster is gone, so the
+// article_translations lookup the call sites used to do is dead weight.
+export function articleAlternates(path: string, locale: string) {
   const englishUrl = `${siteUrl}${path}`
+  const isEnglish = locale === routing.defaultLocale
 
   return {
-    canonical: isLive ? `${siteUrl}${localizedPath(path, locale)}` : englishUrl,
+    canonical: isEnglish ? englishUrl : `${siteUrl}${localizedPath(path, locale)}`,
     languages: {
-      ...Object.fromEntries(liveLocales.map((l) => [l, `${siteUrl}${localizedPath(path, l)}`])),
+      [locale]: `${siteUrl}${localizedPath(path, locale)}`,
       'x-default': englishUrl,
     },
   }
+}
+
+// Robots directive for an article page. Non-English stays crawlable and
+// link-following (so internal links still pass through it) but out of the
+// index. English is left undefined so it inherits the site-wide
+// `index: true, follow: true` from the root layout.
+export function articleRobots(locale: string) {
+  return locale === routing.defaultLocale
+    ? undefined
+    : { index: false, follow: true }
 }
 
 // For routes whose body content is hardcoded English regardless of locale

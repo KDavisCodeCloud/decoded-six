@@ -67,38 +67,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .eq('status', 'published')
   const articles = (data as { id: string; slug: string; category: string; published_at: string }[] | null) ?? []
 
-  // Only list a translated locale for an article if a completed
-  // translation actually exists -- otherwise that URL just re-serves the
-  // English fallback with a notice, and declaring it as a real language
-  // variant to Google would be misleading (unlike the static chrome
-  // pages, where the underlying content genuinely is the same page).
-  const { data: translationRows } = await supabase
-    .from('article_translations')
-    .select('article_id, locale')
-    .eq('translation_status', 'completed')
-  const translatedLocalesByArticle = new Map<string, Set<string>>()
-  for (const row of (translationRows as { article_id: string; locale: string }[] | null) ?? []) {
-    if (!translatedLocalesByArticle.has(row.article_id)) {
-      translatedLocalesByArticle.set(row.article_id, new Set())
-    }
-    translatedLocalesByArticle.get(row.article_id)!.add(row.locale)
-  }
-
-  const articleRoutes: MetadataRoute.Sitemap = articles.flatMap((article) => {
-    const availableLocales = [routing.defaultLocale, ...(translatedLocalesByArticle.get(article.id) ?? [])]
+  // ENGLISH ONLY (2026-10-15). This previously listed one URL per completed
+  // translation, which put 504 machine-translated article URLs in the sitemap
+  // against 72 English ones -- 87% of the indexable article surface was
+  // machine output. With impressions flat at ~0 across 248 indexed pages for
+  // seven weeks, no manual action, and the TGG exclusive absent from Google
+  // even on an exact-quote search of its own body text, the site is being
+  // suppressed rather than merely ranked low, and bulk machine translation at
+  // that ratio is the most likely single cause. The locale pages still render
+  // for readers at their own URLs; they are simply no longer advertised for
+  // indexing (and now carry robots noindex -- see articleAlternates and the
+  // generateMetadata in news/[slug] and guides/[slug]).
+  //
+  // Deliberately no `alternates.languages` either: declaring an hreflang
+  // cluster whose members are all noindex is a contradictory signal.
+  const articleRoutes: MetadataRoute.Sitemap = articles.map((article) => {
     // Guide URL restructuring (2026-08-09): guide-category articles are
     // canonical at /guides/[slug] now -- list the redirect target here,
     // not the old /news/ URL that 301s away from it.
     const route = article.category === 'guide' ? `/guides/${article.slug}` : `/news/${article.slug}`
-    return availableLocales.map((locale) => ({
-      url: localizedUrl(route, locale),
+    return {
+      url: `${siteUrl}${route}`,
       lastModified: new Date(article.published_at),
       changeFrequency: 'weekly' as const,
       priority: 0.6,
-      alternates: {
-        languages: Object.fromEntries(availableLocales.map((l) => [l, localizedUrl(route, l)])),
-      },
-    }))
+    }
   })
 
   return [...enOnlyRoutes, ...articleRoutes]

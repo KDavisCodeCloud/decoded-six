@@ -12,7 +12,7 @@ import { HeroImage } from '@/components/HeroImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
 import { routing } from '@/i18n/routing'
 import { permanentRedirect } from '@/i18n/navigation'
-import { articleAlternates } from '@/lib/seo'
+import { articleAlternates, articleRobots } from '@/lib/seo'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
@@ -72,18 +72,6 @@ interface Translation {
 // stays exactly as the base article has it. Returns null (not a partial
 // object) when no completed translation exists yet, so the caller can
 // show the "not translated yet" notice and fall back to English cleanly.
-// Locales with a COMPLETED translation for this article. Drives
-// articleAlternates: anything not in here is serving the English fallback,
-// so it must not be canonicalized to itself or advertised via hreflang.
-async function getTranslatedLocales(articleId: string): Promise<string[]> {
-  const { data } = await supabase
-    .from('article_translations')
-    .select('locale')
-    .eq('article_id', articleId)
-    .eq('translation_status', 'completed')
-  return ((data as { locale: string }[] | null) ?? []).map((r) => r.locale)
-}
-
 async function getTranslation(articleId: string, locale: string): Promise<Translation | null> {
   if (locale === routing.defaultLocale) return null
   const { data } = await supabase
@@ -141,7 +129,9 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: articleAlternates(`/news/${slug}`, locale, await getTranslatedLocales(article.id)),
+    alternates: articleAlternates(`/news/${slug}`, locale),
+    // English only in the index -- see articleRobots in lib/seo.ts.
+    robots: articleRobots(locale),
     openGraph: {
       title,
       description,

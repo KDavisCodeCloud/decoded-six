@@ -45,6 +45,12 @@ const nextConfig = {
       ['/news/gta-6-edition-comparison-which-to-buy', '/guides/gta-6-ultimate-edition-vs-standard-edition'],
       ['/$', '/'],
       ['/&', '/'],
+      // Stage 1 pruning (2026-10-15): a 646-word site announcement with no
+      // search intent. Archived in the DB, but redirect_slug can only target
+      // another ARTICLE slug and the right destination here is the homepage,
+      // so it is routed at the edge like the rules above. Nothing linked to
+      // it -- 0 internal links in English bodies, 0 in translations.
+      ['/guides/decoded-six-is-live', '/'],
     ]
     return rules.flatMap(([source, destination]) => [
       { source, destination, permanent: true },
