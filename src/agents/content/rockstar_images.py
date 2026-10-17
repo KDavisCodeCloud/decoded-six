@@ -73,6 +73,23 @@ KEYART_META: dict[str, dict] = {
     "jason-lucia-03-with-logos": {"caption": "Jason and Lucia (with logos)", "category": "keyart", "tags": ["jason", "lucia", "artwork", "protagonists", "duo", "key art", "logo"]},
     "jason-lucia-motel":         {"caption": "Jason and Lucia — Motel",      "category": "keyart", "tags": ["jason", "lucia", "motel", "scene", "artwork", "key art", "story"]},
     "official-cover-art":        {"caption": "GTA VI Official Cover Art",    "category": "keyart", "tags": ["cover art", "official", "artwork", "jason", "lucia", "gta 6", "release", "key art"]},
+    # On disk since the robbery-article pass but never registered, so the
+    # writer was never offered the one official asset that actually depicts
+    # a robbery -- money/crime articles fell through to generic Vice City.
+    "gas-station-robbery-with-logo": {"caption": "Jason and Lucia — Gas Station Robbery", "category": "keyart", "tags": ["robbery", "money", "crime", "heist", "jason", "lucia", "artwork", "key art", "scene"]},
+}
+
+# Flat media directories (no screenshot-NN / postcard- naming convention).
+# These files have been committed for weeks but no scanner ever picked them
+# up, so the agent could not use them: confirmed 2026-10-16 while checking
+# why five unrelated topics all resolved to the same two Vice City images.
+MEDIA_META: dict[str, dict] = {
+    "music/gta6-the-album": {
+        "caption": "GTA VI: The Album",
+        "category": "music",
+        "tags": ["album", "music", "radio", "soundtrack", "song", "station", "artist"],
+        "exts": ("*.webp", "*.jpg"),
+    },
 }
 
 
@@ -93,6 +110,20 @@ def _scan_landscape_variant(slug_dir: Path, prefix: str, caption: str, category:
     if not matches:
         return []
     return [RockstarImage(url=f"{url_prefix}/{matches[0].name}", caption=caption, category=category, tags=tags)]
+
+
+def _scan_flat_dir(slug_dir: Path, caption: str, category: str, tags: list[str], url_prefix: str, exts: tuple[str, ...]) -> list[RockstarImage]:
+    """Register every image in a directory that uses no naming convention."""
+    entries = []
+    for ext in exts:
+        for f in sorted(slug_dir.glob(ext)):
+            entries.append(RockstarImage(
+                url=f"{url_prefix}/{f.name}",
+                caption=caption,
+                category=category,
+                tags=tags,
+            ))
+    return entries
 
 
 def _build_local_registry() -> list[RockstarImage]:
@@ -120,6 +151,15 @@ def _build_local_registry() -> list[RockstarImage]:
             continue
         url_prefix = f"/images/tier1/keyart/{slug}"
         images.extend(_scan_landscape_variant(slug_dir, "", meta["caption"], meta["category"], meta["tags"], url_prefix))
+
+    for rel, meta in MEDIA_META.items():
+        slug_dir = TIER1_IMAGES_ROOT / rel
+        if not slug_dir.is_dir():
+            continue
+        images.extend(_scan_flat_dir(
+            slug_dir, meta["caption"], meta["category"], meta["tags"],
+            f"/images/tier1/{rel}", meta["exts"],
+        ))
 
     return images
 

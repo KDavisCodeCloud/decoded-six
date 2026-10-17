@@ -1063,11 +1063,29 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
 
         response = anthropic_client.messages.create(
             model=MODEL,
-            max_tokens=4096,
+            # 8192, not 4096 (raised 2026-10-16). The evergreen floor is 1,500
+            # body words and _node_validator enforces it, but a 1,500+ word
+            # article plus its embedded image markdown, FAQ-free body, title,
+            # slug and excerpt -- all JSON-escaped in one string field --
+            # runs right up against 4096 output tokens. When it crossed the
+            # line the response was cut mid-string and surfaced as
+            # "LLM returned invalid JSON", which sent the retry below into a
+            # "fix only the syntax" loop against the same ceiling, so it
+            # truncated again and the whole run failed. Confirmed live on the
+            # radio-stations article. The floor and the token ceiling were in
+            # direct tension; this removes it.
+            max_tokens=8192,
             temperature=temp,
             system=system,
             messages=messages,
         )
+        if response.stop_reason == "max_tokens":
+            # Say so explicitly rather than letting it reappear downstream as
+            # a confusing JSON syntax error.
+            log.warning(
+                "[%s] writer hit max_tokens on attempt %d -- output truncated, "
+                "JSON will not parse", AGENT_ID, attempt,
+            )
         raw = "".join(b.text for b in response.content if b.type == "text")
         cleaned = raw.strip()
         if cleaned.startswith("```"):
@@ -1104,7 +1122,17 @@ def _node_writer(state: dict, anthropic_client: Any) -> dict:
     # Reusing the writer's own best-scoring press image closes that gap at
     # the source for every future article.
     if press_images:
-        state["featured_image_url"] = press_images[0]["url"]
+        hero = press_images[0]
+        state["featured_image_url"] = hero["url"]
+        # Credit/tier/alt were never written either, so every article's hero
+        # rendered with no credit badge and no alt text -- the credit is a
+        # non-negotiable condition of using Rockstar's press assets at all
+        # (see docs/VISUAL_STRATEGY.md), and it cannot be satisfied by the
+        # in-body "*Image credit: Rockstar Games*" lines, which don't apply to
+        # the hero or the listing-card thumbnail. Added 2026-10-16.
+        state["featured_image_credit"] = "© Rockstar Games"
+        state["featured_image_tier"] = 1
+        state["featured_image_alt"] = hero.get("caption") or ""
     return state
 
 
@@ -1182,7 +1210,16 @@ def _node_schema_generator(state: dict) -> dict:
         "description": excerpt,
         "datePublished": publish_date,
         "dateModified": publish_date,
-        "author": {"@type": "Organization", "name": "DecodedSix Editorial Team"},
+        # Named Person, mirroring src/lib/author.ts -- the article pages build
+        # their own JSON-LD and no longer read this stored copy, but leaving a
+        # stale "Editorial Team" Organization in the column would misrepresent
+        # the byline to anything that does read it later.
+        "author": {
+            "@type": "Person",
+            "name": "Kelvin L. Davis II",
+            "url": f"{SITE_URL}/author/kelvin-davis",
+            "worksFor": {"@type": "Organization", "name": "THD Agentic Systems LLC"},
+        },
         "publisher": {"@type": "Organization", "name": "Decoded Six", "url": SITE_URL},
         "url": article_url,
         "mainEntityOfPage": {"@type": "WebPage", "@id": article_url},
@@ -1243,30 +1280,69 @@ def _node_internal_link_injector(state: dict, sb: Any) -> dict:
     """
     content = state["content"]
 
-    # Find all requested slugs from writer output
-    requested = re.findall(r'\[INTERNAL_LINK:([^\]]+)\]', content)
+    # Two placeholder spellings, because the writer produces both. The
+    # documented one is the bare [INTERNAL_LINK:slug]; it also emits the
+    # markdown-shaped [anchor text](INTERNAL_LINK:slug), which until
+    # 2026-10-16 matched neither this injector nor _node_link_validator
+    # (whose _MD_LINK_RE only considers hrefs starting with '/'). The result
+    # shipped the literal string "(INTERNAL_LINK:gta-6-storage-ssd-space-ps5)"
+    # into a finished article body -- caught in the preload guide before
+    # review. Handle both, and keep the writer's own anchor text when it
+    # gave one.
+    bare_re = re.compile(r'(?<!\])\[INTERNAL_LINK:([^\]]+)\]')
+    md_re = re.compile(r'\[([^\]]+)\]\(INTERNAL_LINK:([^)\s]+)\)')
+
+    requested = bare_re.findall(content) + [m[1] for m in md_re.findall(content)]
     used_slugs: list[str] = []
 
     if requested:
-        # Fetch real slugs from DB to validate
+        # Fetch real slugs from DB to validate. category comes along because a
+        # guide-category article is canonically served at /guides/<slug>, not
+        # /news/<slug> -- emitting /news for a guide produced a link that
+        # 301s at best and, for the 4 of 5 articles in this batch that are
+        # guides, pointed at the wrong route entirely.
         try:
             result = sb.table("articles") \
-                .select("slug, title") \
+                .select("slug, title, category") \
                 .eq("status", "published") \
-                .in_("slug", requested) \
+                .in_("slug", sorted(set(requested))) \
                 .execute()
-            slug_map = {row["slug"]: row["title"] for row in (result.data or [])}
+            slug_map = {row["slug"]: row for row in (result.data or [])}
         except Exception as e:
             log.warning("[%s] internal_link fetch failed: %s", AGENT_ID, e)
             slug_map = {}
 
-        def replace_link(m: re.Match) -> str:
-            slug = m.group(1)
-            title = slug_map.get(slug, slug.replace("-", " ").title())
-            used_slugs.append(slug)
-            return f'[{title}](/news/{slug})'
+        def _path_for(slug: str) -> str:
+            row = slug_map.get(slug)
+            section = "guides" if (row or {}).get("category") == "guide" else "news"
+            return f"/{section}/{slug}"
 
-        content = re.sub(r'\[INTERNAL_LINK:([^\]]+)\]', replace_link, content)
+        def replace_bare(m: re.Match) -> str:
+            slug = m.group(1)
+            row = slug_map.get(slug)
+            title = (row or {}).get("title") or slug.replace("-", " ").title()
+            used_slugs.append(slug)
+            return f'[{title}]({_path_for(slug)})'
+
+        def replace_md(m: re.Match) -> str:
+            anchor, slug = m.group(1), m.group(2)
+            used_slugs.append(slug)
+            # Writer-supplied anchor text reads better in context than the
+            # target's headline, so keep it.
+            return f'[{anchor}]({_path_for(slug)})'
+
+        content = md_re.sub(replace_md, content)
+        content = bare_re.sub(replace_bare, content)
+
+        unresolved = [s for s in set(requested) if s not in slug_map]
+        if unresolved:
+            # Not fatal: these now carry a site-relative path, so
+            # _node_link_validator rewrites them to LINK_FALLBACK instead of
+            # shipping a 404. Log them so the miss is visible.
+            log.warning(
+                "[%s] internal_link: %d requested slug(s) not published, "
+                "leaving to link validator: %s", AGENT_ID, len(unresolved), unresolved,
+            )
 
     state["content"] = content
     state["internal_links_used"] = used_slugs
@@ -1553,6 +1629,9 @@ def _node_output_formatter(state: dict, sb: Any) -> dict:
         "schema_breadcrumb": state.get("schema_breadcrumb"),
         "word_count": state.get("word_count"),
         "featured_image_url": state.get("featured_image_url"),
+        "featured_image_credit": state.get("featured_image_credit"),
+        "featured_image_tier": state.get("featured_image_tier"),
+        "featured_image_alt": state.get("featured_image_alt"),
         "template_variant": state.get("template_variant"),
     }
 
@@ -1933,6 +2012,7 @@ def run_content_agent(
     topic_queue: Optional[list[str]] = None,
     queue_index: int = 0,
     fact_brief: str = "",
+    dedup_override_reason: str = "",
     supabase_client: Optional[Any] = None,
     anthropic_client: Optional[Any] = None,
 ) -> dict:
@@ -1959,6 +2039,18 @@ def run_content_agent(
         fact_brief: caller-supplied, pre-tiered facts for the writer to use
             verbatim instead of inventing supporting specifics (added
             2026-09-02). See _node_writer for how it's injected.
+        dedup_override_reason: owner-authorized editorial override for an
+            UPDATE verdict only (added 2026-10-16). When the dedup gate says
+            a topic belongs as an update to an existing article but the owner
+            has decided it warrants its own page, pass the reason here and
+            the run proceeds as a NEW article instead of being redirected
+            into run_update_agent. The gate still runs, the verdict is still
+            recorded, and every override writes a 'dedup_override' audit_log
+            row naming the matched slugs and the reason -- an override is
+            logged, never silent. DUPLICATE verdicts are NOT overridable by
+            this flag and still hard-block; this exists for the follow-up
+            coverage model (initial report, then a more specific piece as
+            facts firm up) that news sites run on, not to defeat the gate.
         supabase_client: injectable for testing
         anthropic_client: injectable for testing
     """
@@ -2019,18 +2111,41 @@ def run_content_agent(
             )
 
         if gate["verdict"] == "UPDATE" and gate["matched_slugs"]:
-            # Redirect entirely into the proven update-agent path instead of
-            # continuing this pipeline -- the topic already has a home.
-            return run_update_agent(
-                slug=gate["matched_slugs"][0],
-                topic=state["topic"],
-                fact_brief=state.get("fact_brief", ""),
-                supabase_client=sb,
-                anthropic_client=ai,
-            )
+            if dedup_override_reason:
+                # Owner-authorized: this topic gets its own page despite the
+                # overlap. Logged loudly -- the whole point of an override is
+                # that it leaves a trail showing a human chose it, so a later
+                # audit can tell "we decided this" apart from "the gate
+                # silently let it through".
+                _audit(
+                    sb, None, "dedup_override", "success",
+                    error=(
+                        f"topic={state['topic']!r} verdict=UPDATE "
+                        f"matched={gate['matched_slugs']} "
+                        f"gate_reason={gate['reason']!r} "
+                        f"override_reason={dedup_override_reason!r}"
+                    ),
+                )
+                log.warning(
+                    "[%s] dedup override: writing %r as NEW despite UPDATE verdict against %s -- %s",
+                    AGENT_ID, state["topic"], gate["matched_slugs"], dedup_override_reason,
+                )
+            else:
+                # Redirect entirely into the proven update-agent path instead of
+                # continuing this pipeline -- the topic already has a home.
+                return run_update_agent(
+                    slug=gate["matched_slugs"][0],
+                    topic=state["topic"],
+                    fact_brief=state.get("fact_brief", ""),
+                    supabase_client=sb,
+                    anthropic_client=ai,
+                )
 
-        # CLEAR: proceed, carrying the closest existing coverage into the
-        # writer prompt so it links to (rather than re-covers) that ground.
+        # CLEAR (or an overridden UPDATE): proceed, carrying the closest
+        # existing coverage into the writer prompt so it links to (rather
+        # than re-covers) that ground. This matters most on an override --
+        # the overlapping article is exactly what the new piece should point
+        # at instead of repeating.
         state["adjacent_articles"] = gate["adjacent"]
 
         state = _node_news_scraper(state)
