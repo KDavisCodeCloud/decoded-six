@@ -65,6 +65,43 @@ any content for the site.
 Run humanizer skill after every draft.
 Never publish without HITL approval.
 
+## Word Count — FAQs Never Count. Permanent Rule.
+FAQs are NOT part of the word count. Ever. For every
+article, on every product, by every entry point, with
+no exceptions and no per-article override.
+
+The word count that matters is the ARTICLE BODY only.
+The `## Frequently Asked Questions` section is real
+content and still ships — it just never counts toward
+the floor for the article's `article_type`.
+
+Why this is permanent: on 2026-09-17 a published
+article satisfied its floor by padding FAQ pairs
+instead of writing the article — 942 total words with
+only 387 in the actual body. The FAQ is not the
+article. Counting it let the body fall far short of
+what the floor exists to guarantee.
+
+Enforcement (do not weaken, do not route around):
+- `_body_word_count()` in
+  src/agents/content/content_agent.py is the single
+  source of truth. It strips the first
+  `## Frequently Asked Questions` heading and
+  everything up to the next `## ` heading, then counts.
+  It feeds BOTH the `_node_validator` gate and the
+  stored `word_count` column.
+- Text trailing the FAQ with no heading of its own is
+  excluded too. That makes the floor slightly STRICTER
+  than "just the FAQ." That direction is correct.
+  Never loosen it to reclaim words.
+- Floors live in `WORD_COUNT_FLOORS`. If an article
+  misses its floor, the fix is MORE BODY — never
+  counting the FAQ, never lowering the floor, never
+  switching article_type to clear a smaller bar.
+- Any new writer, agent, or script that computes a
+  word count must call `_body_word_count()`. Do not
+  reimplement `len(content.split())`.
+
 ## Map Feature Flag
 NEXT_PUBLIC_MAP_LIVE controls map visibility
 false = show placeholder with countdown
@@ -102,6 +139,7 @@ Then stop and wait.
 - Every agent action writes to audit_log table
 - DataSanitizationShield before any LLM call
 - HITL approval before any content publishes
+- FAQs NEVER count toward any article's word count — body only, every article, no exceptions. Use `_body_word_count()`; never reimplement a raw word count. Full rule above.
 - Copyright/trademark check before any publish
 - Rockstar trailer stills, screenshots, and official press art ARE permitted — editorial/news-reporting use, same basis every GTA fan/news site operates on (Fandom, gta6map.io, gtabase.com, Rockstar Intel). Every image must carry a visible source credit every time (e.g. "Screenshot: GTA 6 Trailer 2 © Rockstar Games") — never uncredited, never presented as our own art. Full tier system + exact caption rules: docs/VISUAL_STRATEGY.md. This is an editorial fair-use judgment call, not a confirmed license from Rockstar — revisit if the site's scale or a takedown notice changes the risk calculus.
 - No gameplay-footage screen recordings or repackaged full trailer video — stills/screenshots for editorial commentary only, not redistributing Rockstar's video assets wholesale
