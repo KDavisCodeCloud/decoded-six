@@ -6,7 +6,10 @@
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -23,7 +26,10 @@
       "name": "POST /agents/decodedsix/discovery/generate-next",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 300],
+      "position": [
+        460,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $vars.DECODEDSIX_API_URL }}/agents/decodedsix/discovery/generate-next",
@@ -32,6 +38,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.DECODEDSIX_API_KEY }}"
+            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -52,7 +62,10 @@
       "name": "Check API Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [680, 300],
+      "position": [
+        680,
+        300
+      ],
       "parameters": {
         "jsCode": "const response = $input.first().json;\nif (!response.success) {\n  // topic_queue being empty is not a failure -- it just means no topics\n  // have been approved from the dashboard yet. Log and stop quietly rather\n  // than throwing, so an empty queue doesn't page anyone.\n  return [{ json: { status: 'skipped', message: response.message ?? 'No queued topic to generate' } }];\n}\nreturn [{ json: { status: 'queued', queue_id: response.queue_id, message: 'DSX-CA1 running in background — article will appear in HITL queue when ready' } }];"
       }
@@ -60,16 +73,37 @@
   ],
   "connections": {
     "Schedule Trigger": {
-      "main": [[{ "node": "POST /agents/decodedsix/discovery/generate-next", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "POST /agents/decodedsix/discovery/generate-next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "POST /agents/decodedsix/discovery/generate-next": {
-      "main": [[{ "node": "Check API Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Check API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1"
   },
   "staticData": null,
-  "tags": ["decodedsix", "content-agent", "dsx-ca1", "discovery"],
+  "tags": [
+    "decodedsix",
+    "content-agent",
+    "dsx-ca1",
+    "discovery"
+  ],
   "notes": "Updated 2026-09-17: this workflow used to compute its own topic_seed (a dead GameSradar RSS feed with a hardcoded 'GTA 6 latest news' fallback, verbatim first-headline-found with no dedup) and pick article_type purely by day-of-week. It now just pulls the next human-APPROVED topic from topic_queue (see src/agents/discovery/ + the Topic Queue section on /dashboard/content) -- article_type and template are now intrinsic to the approved topic, not the day. If topic_queue is empty (nothing approved yet), the run is a no-op, not a failure -- populate the queue from the dashboard before this cron fires. Triggers Tue/Thu/Sat at 9am MST (16:00 UTC), same cadence as before. Vars required: DECODEDSIX_API_URL, DECODEDSIX_API_KEY."
 }
