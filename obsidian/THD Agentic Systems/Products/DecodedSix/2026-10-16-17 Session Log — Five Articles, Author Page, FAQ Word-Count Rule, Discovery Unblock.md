@@ -91,12 +91,30 @@ Reviewed 4 of the 5 on 2026-10-17 between 18:33 and 18:34:
 - **Archived:** `gta-6-money-guide-confirmed-ways-to-make-money` (not published — reason not recorded in-session).
 - **Still `pending_review`:** `gta-6-radio-stations-confirmed-hosts-flash-fm-return`.
 
+## Fourth Bug — `/author` 404'd in Production, Found by Curling the Live URL
+The build listed `/[locale]/author/kelvin-davis` as prerendered across all 8 locales, Vercel deployed green, and the page still **404'd** on `https://thedecodedsix.com/author/kelvin-davis`.
+
+Cause: the middleware matcher's negative lookahead listed a bare `auth`, which is a **prefix** match — so `/author/...` was excluded from middleware entirely, next-intl never rewrote it to `/en/author/kelvin-davis`, and it 404'd. `/en/author/kelvin-davis` worked the whole time, which is what made it look like a deploy-lag problem rather than a routing one.
+
+```
+matcher: ['/((?!api|auth|login|_next|_vercel|.*\..*).*)']   ← 'auth' swallows 'author'
+matcher: ['/((?!api|auth/|login|_next|_vercel|.*\..*).*)']  ← fixed
+```
+
+`auth/` still excludes the only real routes there (`/auth/callback`, `/auth/signout`), verified alongside `/login`, `/api/track`, `/dashboard`, `/_next` and extension paths. **Any future top-level route whose name merely starts with `api`, `auth`, `login`, `_next` or `_vercel` hits the same trap.**
+
+Worth recording as a method note: a clean `next build` and a green deploy both reported success here. Only curling the live URL caught it.
+
 ## Committed / Deployed
-Pushed `941988e..5cb68e4` to master; Railway build triggered on `5cb68e4`.
+Pushed to master in two rounds: `941988e..5cb68e4`, then the session log and the routing fix.
 - `cda47fd` — feat(author): named author page and Person byline, replacing the Editorial Team
 - `84f3980` — fix(content): owner-authorized dedup override, plus three bugs it surfaced
 - `c243802` — fix(n8n): discovery and content workflows send no Authorization header
 - `5cb68e4` — docs: FAQs never count toward an article's word count, permanent rule
+- `4d6e55c` — docs(obsidian): this session log
+- `4131dd3` — fix(routing): /author 404'd because the matcher excluded anything starting "auth"
+
+**Verified live after deploy, not just built:** `https://thedecodedsix.com/author/kelvin-davis` returns 200 with Person schema, THD Agentic Systems LLC, the cover-art hero and its © Rockstar Games credit. Published articles carry the `By Kelvin L. Davis II` byline, `href="/author/kelvin-davis"`, and `"@type":"Person"` in the article schema.
 
 Article content and the `dedup_override` audit rows are Supabase data — no git diff; verify against the `articles` / `audit_log` tables directly.
 
