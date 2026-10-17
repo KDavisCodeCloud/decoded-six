@@ -72,5 +72,14 @@ export const config = {
   // an extension. Dashboard and the root magic-link catch are handled by
   // name inside the function body above rather than excluded here, since
   // they still need this middleware to run (just skipping next-intl).
-  matcher: ['/((?!api|auth|login|_next|_vercel|.*\\..*).*)'],
+  //
+  // 'auth/' carries a trailing slash on purpose (2026-10-17): the bare
+  // 'auth' alternative is a prefix match, so /author/kelvin-davis matched
+  // the exclusion, never reached next-intl, never got rewritten to
+  // /en/author/kelvin-davis, and 404'd in production while
+  // /en/author/kelvin-davis worked. The real routes here are /auth/callback
+  // and /auth/signout, so matching on 'auth/' still excludes both. Any new
+  // top-level route whose name merely starts with one of these words would
+  // hit the same trap.
+  matcher: ['/((?!api|auth/|login|_next|_vercel|.*\\..*).*)'],
 }
