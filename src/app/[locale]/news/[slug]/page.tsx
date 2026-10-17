@@ -11,8 +11,14 @@ import { ShareBar } from '@/components/shared/ShareBar'
 import { HeroImage } from '@/components/HeroImage'
 import { getArticleFallbackImage, articleTags } from '@/lib/article-utils'
 import { routing } from '@/i18n/routing'
-import { permanentRedirect } from '@/i18n/navigation'
+import { Link, permanentRedirect } from '@/i18n/navigation'
 import { articleAlternates, articleRobots } from '@/lib/seo'
+import {
+  AUTHOR_NAME as ARTICLE_AUTHOR_NAME,
+  AUTHOR_URL as ARTICLE_AUTHOR_URL,
+  AUTHOR_PATH as ARTICLE_AUTHOR_PATH,
+  AUTHOR_ORG as ARTICLE_AUTHOR_ORG,
+} from '@/lib/author'
 import type { Article } from '@/lib/types'
 
 export const revalidate = 300
@@ -140,7 +146,7 @@ export async function generateMetadata({
       siteName: 'Decoded Six',
       publishedTime: article.published_at,
       modifiedTime: article.created_at,
-      authors: ['DecodedSix Editorial Team'],
+      authors: [ARTICLE_AUTHOR_NAME],
       section: article.category,
       images: [{ url: ogImage, width: 1200, height: 630 }],
     },
@@ -250,7 +256,18 @@ export default async function ArticlePage({
     datePublished: article.published_at,
     dateModified: article.published_at,
     inLanguage: locale,
-    author: { '@type': 'Organization', name: 'DecodedSix Editorial Team' },
+    // A named Person with a real bio page, not "DecodedSix Editorial Team" --
+    // a faceless Organization byline is the exact pattern a quality classifier
+    // reads as low-effort content, and a named author is one of the few
+    // concrete E-E-A-T signals available to a site this new. Kelvin reviews and
+    // signs off on every article through the HITL queue before it publishes,
+    // which is what this attribution reflects.
+    author: {
+      '@type': 'Person',
+      name: ARTICLE_AUTHOR_NAME,
+      url: ARTICLE_AUTHOR_URL,
+      worksFor: { '@type': 'Organization', name: ARTICLE_AUTHOR_ORG },
+    },
     publisher: { '@type': 'Organization', name: 'Decoded Six', url: siteUrl },
     url: canonicalUrl,
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl },
@@ -333,6 +350,17 @@ export default async function ArticlePage({
           </h1>
 
           <div className="flex items-center gap-4 flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            {/* Visible byline backing the Person author schema -- a named
+                author with a bio page readers can actually click is the
+                half search engines can verify. */}
+            <Link
+              href={ARTICLE_AUTHOR_PATH}
+              className="text-sm font-ibm hover:text-white transition-colors"
+              style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}
+              rel="author"
+            >
+              By {ARTICLE_AUTHOR_NAME}
+            </Link>
             <time dateTime={article.published_at} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
               {fmtLong(article.published_at, locale)}
             </time>

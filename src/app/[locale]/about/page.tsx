@@ -40,7 +40,11 @@ export default function AboutPage() {
               </h2>
               <p>
                 Every article is sourced from public news, official Rockstar announcements,
-                and verified community reporting. A human reviews and approves every piece
+                and verified community reporting.{' '}
+                <a href="/author/kelvin-davis" className="text-flame hover:underline">
+                  Kelvin L. Davis II
+                </a>
+                , the site&apos;s founder and editor, reviews and approves every piece
                 before it goes live. Nothing publishes without editorial sign-off.
               </p>
             </div>
