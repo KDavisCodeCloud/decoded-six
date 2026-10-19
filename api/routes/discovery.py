@@ -64,8 +64,15 @@ def _clients():
 async def run_discovery(_: None = Depends(require_api_key)) -> RunResponse:
     try:
         from src.agents.discovery.run_cycle import run_discovery_cycle
+        from src.agents.discovery.scheduler import record_cycle
         sb, ai = _clients()
-        result = run_discovery_cycle(sb, ai)
+        try:
+            result = run_discovery_cycle(sb, ai)
+        except Exception as exc:
+            record_cycle(sb, None, f"{type(exc).__name__}: {exc}", "manual")
+            raise
+        # A manual run is a real cycle too: it is the schedule's heartbeat.
+        record_cycle(sb, result, None, "manual")
         return RunResponse(success=True, **result)
     except Exception as exc:
         log.error("[discovery] /run failed: %s", exc)

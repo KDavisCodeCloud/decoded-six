@@ -22,6 +22,7 @@ everything so the site reaches more people worldwide).
 """
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,7 +39,23 @@ from api.routes.pipeline import router as pipeline_router
 from api.routes.translate import router as translate_router
 from api.routes.waitlist import router as waitlist_router
 
-app = FastAPI(title="DecodedSix API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Discovery every 4 hours, in-process (src/agents/discovery/scheduler.py
+    # says why: the n8n schedule never ran). DISCOVERY_SCHEDULE_DISABLED=1
+    # turns it off for an instance.
+    import asyncio
+    task = None
+    if os.environ.get("DISCOVERY_SCHEDULE_DISABLED") != "1":
+        from api.routes.discovery import _clients
+        from src.agents.discovery.scheduler import discovery_loop
+        task = asyncio.create_task(discovery_loop(_clients))
+    yield
+    if task:
+        task.cancel()
+
+
+app = FastAPI(title="DecodedSix API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
