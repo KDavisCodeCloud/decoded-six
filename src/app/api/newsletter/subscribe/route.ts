@@ -9,6 +9,7 @@ const SYSTEME_CONTACTS_URL = 'https://api.systeme.io/api/contacts'
 const SOURCES = {
   article: 'decodedsix-article',
   aug27: 'decodedsix_aug27_waitlist',
+  nov19_map: 'decodedsix_nov19_map_early_access',
 } as const
 type SourceKey = keyof typeof SOURCES
 

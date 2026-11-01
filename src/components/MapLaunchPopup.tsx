@@ -1,15 +1,18 @@
 'use client'
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { AUG27_HEADLINE, AUG27_BODY, AUG27_CTA, AUG27_SOURCE, isDismissed, dismiss } from '@/lib/aug27-capture'
+import { isDismissed, dismiss } from '@/lib/aug27-capture'
 
-const COOKIE_NAME = 'ds_aug27_popup_dismissed'
+// New cookie name on purpose: anyone who dismissed the old August 27 popup
+// still needs to see the launch / map early-access ask.
+const COOKIE_NAME = 'ds_nov19_map_popup_dismissed'
+const SOURCE = 'nov19_map'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TIMED_DELAY_MS = 10_000
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
 
-export function Aug27Popup() {
+export function MapLaunchPopup() {
   const [visible, setVisible] = useState(false)
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<Status>('idle')
@@ -56,7 +59,7 @@ export function Aug27Popup() {
       const res = await fetch('/api/newsletter/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed, source: AUG27_SOURCE }),
+        body: JSON.stringify({ email: trimmed, source: SOURCE }),
       })
       if (!res.ok) {
         setStatus('error')
@@ -76,7 +79,7 @@ export function Aug27Popup() {
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="aug27-popup-heading"
+      aria-labelledby="map-launch-popup-heading"
       onClick={close}
     >
       <div
@@ -93,17 +96,20 @@ export function Aug27Popup() {
           </svg>
         </button>
 
-        <span className="inline-block mb-3 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide text-[#070910]" style={{ background: '#f0975a' }}>
-          August 27 · Netflix
+        <span className="inline-block mb-3 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide text-[#070910]" style={{ background: '#f5a623' }}>
+          November 19 · Launch day
         </span>
 
-        <h2 id="aug27-popup-heading" className="font-heading font-bold text-2xl text-bright mb-2 leading-tight">
-          {AUG27_HEADLINE}
+        <h2 id="map-launch-popup-heading" className="font-heading font-bold text-2xl text-bright mb-2 leading-tight">
+          Get early access to the GTA 6 interactive map
         </h2>
-        <p className="text-quiet text-sm leading-relaxed mb-5">{AUG27_BODY}</p>
+        <p className="text-quiet text-sm leading-relaxed mb-5">
+          GTA 6 launches November 19, and our interactive map of Leonida goes live with it.
+          Sign up for early access and we&apos;ll email you the moment it opens.
+        </p>
 
         {status === 'success' ? (
-          <p className="text-[#f0975a] font-semibold text-sm">You&apos;re on the list. See you August 27.</p>
+          <p className="text-[#f5a623] font-semibold text-sm">You&apos;re in. Watch your inbox on November 19.</p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
             <input
@@ -112,6 +118,7 @@ export function Aug27Popup() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
+              aria-label="Email address"
               disabled={status === 'loading'}
               className="bg-transparent border border-ice/40 rounded-lg px-4 py-2.5 text-sm text-bright placeholder-whisper focus:outline-none focus:border-ice transition-colors disabled:opacity-50"
             />
@@ -121,7 +128,7 @@ export function Aug27Popup() {
               className="px-5 py-2.5 rounded-lg text-sm font-bold text-white transition-opacity disabled:opacity-50"
               style={{ background: '#ec1272' }}
             >
-              {status === 'loading' ? 'Signing up…' : AUG27_CTA}
+              {status === 'loading' ? 'Signing up…' : 'Get early access'}
             </button>
             {status === 'error' && (
               <p className="text-flame text-xs">Enter a valid email address</p>

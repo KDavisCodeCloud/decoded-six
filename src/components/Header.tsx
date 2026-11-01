@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Link } from '@/i18n/navigation'
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
@@ -23,18 +24,17 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-void/90 backdrop-blur-md border-b border-white/[0.06]">
       <Aug27StickyBar />
       <div className="container">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <div
-              className="w-[34px] h-[34px] rounded-lg flex items-center justify-center text-white font-heading font-black text-sm"
-              style={{ background: 'linear-gradient(135deg, #ec1272, #7c3aed)' }}
-            >
-              D6
-            </div>
-            <span className="font-heading font-extrabold text-[17px] tracking-tight text-bright">
-              Decoded Six
-            </span>
+          <Link href="/" className="flex items-center shrink-0" aria-label="The Decoded Six — home">
+            <Image
+              src="/images/branded/decodedsix-logo-256.png"
+              alt="The Decoded Six"
+              width={256}
+              height={258}
+              priority
+              className="h-[52px] w-auto"
+            />
           </Link>
 
           {/* Desktop nav */}

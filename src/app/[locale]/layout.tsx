@@ -4,7 +4,7 @@ import { getMessages, setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 import { routing } from '@/i18n/routing'
 import { unlocalizedAlternates } from '@/lib/seo'
-import { Aug27Popup } from '@/components/Aug27Popup'
+import { MapLaunchPopup } from '@/components/MapLaunchPopup'
 
 // OG locale tags use underscore region codes, not the URL's hyphenated
 // BCP-47 codes (en-GB -> en_GB). 'en' (the site's un-prefixed default)
@@ -60,7 +60,7 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       {children}
-      <Aug27Popup />
+      <MapLaunchPopup />
     </NextIntlClientProvider>
   )
 }
