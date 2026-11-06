@@ -53,6 +53,8 @@ CHARACTER_META: dict[str, dict] = {
     "real-dimez":      {"caption": "Real Dimez",      "category": "characters", "tags": ["real dimez", "character", "supporting"]},
     "raul-bautista":   {"caption": "Raul Bautista",   "category": "characters", "tags": ["raul bautista", "character", "supporting"]},
     "brian-heder":     {"caption": "Brian Heder",     "category": "characters", "tags": ["brian heder", "character", "supporting"]},
+    # Launch Gallery (2026-11-05) duo screenshots, Jason_and_Lucia_14-20.
+    "jason-and-lucia": {"caption": "Jason and Lucia", "category": "characters", "tags": ["jason", "lucia", "jason and lucia", "duo", "protagonists", "character"]},
 }
 
 LOCATION_META: dict[str, dict] = {
