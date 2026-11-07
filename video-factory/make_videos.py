@@ -51,6 +51,7 @@ MUSIC_LUFS = -16
 MUSIC_DUCK_DB = -18               # music level while the voiceover plays
 MUSIC_FADE = 0.5                  # fade in at 0s, fade out at the end
 MUSIC_RAMP = 0.3                  # duck release when the end card starts
+VOICE_LUFS = -14                  # voiceover loudness: sits ~2 dB over the end-card music, platform level
 
 
 def run(cmd, cwd=None):
@@ -141,7 +142,7 @@ def make_voice(day, text, work, voice=None, rate=None, custom_prefix=""):
     custom = next((p for p in (ROOT / "voice").glob(f"{custom_prefix}{int(day):02d}.*")), None) if (ROOT / "voice").exists() else None
     if custom:
         dur, _ = probe(custom)
-        return custom, even_timing(text, dur), dur
+        return normalize_voice(custom, work), even_timing(text, dur), dur
     mp3 = work / "vo.mp3"
     # edge-tts intermittently returns NoAudioReceived for text that succeeds
     # seconds later (seen 2026-11-07 on 2 of 10 back-to-back renders), so
@@ -158,7 +159,21 @@ def make_voice(day, text, work, voice=None, rate=None, custom_prefix=""):
     dur, _ = probe(mp3)
     if not words:
         words = even_timing(text, dur)
-    return mp3, words, dur
+    return normalize_voice(mp3, work), words, dur
+
+
+def normalize_voice(src, work):
+    """Two-pass loudnorm to VOICE_LUFS. WAV out (no AAC priming delay) so word timings still line up."""
+    p = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(src), "-af",
+                        f"loudnorm=I={VOICE_LUFS}:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    m = json.loads(p.stderr[p.stderr.rindex("{"):p.stderr.rindex("}") + 1])
+    out = work / "vo_norm.wav"
+    run(["ffmpeg", "-y", "-i", str(src), "-af",
+         f"loudnorm=I={VOICE_LUFS}:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
+         f"measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true",
+         "-ar", "44100", "-ac", "2", str(out)])
+    return out
 
 
 # ---------------- captions (ASS) ----------------
