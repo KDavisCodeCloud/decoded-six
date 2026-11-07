@@ -96,12 +96,12 @@ def parse_clip_override(value):
 
 
 # ---------------- voiceover ----------------
-async def _edge(text, mp3):
+async def _edge(text, mp3, voice=None, rate=None):
     import edge_tts
     try:
-        com = edge_tts.Communicate(text, VOICE, rate=VOICE_RATE, boundary="WordBoundary")
+        com = edge_tts.Communicate(text, voice or VOICE, rate=rate or VOICE_RATE, boundary="WordBoundary")
     except TypeError:                                   # older edge-tts
-        com = edge_tts.Communicate(text, VOICE, rate=VOICE_RATE)
+        com = edge_tts.Communicate(text, voice or VOICE, rate=rate or VOICE_RATE)
     words = []
     with open(mp3, "wb") as f:
         async for ch in com.stream():
@@ -125,8 +125,9 @@ def even_timing(text, duration):
     return out
 
 
-def make_voice(day, text, work):
-    custom = next((p for p in (ROOT / "voice").glob(f"{int(day):02d}.*")), None) if (ROOT / "voice").exists() else None
+def make_voice(day, text, work, voice=None, rate=None, custom_prefix=""):
+    """custom_prefix separates tracks' own voice files (Track B: voice/b01.mp3)."""
+    custom = next((p for p in (ROOT / "voice").glob(f"{custom_prefix}{int(day):02d}.*")), None) if (ROOT / "voice").exists() else None
     if custom:
         dur, _ = probe(custom)
         return custom, even_timing(text, dur), dur
@@ -136,7 +137,7 @@ def make_voice(day, text, work):
     # retry with backoff before failing the row.
     for attempt in range(3):
         try:
-            words = asyncio.run(_edge(text, mp3))
+            words = asyncio.run(_edge(text, mp3, voice, rate))
             break
         except Exception as e:
             if attempt == 2:
@@ -188,7 +189,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     path.write_text(header + "\n".join(ev) + "\n", encoding="utf-8")
 
 
-def write_end_ass(path):
+def write_end_ass(path, seconds=END_CARD_SECONDS, tagline=True):
     path.write_text(f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {WIDTH}
@@ -201,9 +202,8 @@ Style: Sub,{FONT},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.00,{ass_time(END_CARD_SECONDS)},Site,,0,0,0,,{{\\fad(200,0)}}{SITE_TEXT}
-Dialogue: 0,0:00:00.20,{ass_time(END_CARD_SECONDS)},Sub,,0,0,0,,{{\\fad(300,0)}}MAP • GUIDES • NEWS
-""", encoding="utf-8")
+Dialogue: 0,0:00:00.00,{ass_time(seconds)},Site,,0,0,0,,{{\\fad(200,0)}}{SITE_TEXT}
+""" + (f"Dialogue: 0,0:00:00.20,{ass_time(seconds)},Sub,,0,0,0,,{{\\fad(300,0)}}MAP • GUIDES • NEWS\n" if tagline else ""), encoding="utf-8")
 
 
 # ---------------- rendering ----------------
@@ -227,10 +227,10 @@ def render_body(trailer, start, length, vo, work):
     run(cmd, cwd=work)
 
 
-def render_end(work):
-    write_end_ass(work / "end.ass")
+def render_end(work, seconds=END_CARD_SECONDS, tagline=True):
+    write_end_ass(work / "end.ass", seconds, tagline)
     logo = LOGO
-    cmd = ["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c={END_CARD_BG}:s={WIDTH}x{HEIGHT}:d={END_CARD_SECONDS}:r={FPS}",
+    cmd = ["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c={END_CARD_BG}:s={WIDTH}x{HEIGHT}:d={seconds}:r={FPS}",
            "-f", "lavfi", "-i", f"anullsrc=r=44100:cl=stereo"]
     if logo.exists():
         cmd += ["-loop", "1", "-i", str(logo)]
@@ -238,7 +238,7 @@ def render_end(work):
               f"[0:v][l]overlay=(W-w)/2:(H-h)/2-260:shortest=1,ass=end.ass,format=yuv420p[v]")
     else:
         vf = "[0:v]ass=end.ass,format=yuv420p[v]"
-    cmd += ["-filter_complex", vf, "-map", "[v]", "-map", "1:a", "-t", str(END_CARD_SECONDS)] + ENC + ["end.mp4"]
+    cmd += ["-filter_complex", vf, "-map", "[v]", "-map", "1:a", "-t", str(seconds)] + ENC + ["end.mp4"]
     run(cmd, cwd=work)
 
 
@@ -357,6 +357,8 @@ def main():
     ap.add_argument("--include-held", action="store_true", help="also render rows marked held_until_launch")
     ap.add_argument("--from-db", action="store_true", help="render ds_shorts rows in draft/needs_revision instead of the CSV")
     ap.add_argument("--publish", action="store_true", help="with --from-db: upload to Storage and set pending_review")
+    ap.add_argument("--track", choices=["countdown", "discovery"], default="countdown",
+                    help="countdown = Track A (default); discovery = Track B montage/zoom shorts")
     args = ap.parse_args()
     need("ffmpeg"); need("ffprobe")
     if args.publish and not args.from_db:
@@ -369,6 +371,14 @@ def main():
         for v in asyncio.run(edge_tts.list_voices()):
             if v["Locale"].startswith("en-"):
                 print(f'{v["ShortName"]:34} {v["Gender"]}')
+        return
+
+    if args.track == "discovery":
+        import discovery
+        if args.from_db:
+            sys.exit("--track discovery --from-db arrives with Phase B2 (queue columns); use a CSV for now.")
+        csv_name = args.csv if args.csv != "scripts.csv" else "discovery_samples.csv"
+        discovery.main(args, discovery.csv_rows(csv_name))
         return
 
     trailers = sorted(p for p in (ROOT / "trailers").glob("*") if p.suffix.lower() in VIDEO_EXT)
