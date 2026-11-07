@@ -14,3 +14,9 @@ supabase/.temp/
 # on demand from the real Leonida map image at launch; the placeholder run
 # against Tier 1 key art isn't meant to ship.
 public/map-tiles/
+
+# Shorts factory: footage, voice, renders and venv are never committed
+video-factory/trailers/
+video-factory/voice/
+video-factory/output/
+video-factory/.venv/
