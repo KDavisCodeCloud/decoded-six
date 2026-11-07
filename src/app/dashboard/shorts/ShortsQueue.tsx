@@ -30,6 +30,7 @@ interface Short {
   youtube_posted_at: string | null
   tiktok_url: string | null
   youtube_url: string | null
+  local_delivered_at: string | null
 }
 
 type Filter = 'pending_review' | 'needs_revision' | 'approved' | 'scheduled' | 'posted' | 'rejected' | 'all'
@@ -274,6 +275,12 @@ function ShortCard({ short, accounts, busy, act, addAccount }: {
 
         {short.tiktok_account && (
           <div className="text-xs text-[#3fd17a]">TikTok: <span className="font-mono">{short.tiktok_account.handle}</span></div>
+        )}
+
+        {short.status === 'approved' && (
+          <div className={`text-[11px] font-mono ${short.local_delivered_at ? 'text-[#3fd17a]' : 'text-whisper'}`}>
+            {short.local_delivered_at ? '📁 Saved to approvals folder' : '⏳ Waiting for approvals folder sync'}
+          </div>
         )}
 
         {short.reviewer_notes && (

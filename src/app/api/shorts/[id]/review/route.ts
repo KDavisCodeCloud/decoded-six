@@ -78,7 +78,12 @@ export async function POST(
     if (!account) {
       return NextResponse.json({ error: 'TikTok account not found' }, { status: 400 })
     }
-    update = { ...update, status: 'approved', tiktok_account_id: account.id, reviewer_notes: notes || null }
+    // local_delivered_at reset: approvals_sync.py (owner's PC) picks this up
+    // and drops the video in the approvals folder, including a re-approved cut.
+    update = {
+      ...update, status: 'approved', tiktok_account_id: account.id, reviewer_notes: notes || null,
+      local_delivered_at: null, local_path: null,
+    }
   } else if (action === 'reject') {
     if (!notes) {
       return NextResponse.json({ error: 'Rejection needs a note' }, { status: 400 })

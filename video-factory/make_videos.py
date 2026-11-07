@@ -28,13 +28,14 @@ ROOT = Path(__file__).resolve().parent
 VOICE = "en-US-AndrewNeural"      # run --list-voices to see options (e.g. en-US-GuyNeural, en-US-ChristopherNeural)
 VOICE_RATE = "+8%"                # speed up/down the voice
 CLIP_SECONDS = 20                 # trailer footage length per video
-END_CARD_SECONDS = 3              # logo end card length
+END_CARD_SECONDS = 5              # logo end card length (owner: logo on screen for the last 5s)
 TRAILER_VOLUME = 0.18             # trailer music under the voiceover (0 = muted)
 SKIP_START, SKIP_END = 6, 12      # seconds to skip at start/end of each trailer (logos, credits)
 SITE_TEXT = "thedecodedsix.com"
 WIDTH, HEIGHT, FPS = 1080, 1920, 30
 FONT = "Impact"                   # any font installed on your computer (Impact / Bebas Neue look great)
-LOGO = ROOT.parent / "public" / "images" / "branded" / "decodedsix-logo.png"   # the site's D6 logo, not a copy
+LOGO = ROOT.parent / "public" / "images" / "branded" / "decodedsix-logo-1254.png"   # hi-res D6 logo, black background
+END_CARD_BG = "0x000000"          # pure black so the logo's black background has no visible box
 PINK, CYAN = "&H00882EFF", "&H00EED322"   # ASS colors (&HAABBGGRR) Miami Vice pink + cyan
 # -------------------------------------------------------
 
@@ -195,8 +196,8 @@ PlayResY: {HEIGHT}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Site,{FONT},76,{CYAN},&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,3,0,1,3,0,8,60,60,1280,1
-Style: Sub,{FONT},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,2,0,8,60,60,1390,1
+Style: Site,{FONT},76,{CYAN},&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,3,0,1,3,0,8,60,60,1340,1
+Style: Sub,{FONT},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,6,0,1,2,0,8,60,60,1450,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -229,11 +230,11 @@ def render_body(trailer, start, length, vo, work):
 def render_end(work):
     write_end_ass(work / "end.ass")
     logo = LOGO
-    cmd = ["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=0x0B0B14:s={WIDTH}x{HEIGHT}:d={END_CARD_SECONDS}:r={FPS}",
+    cmd = ["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c={END_CARD_BG}:s={WIDTH}x{HEIGHT}:d={END_CARD_SECONDS}:r={FPS}",
            "-f", "lavfi", "-i", f"anullsrc=r=44100:cl=stereo"]
     if logo.exists():
         cmd += ["-loop", "1", "-i", str(logo)]
-        vf = (f"[2:v]scale=760:-1,format=rgba,fade=t=in:st=0:d=0.4:alpha=1[l];"
+        vf = (f"[2:v]scale=960:-1,format=rgba,fade=t=in:st=0:d=0.4:alpha=1[l];"
               f"[0:v][l]overlay=(W-w)/2:(H-h)/2-260:shortest=1,ass=end.ass,format=yuv420p[v]")
     else:
         vf = "[0:v]ass=end.ass,format=yuv420p[v]"

@@ -99,3 +99,31 @@ Days 13–30 work with trailer footage, but they'll perform better with **your o
 - No GTA Online claims
 - Every video ends on a site CTA rotating map / guides / news
 - Pre-launch scripts say the map goes live on launch day (MAP_LIVE flips Nov 19)
+
+---
+
+## DecodedSix setup (Mission Control queue + approvals folder)
+
+**End card:** the last 5 seconds of every short are the D6 logo
+(`public/images/branded/decodedsix-logo-1254.png`) on pure black, with
+thedecodedsix.com and MAP • GUIDES • NEWS. Videos run 25s.
+
+**Daily:**
+1. Mission Control → **Shorts** → watch each pending video.
+2. **Approve** (pick the TikTok account it goes to), **Revise** (edit the script + note; the next factory run re-renders it), or **Reject** (note required).
+3. Approved videos download automatically to
+   `C:\Users\Kelvin\Videos\DecodedSix\approvals` and the folder pops open.
+   Each `.mp4` has a `.txt` beside it with the post date, TikTok account,
+   caption + hashtags and a YouTube title.
+4. Post by hand on TikTok and YouTube, then click **Mark posted** in the dashboard.
+
+**Approvals sync** (`approvals_sync.py`) starts hidden at Windows login from
+`Startup\DecodedSix Approvals Sync.vbs` (copy in this folder:
+`approvals_sync_startup.vbs`). It checks every 30s. Log:
+`output/approvals_sync.log`. Run by hand: `video-factory/.venv/bin/python
+video-factory/approvals_sync.py --once`. To stop autostart, delete the .vbs
+from the Startup folder.
+
+**Render from the queue:** `set -a; . ./.env.local; set +a` then
+`video-factory/.venv/bin/python video-factory/make_videos.py --from-db --publish`
+renders every `draft` and `needs_revision` row and puts it back in review.
