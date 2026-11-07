@@ -29,7 +29,7 @@ VOICE = "en-US-AndrewNeural"      # run --list-voices to see options (e.g. en-US
 VOICE_RATE = "+8%"                # speed up/down the voice
 CLIP_SECONDS = 20                 # trailer footage length per video
 END_CARD_SECONDS = 5              # logo end card length (owner: logo on screen for the last 5s)
-TRAILER_VOLUME = 0.18             # trailer music under the voiceover (0 = muted)
+TRAILER_VOLUME = 0                # trailer audio muted: the music bed below replaces it
 SKIP_START, SKIP_END = 6, 12      # seconds to skip at start/end of each trailer (logos, credits)
 SITE_TEXT = "thedecodedsix.com"
 WIDTH, HEIGHT, FPS = 1080, 1920, 30
@@ -40,6 +40,17 @@ PINK, CYAN = "&H00882EFF", "&H00EED322"   # ASS colors (&HAABBGGRR) Miami Vice p
 # -------------------------------------------------------
 
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
+
+# ---------------- music bed ----------------
+# Owner's own tracks (video-factory/music/, gitignored). Alternated between
+# videos, random start per video, normalized once to MUSIC_LUFS, ducked under
+# the voice and back up for the end card.
+MUSIC_DIR = ROOT / "music"
+MUSIC_TRACKS = ["welcome_to_vice_city.mp3", "showdown_remix.mp3"]
+MUSIC_LUFS = -16
+MUSIC_DUCK_DB = -18               # music level while the voiceover plays
+MUSIC_FADE = 0.5                  # fade in at 0s, fade out at the end
+MUSIC_RAMP = 0.3                  # duck release when the end card starts
 
 
 def run(cmd, cwd=None):
@@ -247,6 +258,56 @@ def concat(work, out):
     run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "list.txt", "-c", "copy", str(out)], cwd=work)
 
 
+# ---------------- music ----------------
+def normalized_track(name):
+    """Two-pass loudnorm to MUSIC_LUFS, cached next to the source (re-run if the mp3 changes)."""
+    src = MUSIC_DIR / name
+    cache = MUSIC_DIR / ".norm" / (src.stem + f"_{abs(MUSIC_LUFS)}lufs.m4a")
+    if cache.exists() and cache.stat().st_mtime >= src.stat().st_mtime:
+        return cache
+    cache.parent.mkdir(exist_ok=True)
+    p = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(src), "-af",
+                        f"loudnorm=I={MUSIC_LUFS}:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    m = json.loads(p.stderr[p.stderr.rindex("{"):p.stderr.rindex("}") + 1])
+    run(["ffmpeg", "-y", "-i", str(src), "-af",
+         f"loudnorm=I={MUSIC_LUFS}:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
+         f"measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true",
+         "-ar", "44100", "-ac", "2", "-c:a", "aac", "-b:a", "192k", str(cache)])
+    return cache
+
+
+def pick_music(day, salt=""):
+    """(track Path, start offset) -- tracks alternate by day, offset is random but repeatable per video."""
+    tracks = [t for t in MUSIC_TRACKS if (MUSIC_DIR / t).exists()]
+    if not tracks:
+        return None, 0.0
+    name = tracks[(int(day) + (1 if salt else 0)) % len(tracks)]
+    return normalized_track(name), random.Random(f"{name}{day}{salt}").random()
+
+
+def add_music(video, voice_end, day, salt=""):
+    """Mix the music bed into a finished video in place: ducked until voice_end, full on the end card."""
+    track, frac = pick_music(day, salt)
+    if not track:
+        return None
+    total, _ = probe(video)
+    tdur, _ = probe(track)
+    start = round(frac * max(0.0, tdur - total - 1), 2)
+    duck = 10 ** (MUSIC_DUCK_DB / 20)
+    gain = (f"volume='if(lt(t,{voice_end}),{duck:.4f},"
+            f"if(lt(t,{voice_end + MUSIC_RAMP}),{duck:.4f}+(1-{duck:.4f})*(t-{voice_end})/{MUSIC_RAMP},1))':eval=frame")
+    af = (f"[1:a]atrim=start={start}:duration={total},asetpts=PTS-STARTPTS,{gain},"
+          f"afade=t=in:st=0:d={MUSIC_FADE},afade=t=out:st={total - MUSIC_FADE:.3f}:d={MUSIC_FADE}[m];"
+          f"[0:a][m]amix=inputs=2:duration=first:normalize=0[a]")
+    tmp = Path(video).with_suffix(".music.mp4")
+    run(["ffmpeg", "-y", "-i", str(video), "-i", str(track), "-filter_complex", af,
+         "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ar", "44100",
+         "-movflags", "+faststart", str(tmp)])
+    tmp.replace(video)
+    return f"{track.stem.replace(f'_{abs(MUSIC_LUFS)}lufs', '')}@{start:.0f}s"
+
+
 # ---------------- review page ----------------
 def write_review(rows, outdir):
     cards = []
@@ -424,7 +485,8 @@ def main():
             render_body(trailer, start, body_len, Path(vo).resolve(), work)
             render_end(work)
             concat(work, outdir / r["_file"])
-            print(f" done -> output/{r['_file']} ({body_len + END_CARD_SECONDS:.0f}s)")
+            music = add_music(outdir / r["_file"], body_len, day)
+            print(f" done -> output/{r['_file']} ({body_len + END_CARD_SECONDS:.0f}s{', music ' + music if music else ''})")
             if args.publish:
                 path = db_publish(sb, r, outdir / r["_file"], trailer, start, body_len)
                 print(f"           uploaded -> {BUCKET}/{path}, status pending_review")

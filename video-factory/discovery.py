@@ -308,8 +308,9 @@ def render_one(r, outdir, seed_exclude=()):
             "-map", "[v]", "-map", "[a]", "-t", f"{body_len:.3f}", *mv.ENC, "body.mp4"], cwd=work)
     mv.render_end(work, seconds=END_SECONDS_B, tagline=False)
     mv.concat(work, outdir / r["_file"])
+    music = mv.add_music(outdir / r["_file"], body_len, day, salt="B")   # salt: slot 2 gets the other track
     total = body_len + END_SECONDS_B
-    print(f" done -> output/{r['_file']} ({total:.1f}s, {len(lengths)} shots)")
+    print(f" done -> output/{r['_file']} ({total:.1f}s, {len(lengths)} shots{', music ' + music if music else ''})")
     return {"duration": total, "shots": len(lengths), "plan": plan, "hook_end": hook_end,
             "clips": [(str(s), st) for s, st in plain]}
 
