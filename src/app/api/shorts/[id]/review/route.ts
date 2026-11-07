@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { auditShort, currentReviewer, serviceClient } from '@/lib/shorts-server'
+import { auditShort, currentReviewer, serviceClient, SHORTS_BUCKET } from '@/lib/shorts-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,8 +8,8 @@ type Action = 'approve' | 'revise' | 'reject' | 'mark_posted'
 interface Body {
   action: Action
   notes?: string
-  // approve
-  tiktok_account_id?: string
+  // reject: make a replacement on the same subject (new footage) or a new subject (new script)
+  retry?: 'same' | 'new'
   // revise: edited script; any field left out keeps its current value
   hook?: string
   voiceover?: string
@@ -24,7 +24,7 @@ interface Body {
 // route's 409 on an out-of-order click (e.g. a second tab).
 const FROM: Record<Action, string[]> = {
   approve: ['pending_review'],
-  revise: ['pending_review', 'approved', 'rejected'],
+  revise: ['pending_review', 'approved'],
   reject: ['pending_review', 'needs_revision', 'approved'],
   mark_posted: ['approved', 'scheduled', 'posted'],
 }
@@ -48,7 +48,7 @@ export async function POST(
   const sb = serviceClient()
   const { data: short } = await sb
     .from('ds_shorts')
-    .select('id, status, day_number, tiktok_posted_at, youtube_posted_at')
+    .select('id, status, day_number, storage_path, tiktok_posted_at, youtube_posted_at')
     .eq('id', id)
     .single()
   if (!short) {
@@ -66,29 +66,38 @@ export async function POST(
   let update: Record<string, string | null> = { reviewed_by: reviewer, reviewed_at: now }
 
   if (action === 'approve') {
-    if (!body.tiktok_account_id) {
-      return NextResponse.json({ error: 'Pick the TikTok account this video goes to' }, { status: 400 })
-    }
+    // Approving never posts anywhere. It marks the short approved; the
+    // worker on the owner's PC (video-factory/shorts_worker.py) then saves
+    // it to the approvals folder and opens it, ready for manual upload.
+    // The posting account is a single optional setting, not a per-card pick.
     const { data: account } = await sb
       .from('ds_short_accounts')
       .select('id')
-      .eq('id', body.tiktok_account_id)
       .eq('platform', 'tiktok')
-      .single()
-    if (!account) {
-      return NextResponse.json({ error: 'TikTok account not found' }, { status: 400 })
-    }
-    // local_delivered_at reset: approvals_sync.py (owner's PC) picks this up
-    // and drops the video in the approvals folder, including a re-approved cut.
+      .eq('active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
     update = {
-      ...update, status: 'approved', tiktok_account_id: account.id, reviewer_notes: notes || null,
+      ...update, status: 'approved', tiktok_account_id: account?.id ?? null, reviewer_notes: notes || null,
       local_delivered_at: null, local_path: null,
     }
   } else if (action === 'reject') {
-    if (!notes) {
-      return NextResponse.json({ error: 'Rejection needs a note' }, { status: 400 })
+    if (body.retry !== 'same' && body.retry !== 'new') {
+      return NextResponse.json({ error: 'Choose: retry the same subject or a new subject' }, { status: 400 })
     }
-    update = { ...update, status: 'rejected', reviewer_notes: notes }
+    // Delete the rejected video now; the worker makes the replacement.
+    if (short.storage_path) {
+      const { error: rmError } = await sb.storage.from(SHORTS_BUCKET).remove([short.storage_path])
+      if (rmError) {
+        await auditShort(sb, id, 'short_reject', 'failure', `storage delete: ${rmError.message}`)
+        return NextResponse.json({ error: `Could not delete the video: ${rmError.message}` }, { status: 500 })
+      }
+    }
+    update = {
+      ...update, status: 'rejected', retry_mode: body.retry, storage_path: null, duration_s: null,
+      reviewer_notes: notes || (body.retry === 'same' ? 'Rejected: retry same subject' : 'Rejected: new subject'),
+    }
   } else if (action === 'revise') {
     const edits: Record<string, string> = {}
     for (const k of ['hook', 'voiceover', 'post_caption', 'hashtags'] as const) {

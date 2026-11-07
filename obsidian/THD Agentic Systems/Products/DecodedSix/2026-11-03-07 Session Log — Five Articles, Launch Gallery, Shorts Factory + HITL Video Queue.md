@@ -134,3 +134,32 @@ All five were written through the real DSX-CA1 pipeline and **published by Kelvi
   - `fe8c05e`: Track B1
   - `ce5ed81`: music
   - plus this session's final commit for the voice level
+
+## Addendum (Nov 7, later): Approve / Reject Mechanics Reworked
+- **Kelvin's question:** what did "Approve for TikTok" + handle do? It never posted. It required a per-card handle, set `approved`, and the local sync delivered the file.
+- **The UI no longer implies auto-posting:**
+  - **Approve** is one click.
+  - **Posting account** is one optional setting at the top of the page, a label only. Saving a new one retires the old one.
+  - Approved cards show **Mark posted: TikTok / YouTube** inline, with an optional link field.
+- **Reject = delete + remake** (migration 027: `retry_mode`, `render_attempt`, new `regenerating` status):
+  - The API deletes the Storage object immediately.
+  - You choose **same subject, new footage** or **new subject**.
+- **`shorts_worker.py`** replaces `approvals_sync.py` and runs on Kelvin's PC. Startup launcher: `DecodedSix Shorts Worker.vbs`. Each pass:
+  1. Saves approved videos to the approvals folder and opens it.
+  2. Remakes rejects. "Same" sets `render_attempt+1`, which moves auto clip selection 13 windows along. "New" calls `script_writer.py`.
+  3. Renders all draft / needs_revision rows.
+- **`script_writer.py`** uses Claude Haiku (`claude-haiku-4-5`, same as `dedup_gate.py`):
+  - **Inputs:** a fixed bank of sourced facts plus the 25 newest published article titles. The reviewer note passes through `DataSanitizationShield` first.
+  - **Code checks:** word count, sign-off, hook format and countdown prefix, GTA Online blackout via `_is_blocked_topic`, no PC, no "King Kelz", map not "live" before launch, no "out today" claims, caption and hashtags, dedupe against all rows.
+  - **Then a second fact-check call.**
+  - Three failed attempts fall back to a same-subject retry.
+- **Why the fact-check pass exists:** the first live test wrote "Justice score out today, thirty-nine minutes". Both claims were false: the score releases Dec 11 and the runtime was invented. The rule checks passed it because they cover format, not facts. Both new guards catch that exact script. The retest produced an accurate script (HEAT Vice City night "tomorrow" for a Nov 17 post).
+- **The Anthropic key is not copied anywhere.** The worker reads it at runtime from `aug27-pipeline/.env`, overridable with `DS_ANTHROPIC_ENV_FILE`. Kelvin should decide whether decoded-six gets its own key in `.env.local`.
+- **Tested** on a fresh build:
+  - one-click approve
+  - reject with no choice → 400
+  - both reject modes delete Storage
+  - one worker pass delivered day 11, remade day 9 with new footage, and wrote and rendered a new day 10
+
+  Days 9–11 were then restored to their exact pre-test scripts and footage.
+- **Gotcha:** a stale `next start` from an earlier test was still holding port 3100. The first test round therefore hit old code. Kill test servers by port, not by pattern.

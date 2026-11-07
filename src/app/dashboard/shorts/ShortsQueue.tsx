@@ -6,7 +6,7 @@ import { soundManager, SoundEvents } from '@/lib/sounds'
 
 type Status =
   | 'held' | 'draft' | 'rendering' | 'pending_review' | 'approved'
-  | 'rejected' | 'needs_revision' | 'scheduled' | 'posted'
+  | 'rejected' | 'regenerating' | 'needs_revision' | 'scheduled' | 'posted'
 
 interface Account { id: string; platform: 'tiktok' | 'youtube'; handle: string; label: string | null }
 
@@ -31,6 +31,7 @@ interface Short {
   tiktok_url: string | null
   youtube_url: string | null
   local_delivered_at: string | null
+  retry_mode: 'same' | 'new' | null
 }
 
 type Filter = 'pending_review' | 'needs_revision' | 'approved' | 'scheduled' | 'posted' | 'rejected' | 'all'
@@ -41,7 +42,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'approved', label: 'Approved' },
   { key: 'scheduled', label: 'Part-posted' },
   { key: 'posted', label: 'Posted' },
-  { key: 'rejected', label: 'Rejected' },
+  { key: 'rejected', label: 'Remaking' },
   { key: 'all', label: 'All' },
 ]
 
@@ -54,7 +55,8 @@ const STATUS_STYLE: Record<Status, { label: string; cls: string; cell: string }>
   approved:       { label: 'Approved',  cls: 'border-[#3fd17a]/40 text-[#3fd17a]',     cell: 'bg-[#3fd17a]/25 text-[#3fd17a]' },
   scheduled:      { label: 'Part-posted', cls: 'border-[#5a96ff]/40 text-[#5a96ff]',   cell: 'bg-[#5a96ff]/25 text-[#5a96ff]' },
   posted:         { label: 'Posted',    cls: 'border-[#5a96ff]/60 text-[#5a96ff]',     cell: 'bg-[#5a96ff]/50 text-bright' },
-  rejected:       { label: 'Rejected',  cls: 'border-neon-pink/40 text-neon-pink',     cell: 'bg-neon-pink/10 text-neon-pink' },
+  rejected:       { label: 'Remaking',  cls: 'border-neon-pink/40 text-neon-pink',     cell: 'bg-neon-pink/10 text-neon-pink' },
+  regenerating:   { label: 'Remaking',  cls: 'border-neon-pink/40 text-neon-pink',     cell: 'bg-neon-pink/10 text-neon-pink' },
 }
 
 function fmtDay(d: string) {
@@ -117,72 +119,34 @@ function CalendarStrip({ shorts }: { shorts: Short[] }) {
   )
 }
 
-// ---------------------------------------------------------------- approve: account picker
-function ApprovePanel({
-  accounts, busy, onApprove, onAddAccount, onCancel,
-}: {
-  accounts: Account[]
-  busy: boolean
-  onApprove: (accountId: string) => void
-  onAddAccount: (handle: string, label: string) => Promise<Account | null>
-  onCancel: () => void
+// ---------------------------------------------------------------- settings: posting account
+// One optional label for where approved shorts get posted. It is written into
+// the approvals-folder caption file and shown on approved cards. Nothing is
+// ever posted automatically.
+function PostingAccount({ account, onSave }: {
+  account: Account | null
+  onSave: (handle: string) => Promise<boolean>
 }) {
-  const tiktok = accounts.filter(a => a.platform === 'tiktok')
-  const [accountId, setAccountId] = useState(tiktok[0]?.id ?? '')
-  const [adding, setAdding] = useState(tiktok.length === 0)
-  const [handle, setHandle] = useState('')
-  const [label, setLabel] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [handle, setHandle] = useState(account?.handle ?? '')
+  const [saving, setSaving] = useState(false)
 
+  if (!editing) {
+    return (
+      <button onClick={() => { setHandle(account?.handle ?? ''); setEditing(true) }} style={{ minHeight: 44 }}
+        className="text-xs text-quiet hover:text-bright border border-dash-border rounded-lg px-3 py-2 transition-colors">
+        Posting account: <span className="font-mono text-bright">{account?.handle ?? 'not set'}</span> · edit
+      </button>
+    )
+  }
   return (
-    <div className="space-y-2 border border-[#3fd17a]/30 rounded-lg p-3 bg-[#3fd17a]/[0.04]">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-[#3fd17a]">Which TikTok account?</div>
-      {!adding ? (
-        <>
-          <select
-            value={accountId}
-            onChange={e => setAccountId(e.target.value)}
-            style={{ fontSize: 16, minHeight: 44 }}
-            className={`${input} bg-dash-panel`}
-          >
-            {tiktok.map(a => (
-              <option key={a.id} value={a.id}>{a.handle}{a.label ? ` · ${a.label}` : ''}</option>
-            ))}
-          </select>
-          <button onClick={() => setAdding(true)} className="text-[11px] text-quiet hover:text-bright">+ Add another TikTok account</button>
-        </>
-      ) : (
-        <>
-          <input value={handle} onChange={e => setHandle(e.target.value)} placeholder="@handle" style={{ fontSize: 16, minHeight: 44 }} className={input} />
-          <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Label (optional, e.g. Main)" style={{ fontSize: 16, minHeight: 44 }} className={input} />
-          <div className="flex gap-2">
-            <button
-              disabled={busy || !handle.trim()}
-              onClick={async () => {
-                const acct = await onAddAccount(handle, label)
-                if (acct) { setAccountId(acct.id); setAdding(false); setHandle(''); setLabel('') }
-              }}
-              style={{ minHeight: 44 }}
-              className={`${btn} border-[#3fd17a]/40 text-[#3fd17a] hover:bg-[#3fd17a]/10`}
-            >
-              Save account
-            </button>
-            {tiktok.length > 0 && (
-              <button onClick={() => setAdding(false)} style={{ minHeight: 44 }} className={`${btn} border-dash-border text-quiet hover:text-bright`}>Back</button>
-            )}
-          </div>
-        </>
-      )}
-      <div className="flex gap-2 pt-1">
-        <button
-          disabled={busy || adding || !accountId}
-          onClick={() => onApprove(accountId)}
-          style={{ minHeight: 44 }}
-          className={`${btn} flex-1 bg-[#3fd17a]/20 text-[#3fd17a] border-[#3fd17a]/40 hover:bg-[#3fd17a]/30 font-semibold`}
-        >
-          ✓ Approve for TikTok
-        </button>
-        <button onClick={onCancel} style={{ minHeight: 44 }} className={`${btn} border-dash-border text-quiet hover:text-bright`}>Cancel</button>
-      </div>
+    <div className="flex items-center gap-2">
+      <input autoFocus value={handle} onChange={e => setHandle(e.target.value)} placeholder="@yourhandle (optional)"
+        style={{ fontSize: 16, minHeight: 44 }} className={`${input} w-56`} />
+      <button disabled={saving || !handle.trim()} style={{ minHeight: 44 }}
+        onClick={async () => { setSaving(true); if (await onSave(handle)) setEditing(false); setSaving(false) }}
+        className={`${btn} border-[#3fd17a]/40 text-[#3fd17a] hover:bg-[#3fd17a]/10`}>Save</button>
+      <button onClick={() => setEditing(false)} style={{ minHeight: 44 }} className={`${btn} border-dash-border text-quiet hover:text-bright`}>Cancel</button>
     </div>
   )
 }
@@ -226,14 +190,17 @@ function RevisePanel({ short, busy, onSubmit, onCancel }: {
 }
 
 // ---------------------------------------------------------------- card
-type Panel = 'approve' | 'revise' | 'reject' | 'posted' | null
+type Panel = 'revise' | 'reject' | null
 
-function ShortCard({ short, accounts, busy, act, addAccount }: {
+const RETRY_TEXT = {
+  same: 'Video deleted. Making a new one on the same subject with different footage…',
+  new: 'Video deleted. Writing a new script on a new subject…',
+}
+
+function ShortCard({ short, busy, act }: {
   short: Short
-  accounts: Account[]
   busy: boolean
   act: (s: Short, body: Record<string, unknown>) => Promise<boolean>
-  addAccount: (handle: string, label: string) => Promise<Account | null>
 }) {
   const [panel, setPanel] = useState<Panel>(null)
   const [note, setNote] = useState('')
@@ -241,6 +208,8 @@ function ShortCard({ short, accounts, busy, act, addAccount }: {
   const [copied, setCopied] = useState(false)
   const st = STATUS_STYLE[short.status]
   const copyText = [short.post_caption, short.hashtags].filter(Boolean).join(' ')
+  const remaking = short.status === 'rejected' || short.status === 'regenerating'
+  const postable = short.status === 'approved' || short.status === 'scheduled'
 
   const run = async (body: Record<string, unknown>) => {
     if (await act(short, body)) { setPanel(null); setNote(''); setPostUrl('') }
@@ -253,7 +222,9 @@ function ShortCard({ short, accounts, busy, act, addAccount }: {
           <video src={short.video_url} controls preload="metadata" playsInline className="w-full h-full object-contain" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-center px-6 text-whisper text-xs font-mono uppercase tracking-widest">
-            {short.status === 'needs_revision' ? 'Waiting for re-render' : short.status === 'rendering' ? 'Rendering…' : 'Not rendered yet'}
+            {remaking ? (short.retry_mode === 'new' ? 'Writing a new subject…' : 'Making a new cut…')
+              : short.status === 'needs_revision' ? 'Waiting for re-render'
+              : short.status === 'rendering' ? 'Rendering…' : 'Not rendered yet'}
           </div>
         )}
       </div>
@@ -273,17 +244,18 @@ function ShortCard({ short, accounts, busy, act, addAccount }: {
           </a>
         )}
 
-        {short.tiktok_account && (
-          <div className="text-xs text-[#3fd17a]">TikTok: <span className="font-mono">{short.tiktok_account.handle}</span></div>
+        {remaking && (
+          <div className="text-xs text-neon-pink">{RETRY_TEXT[short.retry_mode ?? 'same']}</div>
         )}
 
-        {short.status === 'approved' && (
+        {postable && (
           <div className={`text-[11px] font-mono ${short.local_delivered_at ? 'text-[#3fd17a]' : 'text-whisper'}`}>
-            {short.local_delivered_at ? '📁 Saved to approvals folder' : '⏳ Waiting for approvals folder sync'}
+            {short.local_delivered_at ? '📁 In your approvals folder' : '⏳ Saving to your approvals folder…'}
+            {short.tiktok_account && <span className="text-whisper"> · posting as {short.tiktok_account.handle}</span>}
           </div>
         )}
 
-        {short.reviewer_notes && (
+        {short.reviewer_notes && !remaking && (
           <div className="text-xs text-neon-pink bg-neon-pink/5 border border-neon-pink/20 rounded p-2">{short.reviewer_notes}</div>
         )}
 
@@ -298,44 +270,37 @@ function ShortCard({ short, accounts, busy, act, addAccount }: {
 
         {(short.tiktok_posted_at || short.youtube_posted_at) && (
           <div className="text-[11px] font-mono text-[#5a96ff] space-y-0.5">
-            {short.tiktok_posted_at && <div>TikTok posted {short.tiktok_url && <a href={short.tiktok_url} target="_blank" rel="noopener noreferrer" className="underline">link</a>}</div>}
-            {short.youtube_posted_at && <div>YouTube posted {short.youtube_url && <a href={short.youtube_url} target="_blank" rel="noopener noreferrer" className="underline">link</a>}</div>}
+            {short.tiktok_posted_at && <div>✓ Posted on TikTok {short.tiktok_url && <a href={short.tiktok_url} target="_blank" rel="noopener noreferrer" className="underline">link</a>}</div>}
+            {short.youtube_posted_at && <div>✓ Posted on YouTube {short.youtube_url && <a href={short.youtube_url} target="_blank" rel="noopener noreferrer" className="underline">link</a>}</div>}
           </div>
         )}
 
         <div className="mt-auto space-y-2">
-          {panel === 'approve' && (
-            <ApprovePanel
-              accounts={accounts}
-              busy={busy}
-              onApprove={id => run({ action: 'approve', tiktok_account_id: id })}
-              onAddAccount={addAccount}
-              onCancel={() => setPanel(null)}
-            />
-          )}
           {panel === 'revise' && (
             <RevisePanel short={short} busy={busy} onSubmit={e => run({ action: 'revise', ...e })} onCancel={() => setPanel(null)} />
           )}
           {panel === 'reject' && (
             <div className="space-y-2 border border-neon-pink/30 rounded-lg p-3 bg-neon-pink/[0.04]">
-              <input autoFocus value={note} onChange={e => setNote(e.target.value)} placeholder="Why reject? (required)" style={{ fontSize: 16, minHeight: 44 }} className={input} />
-              <div className="flex gap-2">
-                <button disabled={busy || !note.trim()} onClick={() => run({ action: 'reject', notes: note })} style={{ minHeight: 44 }} className={`${btn} flex-1 bg-neon-pink/10 text-neon-pink border-neon-pink/30 hover:bg-neon-pink/20`}>✕ Reject</button>
-                <button onClick={() => setPanel(null)} style={{ minHeight: 44 }} className={`${btn} border-dash-border text-quiet hover:text-bright`}>Cancel</button>
+              <div className="text-[10px] font-mono uppercase tracking-widest text-neon-pink">Reject: deletes this video and makes a new one</div>
+              <input autoFocus value={note} onChange={e => setNote(e.target.value)} placeholder="What was wrong? (optional, helps the retry)" style={{ fontSize: 16, minHeight: 44 }} className={input} />
+              <div className="flex gap-2 flex-wrap">
+                <button disabled={busy} onClick={() => run({ action: 'reject', retry: 'same', notes: note })} style={{ minHeight: 44 }} className={`${btn} flex-1 bg-neon-pink/10 text-neon-pink border-neon-pink/30 hover:bg-neon-pink/20`}>Same subject, new footage</button>
+                <button disabled={busy} onClick={() => run({ action: 'reject', retry: 'new', notes: note })} style={{ minHeight: 44 }} className={`${btn} flex-1 bg-neon-pink/10 text-neon-pink border-neon-pink/30 hover:bg-neon-pink/20`}>New subject</button>
               </div>
+              <button onClick={() => setPanel(null)} style={{ minHeight: 44 }} className={`${btn} w-full border-dash-border text-quiet hover:text-bright`}>Cancel</button>
             </div>
           )}
-          {panel === 'posted' && (
+
+          {panel === null && postable && (
             <div className="space-y-2 border border-[#5a96ff]/30 rounded-lg p-3 bg-[#5a96ff]/[0.04]">
               <input value={postUrl} onChange={e => setPostUrl(e.target.value)} placeholder="Post link (optional)" style={{ fontSize: 16, minHeight: 44 }} className={input} />
               <div className="flex gap-2">
                 {!short.tiktok_posted_at && (
-                  <button disabled={busy} onClick={() => run({ action: 'mark_posted', platform: 'tiktok', url: postUrl })} style={{ minHeight: 44 }} className={`${btn} flex-1 border-[#5a96ff]/40 text-[#5a96ff] hover:bg-[#5a96ff]/10`}>TikTok posted</button>
+                  <button disabled={busy} onClick={() => run({ action: 'mark_posted', platform: 'tiktok', url: postUrl })} style={{ minHeight: 44 }} className={`${btn} flex-1 border-[#5a96ff]/40 text-[#5a96ff] hover:bg-[#5a96ff]/10 font-semibold`}>Mark posted: TikTok</button>
                 )}
                 {!short.youtube_posted_at && (
-                  <button disabled={busy} onClick={() => run({ action: 'mark_posted', platform: 'youtube', url: postUrl })} style={{ minHeight: 44 }} className={`${btn} flex-1 border-[#5a96ff]/40 text-[#5a96ff] hover:bg-[#5a96ff]/10`}>YouTube posted</button>
+                  <button disabled={busy} onClick={() => run({ action: 'mark_posted', platform: 'youtube', url: postUrl })} style={{ minHeight: 44 }} className={`${btn} flex-1 border-[#5a96ff]/40 text-[#5a96ff] hover:bg-[#5a96ff]/10 font-semibold`}>Mark posted: YouTube</button>
                 )}
-                <button onClick={() => setPanel(null)} style={{ minHeight: 44 }} className={`${btn} border-dash-border text-quiet hover:text-bright`}>Cancel</button>
               </div>
             </div>
           )}
@@ -343,12 +308,9 @@ function ShortCard({ short, accounts, busy, act, addAccount }: {
           {panel === null && (
             <div className="flex gap-2 flex-wrap">
               {short.status === 'pending_review' && (
-                <button disabled={busy} onClick={() => setPanel('approve')} style={{ minHeight: 44 }} className={`${btn} flex-1 bg-[#3fd17a]/20 text-[#3fd17a] border-[#3fd17a]/40 hover:bg-[#3fd17a]/30 font-semibold`}>✓ Approve</button>
+                <button disabled={busy} onClick={() => run({ action: 'approve' })} style={{ minHeight: 44 }} className={`${btn} flex-1 bg-[#3fd17a]/20 text-[#3fd17a] border-[#3fd17a]/40 hover:bg-[#3fd17a]/30 font-semibold`}>✓ Approve</button>
               )}
-              {['approved', 'scheduled'].includes(short.status) && (
-                <button disabled={busy} onClick={() => setPanel('posted')} style={{ minHeight: 44 }} className={`${btn} flex-1 border-[#5a96ff]/40 text-[#5a96ff] hover:bg-[#5a96ff]/10 font-semibold`}>Mark posted</button>
-              )}
-              {['pending_review', 'approved', 'rejected'].includes(short.status) && (
+              {['pending_review', 'approved'].includes(short.status) && (
                 <button disabled={busy} onClick={() => setPanel('revise')} style={{ minHeight: 44 }} className={`${btn} border-gta-gold/40 text-gta-gold hover:bg-gta-gold/10`}>Revise</button>
               )}
               {['pending_review', 'needs_revision', 'approved'].includes(short.status) && (
@@ -389,7 +351,7 @@ export default function ShortsQueue() {
 
   // ds_shorts is service-role only, so there is no browser realtime channel
   // like the article queue has -- poll instead, so a render finishing on the
-  // factory shows up without a manual refresh.
+  // factory (or a rejected short coming back remade) shows up on its own.
   useEffect(() => {
     load()
     const t = setInterval(load, 30_000)
@@ -402,7 +364,7 @@ export default function ShortsQueue() {
       await postJSON(`/api/shorts/${s.id}/review`, body)
       if (body.action === 'approve') {
         soundManager.play(SoundEvents.ARTICLE_APPROVED)
-        setOverlay({ type: 'mission-passed', reward: 'SHORT APPROVED' })
+        setOverlay({ type: 'mission-passed', reward: 'SENT TO APPROVALS FOLDER' })
       } else if (body.action === 'reject') {
         soundManager.play(SoundEvents.ARTICLE_REJECTED_SOFT, { volume: 0.4 })
         setOverlay({ type: 'wasted' })
@@ -417,16 +379,16 @@ export default function ShortsQueue() {
     }
   }, [load])
 
-  const addAccount = useCallback(async (handle: string, label: string) => {
+  const savePostingAccount = useCallback(async (handle: string) => {
     try {
-      const { account } = await postJSON('/api/shorts/accounts', { platform: 'tiktok', handle, label })
-      setAccounts(prev => [...prev.filter(a => a.id !== account.id), account])
-      return account as Account
+      await postJSON('/api/shorts/accounts', { platform: 'tiktok', handle })
+      await load()
+      return true
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not add account')
-      return null
+      setError(e instanceof Error ? e.message : 'Could not save the posting account')
+      return false
     }
-  }, [])
+  }, [load])
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -434,7 +396,10 @@ export default function ShortsQueue() {
     return c
   }, [shorts])
 
-  const visible = filter === 'all' ? shorts : shorts.filter(s => s.status === filter)
+  const visible = filter === 'all' ? shorts
+    : filter === 'rejected' ? shorts.filter(s => s.status === 'rejected' || s.status === 'regenerating')
+    : shorts.filter(s => s.status === filter)
+  const postingAccount = accounts.find(a => a.platform === 'tiktok') ?? null
 
   return (
     <>
@@ -445,7 +410,7 @@ export default function ShortsQueue() {
           <div>
             <h1 className="font-pricedown text-gta-gold text-3xl leading-none">SHORTS QUEUE</h1>
             <p className="text-quiet text-sm mt-1">
-              {loading ? 'Loading...' : `${counts.pending_review ?? 0} pending review · ${counts.approved ?? 0} approved to post · ${counts.needs_revision ?? 0} revising`}
+              {loading ? 'Loading...' : `${counts.pending_review ?? 0} pending review · ${counts.approved ?? 0} approved, ready to post · ${(counts.rejected ?? 0) + (counts.regenerating ?? 0)} being remade`}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -462,6 +427,7 @@ export default function ShortsQueue() {
               </button>
             ))}
             <button onClick={load} style={{ minHeight: 44 }} className="text-xs text-quiet hover:text-bright border border-dash-border rounded-lg px-3 py-2 transition-colors">Refresh</button>
+            <PostingAccount account={postingAccount} onSave={savePostingAccount} />
           </div>
         </div>
 
@@ -484,7 +450,7 @@ export default function ShortsQueue() {
 
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
           {visible.map(s => (
-            <ShortCard key={s.id} short={s} accounts={accounts} busy={busy === s.id} act={act} addAccount={addAccount} />
+            <ShortCard key={s.id} short={s} busy={busy === s.id} act={act} />
           ))}
         </div>
       </div>

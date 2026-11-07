@@ -3,8 +3,9 @@ import { auditShort, currentReviewer, serviceClient } from '@/lib/shorts-server'
 
 export const dynamic = 'force-dynamic'
 
-// Adds a TikTok/YouTube account an approved short can be routed to. Handles
-// only -- there is no auto-posting, so no tokens or passwords are ever stored.
+// Sets the single optional posting account shown on approved shorts and in
+// the approvals-folder caption file. A label only: nothing is ever posted
+// automatically, so no tokens or passwords are stored.
 export async function POST(request: NextRequest) {
   const reviewer = await currentReviewer()
   if (!reviewer) {
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest) {
   }
 
   const sb = serviceClient()
+  // One posting account per platform: saving a new one retires the old one.
+  await sb.from('ds_short_accounts').update({ active: false }).eq('platform', platform).neq('handle', handle)
   const { data, error } = await sb
     .from('ds_short_accounts')
     .upsert({ platform, handle, label: body.label?.trim() || null, active: true }, { onConflict: 'platform,handle' })

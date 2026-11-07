@@ -393,6 +393,7 @@ def db_rows(sb, only):
             "voiceover": d["voiceover"], "clip": d.get("clip_override") or "",
             "post_caption": " ".join(x for x in (d.get("post_caption"), d.get("hashtags")) if x),
             "_id": d["id"], "_prev_status": d["status"], "_notes": d.get("reviewer_notes") or "",
+            "_attempt": int(d.get("render_attempt") or 0),
         })
     return out
 
@@ -472,7 +473,9 @@ def main():
     failures = 0
     for r in rows:
         day = int(r["day"])
-        idx = day - 1                                       # window by day, so DB and CSV pick the same clip
+        # window by day, so DB and CSV pick the same clip; a reject-and-retry
+        # (render_attempt) jumps to a different window so the footage changes
+        idx = day - 1 + 13 * int(r.get("_attempt", 0))
         r["_file"] = f"day{day:02d}_{r.get('post_date','').strip() or 'video'}.mp4"
         if only and day not in only:
             continue

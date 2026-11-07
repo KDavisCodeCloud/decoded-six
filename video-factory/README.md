@@ -108,21 +108,35 @@ Days 13–30 work with trailer footage, but they'll perform better with **your o
 (`public/images/branded/decodedsix-logo-1254.png`) on pure black, with
 thedecodedsix.com and MAP • GUIDES • NEWS. Videos run 25s.
 
-**Daily:**
+**Daily (nothing ever posts automatically):**
 1. Mission Control → **Shorts** → watch each pending video.
-2. **Approve** (pick the TikTok account it goes to), **Revise** (edit the script + note; the next factory run re-renders it), or **Reject** (note required).
-3. Approved videos download automatically to
+2. **Approve** (one click). Within ~30s the video lands in
    `C:\Users\Kelvin\Videos\DecodedSix\approvals` and the folder pops open.
-   Each `.mp4` has a `.txt` beside it with the post date, TikTok account,
-   caption + hashtags and a YouTube title.
-4. Post by hand on TikTok and YouTube, then click **Mark posted** in the dashboard.
+   Each `.mp4` has a `.txt` beside it with the post date, posting account,
+   caption + hashtags and a YouTube title. Upload it to TikTok and YouTube yourself.
+3. On the approved card, click **Mark posted: TikTok** / **Mark posted: YouTube**
+   (optional: paste the post link).
+4. **Revise** = edit the script + note; it re-renders and comes back for review.
+5. **Reject** deletes the video and makes a new one for the same day:
+   - **Same subject, new footage**: same script, different clip.
+   - **New subject**: Claude Haiku writes a new script from confirmed facts and
+     our published articles. Every rule is checked in code, then a second
+     fact-check pass rejects any unsupported claim. If that fails 3 times it
+     falls back to a same-subject retry.
+   The new video returns to Pending on its own.
 
-**Approvals sync** (`approvals_sync.py`) starts hidden at Windows login from
-`Startup\DecodedSix Approvals Sync.vbs` (copy in this folder:
-`approvals_sync_startup.vbs`). It checks every 30s. Log:
-`output/approvals_sync.log`. Run by hand: `video-factory/.venv/bin/python
-video-factory/approvals_sync.py --once`. To stop autostart, delete the .vbs
-from the Startup folder.
+**Posting account**: an optional label set once at the top of the Shorts page
+(written into the caption file). It does not post anything.
+
+**Shorts worker** (`shorts_worker.py`) runs on this PC and does the parts the
+website can't: approvals folder, remaking rejected videos, rendering drafts and
+revisions. It starts hidden at Windows login from
+`Startup\DecodedSix Shorts Worker.vbs` (copy here: `shorts_worker_startup.vbs`)
+and checks every 30s. Log: `output/shorts_worker.log`. One pass by hand:
+`video-factory/.venv/bin/python video-factory/shorts_worker.py --once`.
+Remakes need ANTHROPIC_API_KEY (environment, else read from
+`DS_ANTHROPIC_ENV_FILE`, default `aug27-pipeline/.env`). Videos approved while
+the PC is off arrive when it next starts.
 
 **Render from the queue:** `set -a; . ./.env.local; set +a` then
 `video-factory/.venv/bin/python video-factory/make_videos.py --from-db --publish`
