@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 const NAV = [
   { href: '/dashboard',         label: 'Overview',   icon: '⬡' },
   { href: '/dashboard/queue',   label: 'HITL Queue', icon: '📋' },
+  { href: '/dashboard/shorts',  label: 'Shorts',     icon: '🎬' },
   { href: '/dashboard/gates',   label: 'Gates',      icon: '🎯' },
   { href: '/dashboard/agents',  label: 'Agents',     icon: '🤖' },
   { href: '/dashboard/content', label: 'Content',    icon: '📝' },
@@ -16,6 +17,7 @@ const NAV = [
 
 interface MobileDashNavProps {
   pendingCount?: number
+  shortsPendingCount?: number
 }
 
 // DashNav.tsx (the desktop sidebar) is a fixed w-56 aside with zero
@@ -23,7 +25,7 @@ interface MobileDashNavProps {
 // viewport permanently, with no toggle anywhere in the codebase. This
 // replaces it below md; DashNav itself gets wrapped in `hidden md:flex`
 // in layout.tsx rather than being modified directly.
-export default function MobileDashNav({ pendingCount = 0 }: MobileDashNavProps) {
+export default function MobileDashNav({ pendingCount = 0, shortsPendingCount = 0 }: MobileDashNavProps) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -104,6 +106,11 @@ export default function MobileDashNav({ pendingCount = 0 }: MobileDashNavProps) 
                     {item.href === '/dashboard/queue' && pendingCount > 0 && (
                       <span className="text-[10px] font-bold bg-neon-pink/20 text-neon-pink rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                         {pendingCount}
+                      </span>
+                    )}
+                    {item.href === '/dashboard/shorts' && shortsPendingCount > 0 && (
+                      <span className="text-[10px] font-bold bg-neon-pink/20 text-neon-pink rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {shortsPendingCount}
                       </span>
                     )}
                   </Link>

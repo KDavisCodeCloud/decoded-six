@@ -7,6 +7,7 @@ import SoundToggle from './SoundToggle'
 const NAV = [
   { href: '/dashboard',         label: 'Overview',   icon: '⬡' },
   { href: '/dashboard/queue',   label: 'HITL Queue', icon: '📋' },
+  { href: '/dashboard/shorts',  label: 'Shorts',     icon: '🎬' },
   { href: '/dashboard/gates',   label: 'Gates',      icon: '🎯' },
   { href: '/dashboard/agents',  label: 'Agents',     icon: '🤖' },
   { href: '/dashboard/content', label: 'Content',    icon: '📝' },
@@ -17,9 +18,10 @@ const NAV = [
 interface DashNavProps {
   userEmail?: string | null
   pendingCount?: number
+  shortsPendingCount?: number
 }
 
-export default function DashNav({ userEmail, pendingCount = 0 }: DashNavProps) {
+export default function DashNav({ userEmail, pendingCount = 0, shortsPendingCount = 0 }: DashNavProps) {
   const pathname = usePathname()
 
   return (
@@ -50,6 +52,11 @@ export default function DashNav({ userEmail, pendingCount = 0 }: DashNavProps) {
               {item.href === '/dashboard/queue' && pendingCount > 0 && (
                 <span className="text-[10px] font-bold bg-neon-pink/20 text-neon-pink rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                   {pendingCount}
+                </span>
+              )}
+              {item.href === '/dashboard/shorts' && shortsPendingCount > 0 && (
+                <span className="text-[10px] font-bold bg-neon-pink/20 text-neon-pink rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {shortsPendingCount}
                 </span>
               )}
             </Link>

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
+import { serviceClient } from '@/lib/shorts-server'
 import DashNav from '@/components/dashboard/DashNav'
 import MobileDashNav from '@/components/dashboard/MobileDashNav'
 
@@ -20,6 +21,7 @@ export default async function DashboardLayout({
 }) {
   let userEmail: string | null = null
   let pendingCount = 0
+  let shortsPendingCount = 0
 
   const hasSupabase =
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -40,14 +42,23 @@ export default async function DashboardLayout({
       .eq('product_id', 'gta-hub')
       .eq('status', 'pending_review')
     pendingCount = count ?? 0
+
+    // ds_shorts is service-role only (025_shorts_queue.sql), so the badge
+    // count can't use the session client above. The user check above has
+    // already gated this request.
+    const { count: shortsCount } = await serviceClient()
+      .from('ds_shorts')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending_review')
+    shortsPendingCount = shortsCount ?? 0
   }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-dash-bg text-bright">
       <div className="hidden md:flex">
-        <DashNav userEmail={userEmail} pendingCount={pendingCount} />
+        <DashNav userEmail={userEmail} pendingCount={pendingCount} shortsPendingCount={shortsPendingCount} />
       </div>
-      <MobileDashNav pendingCount={pendingCount} />
+      <MobileDashNav pendingCount={pendingCount} shortsPendingCount={shortsPendingCount} />
       <main className="flex-1 overflow-auto">
         {children}
       </main>
