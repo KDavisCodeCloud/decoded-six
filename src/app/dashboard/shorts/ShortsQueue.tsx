@@ -77,9 +77,13 @@ async function postJSON(url: string, body: unknown) {
 const btn = 'text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40'
 const input = 'w-full bg-transparent border border-dash-border rounded-lg px-3 py-2 text-quiet placeholder:text-whisper focus:outline-none focus:border-gta-gold/50'
 
+// Bonus shorts (one-off posts next to the countdown) use day_number 101+.
+const isBonus = (s: Short) => s.day_number > 100
+
 // ---------------------------------------------------------------- calendar
 function CalendarStrip({ shorts }: { shorts: Short[] }) {
-  const byDate = useMemo(() => new Map(shorts.map(s => [s.post_date, s])), [shorts])
+  // countdown rows only; bonus shorts (day 101+) share a date with one
+  const byDate = useMemo(() => new Map(shorts.filter(s => !isBonus(s)).map(s => [s.post_date, s])), [shorts])
   const days = useMemo(() => {
     const start = new Date()
     return Array.from({ length: 30 }, (_, i) => {
@@ -232,7 +236,7 @@ function ShortCard({ short, busy, act }: {
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border ${st.cls}`}>{st.label}</span>
-          <span className="text-[10px] font-mono text-whisper">Day {short.day_number} · {fmtDay(short.post_date)}</span>
+          <span className="text-[10px] font-mono text-whisper">{isBonus(short) ? 'Bonus' : `Day ${short.day_number}`} · {fmtDay(short.post_date)}</span>
           {short.duration_s && <span className="text-[10px] font-mono text-whisper">{Math.round(short.duration_s)}s</span>}
         </div>
 
