@@ -27,6 +27,7 @@ export interface QueueItem {
   independent_source_count: number
   placement_method: string | null
   created_at: string
+  lead: { id: string; name: string } | null
   sources: QueueSource[]
 }
 
@@ -88,6 +89,9 @@ export function MapReviewQueue({ items: initial, layer, onDone }: {
               </div>
             </header>
 
+            {item.lead && (
+              <div className="text-[11px] font-mono text-[#3fd17a]">LEAD · {item.lead.name} — a real source matched this lead (the lead itself is not evidence)</div>
+            )}
             {item.x == null && (
               <div className="text-[11px] font-mono text-flame">NEEDS PLACEMENT — click the map to drop the pin</div>
             )}

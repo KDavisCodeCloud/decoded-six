@@ -7,6 +7,8 @@ import { STATUS_COLORS } from '@/components/map/LocationPanel'
 import type { MapMarker, MapArea } from '@/lib/types'
 import { orderLayers, type MapLayer } from '@/lib/map-layers'
 import { MapReviewQueue, type QueueItem } from '@/components/map/MapReviewQueue'
+import { MapLeadsPanel } from '@/components/map/MapLeadsPanel'
+import type { MapLead } from '@/lib/map-leads'
 
 interface LinkedArticleInfo {
   slug: string
@@ -20,6 +22,7 @@ interface Props {
   layers: MapLayer[]
   linkedArticles: Record<string, LinkedArticleInfo>
   queue: QueueItem[]
+  leads: MapLead[]
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -32,7 +35,7 @@ const STATUS_LABEL: Record<string, string> = {
   retired: 'Retired',
 }
 
-export function DashboardMapClient({ markers: initialMarkers, areas, layers, linkedArticles, queue }: Props) {
+export function DashboardMapClient({ markers: initialMarkers, areas, layers, linkedArticles, queue, leads }: Props) {
   const defaultLayer = orderLayers(layers)[0] ?? null
   const [markers, setMarkers] = useState(initialMarkers)
   const [overlay, setOverlay] = useState<{ type: OverlayType } | null>(null)
@@ -76,9 +79,15 @@ export function DashboardMapClient({ markers: initialMarkers, areas, layers, lin
 
       <section className="mb-8">
         <h2 className="font-pricedown text-gta-gold text-2xl leading-none mb-1">PIN QUEUE <span className="text-quiet text-base">{queue.length}</span></h2>
-        <p className="text-quiet text-xs mb-4">Scraper pins at 0.5–0.85 confidence or needing placement. Drag the pin to move it. Approve = verified; reject is remembered.</p>
+        <p className="text-quiet text-xs mb-4">Scraper pins at 0.5–0.85 confidence or needing placement; pins that answer a lead come first. Drag the pin to move it. Approve = verified; reject is remembered.</p>
         <MapReviewQueue items={queue} layer={defaultLayer}
           onDone={a => setOverlay({ type: a === 'approve' ? 'mission-passed' : 'wasted' })} />
+      </section>
+
+      <section className="mb-8">
+        <h2 className="font-pricedown text-gta-gold text-2xl leading-none mb-1">LEADS <span className="text-quiet text-base">{leads.filter(l => l.status !== 'closed').length}</span></h2>
+        <p className="text-quiet text-xs mb-4">Names we know are in the game but can&apos;t place yet. Searched first every scraper cycle.</p>
+        <MapLeadsPanel initial={leads} />
       </section>
 
       <div className="h-[75vh] min-h-[480px]">

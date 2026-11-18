@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:map": "node --experimental-strip-types --no-warnings --test src/lib/map-layers.test.ts scripts/fit_frame.test.mjs"
+    "test:map": "node --experimental-strip-types --no-warnings --test src/lib/map-layers.test.ts src/lib/map-leads.test.ts scripts/fit_frame.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
