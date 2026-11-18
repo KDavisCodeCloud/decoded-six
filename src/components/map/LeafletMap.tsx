@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Circle, CircleMarker, useMap, useMapEvents } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -13,7 +13,7 @@ import { AreaLabels } from './AreaLabels'
 import { GTADB_FRAME, metersToLatLng, layerBounds, orderLayers, type MapLayer } from '@/lib/map-layers'
 import { GTADB_CRS } from '@/lib/map-crs'
 import { CATEGORY_COLORS } from './MarkerPopup'
-import { isApproximate } from '@/lib/map-categories'
+import { isApproximate, MAP_CATEGORIES } from '@/lib/map-categories'
 import { LocationPanel, STATUS_COLORS } from './LocationPanel'
 import { AreaOverlay } from './AreaOverlay'
 import { CategoryFilter } from './CategoryFilter'
@@ -43,14 +43,16 @@ type MapMode = 'meters' | 'tiles' | 'world'
 /** A picked map point: real-world lat/lng, or meters in a game-world frame. */
 export type PickedPoint = { lat: number; lng: number } | { x: number; y: number; frame: string }
 
-// Zoom level at or below which the perspective-tilt effect is active.
-// Removed on zoom-in per the DESIGN.md "signature first-load moment" spec.
-const TILT_ZOOM_THRESHOLD: Record<MapMode, number> = { meters: 1, tiles: 1, world: 11 }
+// (The zoomed-out perspective tilt was removed 2026-11-18 at Kelvin's request:
+// the map always renders flat.)
 const FOCUS_ZOOM: Record<MapMode, number> = { meters: 3, tiles: 4, world: 14 }
 
 // Fill = what the pin IS (category colour, same on every map). In the
 // dashboard (showAllStatuses) the outer ring carries the review status, so
 // status never repaints the category.
+// one shared canvas for all pins (padding so pins near the edge don't pop while panning)
+const pinRenderer = typeof window !== 'undefined' ? L.canvas({ padding: 0.5 }) : undefined
+
 function createMarkerIcon(color: string, ring?: string) {
   const outer = ring ?? color
   return L.divIcon({
@@ -151,15 +153,6 @@ function DeepLinkController({
   return null
 }
 
-/** Tracks zoom for the perspective-tilt effect. */
-function ZoomWatcher({ onZoom }: { onZoom: (zoom: number) => void }) {
-  const map = useMapEvents({
-    zoomend: () => onZoom(map.getZoom()),
-  })
-  useEffect(() => { onZoom(map.getZoom()) }, [map, onZoom])
-  return null
-}
-
 /** Active only while the community submission form is in "pick on map" mode. */
 function MapClickHandler({ mode, active, onPick }: { mode: MapMode; active: boolean; onPick: (p: PickedPoint) => void }) {
   useMapEvents({
@@ -234,16 +227,16 @@ export function LeafletMap({
   const polygonAreas = useMemo(() => areas.filter(a => a.kind !== 'label'), [areas])
   const labelAreas = useMemo(() => areas.filter(a => a.kind === 'label'), [areas])
 
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  // every category is ON by default; the left bar switches categories off/on
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [minPayout, setMinPayout] = useState(0)
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null)
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
-  const [zoom, setZoom] = useState(mode === 'world' ? 12 : mode === 'meters' ? 1 : 2)
   const [processing, setProcessing] = useState(false)
 
   const toggleCategory = useCallback((cat: string) => {
-    setSelectedCategories(prev => {
+    setHiddenCategories(prev => {
       const next = new Set(prev)
       if (next.has(cat)) next.delete(cat)
       else next.add(cat)
@@ -251,14 +244,17 @@ export function LeafletMap({
     })
   }, [])
 
+  const showAllCategories = useCallback(() => setHiddenCategories(new Set()), [])
+  const hideAllCategories = useCallback(() => setHiddenCategories(new Set(MAP_CATEGORIES.map(c => c.key))), [])
+
   const clearAll = useCallback(() => {
-    setSelectedCategories(new Set())
+    setHiddenCategories(new Set())
     setSearch('')
     setMinPayout(0)
   }, [])
 
   const visible = markers.filter(m => {
-    if (selectedCategories.size > 0 && !selectedCategories.has(m.category)) return false
+    if (hiddenCategories.has(m.category)) return false
     if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false
     if (minPayout > 0 && (m.payout_per_hour ?? 0) < minPayout) return false
     return true
@@ -310,8 +306,6 @@ export function LeafletMap({
     }
   }
 
-  const tiltActive = zoom <= TILT_ZOOM_THRESHOLD[mode]
-
   // meters: open on the layer's land extent (gtadb V18 is centred near Vice City)
   const meterBounds = activeLayer ? layerBounds(activeLayer, 0) : null
   const center: [number, number] = mode === 'meters' && meterBounds
@@ -344,9 +338,10 @@ export function LeafletMap({
           )}
         </div>
         <CategoryFilter
-          selected={selectedCategories}
+          hidden={hiddenCategories}
           onToggle={toggleCategory}
-          onClearAll={clearAll}
+          onShowAll={showAllCategories}
+          onHideAll={hideAllCategories}
           counts={categoryCounts}
         />
         <MoneyFilter minPayout={minPayout} onChange={setMinPayout} />
@@ -356,15 +351,11 @@ export function LeafletMap({
       {/* Map */}
       <div
         className="relative order-1 h-[65vh] min-h-[360px] flex-none overflow-hidden rounded-xl border border-white/[0.06] md:order-none md:h-auto md:flex-1"
-        style={{ perspective: 1400 }}
       >
         <div
           style={{
             width: '100%',
             height: '100%',
-            transform: tiltActive ? 'rotateX(10deg) scale(0.96)' : 'none',
-            transformOrigin: 'center bottom',
-            transition: 'transform 500ms cubic-bezier(0.22, 1, 0.36, 1)',
             cursor: pickingLocation ? 'crosshair' : undefined,
           }}
         >
@@ -379,7 +370,6 @@ export function LeafletMap({
             zoomSnap={0.5}
             style={{ width: '100%', height: '100%', background: activeLayer?.background_color ?? '#07050d' }}
           >
-            <ZoomWatcher onZoom={setZoom} />
             <DeepLinkController
               mode={mode}
               markers={markers}
@@ -415,11 +405,30 @@ export function LeafletMap({
             {polygonAreas.length > 0 && <AreaOverlay areas={polygonAreas} />}
             {labelAreas.length > 0 && <AreaLabels areas={labelAreas} />}
 
+            {mode === 'meters' ? (
+              // every pin at once, in its category colour, at every zoom -- no clustering.
+              // Canvas-rendered so ~1,000+ pins stay smooth.
+              visible.map(marker => {
+                const color = CATEGORY_COLORS[marker.category] ?? '#9b94b8'
+                const ring = showAllStatuses ? STATUS_COLORS[marker.status] ?? '#9b94b8' : '#070910'
+                const isOpen = selectedMarker?.id === marker.id
+                return (
+                  <CircleMarker
+                    key={marker.id}
+                    center={markerPosition(marker, mode)!}
+                    radius={isOpen ? 8 : 5.5}
+                    renderer={pinRenderer}
+                    pathOptions={{ color: ring, weight: showAllStatuses ? 2.5 : 1.5, fillColor: color, fillOpacity: 1 }}
+                    eventHandlers={{ click: () => openMarker(marker) }}
+                  />
+                )
+              })
+            ) : (
             <MarkerClusterGroup
               chunkedLoading
               iconCreateFunction={clusterIcon}
               maxClusterRadius={mode === 'world' ? 60 : 40}
-              disableClusteringAtZoom={mode === 'world' ? 16 : mode === 'meters' ? 4 : 5}
+              disableClusteringAtZoom={mode === 'world' ? 16 : 5}
             >
               {visible.map(marker => {
                 const color = CATEGORY_COLORS[marker.category] ?? '#9b94b8'
@@ -434,6 +443,7 @@ export function LeafletMap({
                 )
               })}
             </MarkerClusterGroup>
+            )}
 
             {/* approximate pins: dashed accuracy circle for the open marker (meters CRS: radius is in meters) */}
             {mode === 'meters' && selectedMarker && isApproximate(selectedMarker) && markerPosition(selectedMarker, mode) && (
