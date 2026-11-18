@@ -222,6 +222,10 @@ export function LeafletMap({
   const areas = useMemo(() => allAreas.filter(a =>
     (a.frame ?? 'real_world_latlng') === (mode === 'meters' ? GTADB_FRAME : 'real_world_latlng')
   ), [allAreas, mode])
+  const categoryCounts = useMemo(() => markers.reduce<Record<string, number>>((acc, m) => {
+    acc[m.category] = (acc[m.category] ?? 0) + 1
+    return acc
+  }, {}), [markers])
   const polygonAreas = useMemo(() => areas.filter(a => a.kind !== 'label'), [areas])
   const labelAreas = useMemo(() => areas.filter(a => a.kind === 'label'), [areas])
 
@@ -338,6 +342,7 @@ export function LeafletMap({
           selected={selectedCategories}
           onToggle={toggleCategory}
           onClearAll={clearAll}
+          counts={categoryCounts}
         />
         <MoneyFilter minPayout={minPayout} onChange={setMinPayout} />
         {mode === 'meters' && <MapCredits layers={orderedLayers} />}

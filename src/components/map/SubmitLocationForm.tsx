@@ -1,19 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { CATEGORY_GROUPS, MAP_CATEGORIES } from '@/lib/map-categories'
 
-const CATEGORIES = [
-  { key: 'money_spot',     label: 'Money Spot' },
-  { key: 'vehicle_spawn',  label: 'Vehicle Spawn' },
-  { key: 'property',       label: 'Property' },
-  { key: 'heist',          label: 'Heist' },
-  { key: 'mission_start',  label: 'Mission Start' },
-  { key: 'weapon_pickup',  label: 'Weapon Pickup' },
-  { key: 'health_armor',   label: 'Health / Armor' },
-  { key: 'collectible',    label: 'Collectible' },
-  { key: 'landmark',       label: 'Landmark' },
-  { key: 'daily_location', label: 'Daily Location' },
-]
 
 type Status = 'idle' | 'submitting' | 'success' | 'error'
 
@@ -155,7 +144,14 @@ export function SubmitLocationForm({
           style={{ fontSize: 16, minHeight: 44 }}
           className="w-full mt-1 bg-panel border border-dash-border rounded-lg px-3 text-quiet focus:outline-none focus:border-flame/40"
         >
-          {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+          {CATEGORY_GROUPS.map(g => {
+            const cats = MAP_CATEGORIES.filter(c => c.group === g)
+            return cats.length ? (
+              <optgroup key={g} label={g}>
+                {cats.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </optgroup>
+            ) : null
+          })}
         </select>
       </div>
 

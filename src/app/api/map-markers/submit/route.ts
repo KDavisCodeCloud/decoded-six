@@ -1,11 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
+import { MARKER_CATEGORY_KEYS } from '@/lib/map-categories'
 
 const RATE_LIMIT_PER_HOUR = 5
-const VALID_CATEGORIES = [
-  'money_spot', 'vehicle_spawn', 'property', 'heist', 'mission_start',
-  'weapon_pickup', 'health_armor', 'collectible', 'landmark', 'daily_location',
-]
+const VALID_CATEGORIES = MARKER_CATEGORY_KEYS
 
 function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for')

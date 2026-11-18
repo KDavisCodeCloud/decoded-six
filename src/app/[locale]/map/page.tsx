@@ -1,3 +1,4 @@
+import { PUBLIC_MARKER_STATUSES } from '@/lib/map-categories'
 import type { Metadata } from 'next'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
@@ -27,7 +28,8 @@ async function getMapData() {
     supabase
       .from('map_markers')
       .select('*')
-      .eq('status', 'published')
+      // published (staff) + community_reported (scraper auto-publish) + verified
+      .in('status', [...PUBLIC_MARKER_STATUSES])
       .order('created_at', { ascending: false }),
     supabase
       .from('map_areas')

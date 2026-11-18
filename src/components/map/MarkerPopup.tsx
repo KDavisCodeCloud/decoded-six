@@ -1,4 +1,5 @@
 import type { MapMarker } from '@/lib/types'
+import { CATEGORY_COLOR_BY_KEY } from '@/lib/map-categories'
 
 export const CATEGORY_LABELS: Record<string, string> = {
   money_spot: 'Money Spot',
@@ -11,20 +12,20 @@ export const CATEGORY_LABELS: Record<string, string> = {
   collectible: 'Collectible',
   landmark: 'Landmark',
   daily_location: 'Daily Location',
+  fuel_station: 'Gas Station',
+  store: 'Store',
+  clothing: 'Clothing Store',
+  fence: 'Fence',
+  gym: 'Gym',
+  safehouse: 'Safehouse',
+  hospital: 'Hospital',
+  police_station: 'Police Station',
+  side_activity: 'Side Activity',
+  street_race: 'Street Race',
+  random_event: 'Random Event',
 }
 
-export const CATEGORY_COLORS: Record<string, string> = {
-  money_spot: '#3fd17a',
-  vehicle_spawn: '#5a96ff',
-  property: '#C8A84B',
-  heist: '#f5a623',
-  mission_start: '#FF2D6B',
-  weapon_pickup: '#e6358a',
-  health_armor: '#00d2ff',
-  collectible: '#ffcc00',
-  landmark: '#9b94b8',
-  daily_location: '#3fd17a',
-}
+export const CATEGORY_COLORS: Record<string, string> = CATEGORY_COLOR_BY_KEY
 
 interface MarkerPopupProps {
   marker: MapMarker

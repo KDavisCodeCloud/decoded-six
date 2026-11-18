@@ -83,14 +83,16 @@ export interface MapMarker {
   name: string
   description: string | null
   category: 'money_spot' | 'vehicle_spawn' | 'property' | 'heist' | 'mission_start' | 'weapon_pickup' | 'health_armor' | 'collectible' | 'landmark' | 'daily_location'
+    | 'fuel_station' | 'store' | 'clothing' | 'fence' | 'gym' | 'safehouse' | 'hospital' | 'police_station'
+    | 'side_activity' | 'street_race' | 'random_event'
   coordinates: { lat: number; lng: number }
   area_name: string | null
   payout_per_hour: number | null
   difficulty: 'solo' | 'small_crew' | 'full_crew' | null
   verified: boolean
-  source: 'community' | 'agent_scraped' | 'manual' | null
+  source: 'community' | 'agent_scraped' | 'manual' | 'import' | null
   linked_article_id: string | null
-  status: 'pending' | 'approved' | 'published' | 'retired'
+  status: 'pending' | 'held' | 'approved' | 'community_reported' | 'verified' | 'published' | 'rejected' | 'retired'
   daily_reset: boolean
   last_confirmed: string | null
   created_at: string
@@ -101,6 +103,20 @@ export interface MapMarker {
   x?: number | null
   y?: number | null
   frame?: string | null
+  /** Provenance / verification (migration 031). */
+  source_type?: 'gtadb_import' | 'scraper' | 'community_submission' | 'staff' | null
+  source_urls?: string[]
+  source_domains?: string[]
+  license?: string | null
+  attribution?: string | null
+  confidence?: number | null
+  independent_source_count?: number
+  accuracy_radius_m?: number | null
+  placement_method?: 'screenshot_match' | 'gazetteer' | 'hitl_manual' | 'import' | null
+  county?: 'Mariana' | 'Vice-Dale' | 'Kelly' | 'Leonard' | 'Lummox' | null
+  first_seen_at?: string | null
+  verified_at?: string | null
+  game_version?: 'pre_launch' | 'launch' | null
 }
 
 export interface MapArea {
@@ -114,6 +130,8 @@ export interface MapArea {
   frame?: string
   /** 'label' = name only, geojson is a single Point. */
   kind?: 'polygon' | 'label'
+  /** migration 031: 'county' | 'region' | 'gang_territory' */
+  category?: string | null
 }
 
 export interface Vehicle {

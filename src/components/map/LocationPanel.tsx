@@ -5,8 +5,12 @@ import { CATEGORY_COLORS, CATEGORY_LABELS } from './MarkerPopup'
 
 export const STATUS_COLORS: Record<string, string> = {
   pending: '#f5a623',
+  held: '#8a7f5a',
   approved: '#5a96ff',
+  community_reported: '#ff8a3d',
+  verified: '#3fd17a',
   published: '#3fd17a',
+  rejected: '#FF2D6B',
   retired: '#5a5270',
 }
 

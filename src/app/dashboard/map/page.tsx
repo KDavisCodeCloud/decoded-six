@@ -22,7 +22,11 @@ function serviceClient() {
 async function getAllMapData() {
   const sb = serviceClient()
   const [{ data: markers }, { data: areas }, { data: layers }] = await Promise.all([
-    sb.from('map_markers').select('*').order('created_at', { ascending: false }),
+    // the 3,340 gtadb_import rows are the scraper's gazetteer, not pins to
+    // review -- keep them out (they'd also blow past PostgREST's 1000-row cap)
+    sb.from('map_markers').select('*')
+      .or('source_type.is.null,source_type.neq.gtadb_import')
+      .order('created_at', { ascending: false }).limit(1000),
     sb.from('map_areas').select('*').order('name', { ascending: true }),
     // same enabled-only set the public map gets, so the preview matches it
     sb.from('map_layers').select('*').eq('enabled', true).order('sort_order', { ascending: true }),
