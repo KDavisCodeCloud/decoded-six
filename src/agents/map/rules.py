@@ -7,7 +7,11 @@ Hard rules (Kelvin's map spec, 2026-11-18):
     YouTube post merely LINKS to one (their compiled pins are not ours).
   - Editorial guide sites are evidence for an individual claim only: one
     source each, and never enough to auto-publish a pin on their own.
-  - Sources are independent only if they differ in author/channel AND domain.
+  - Independence (Kelvin, 2026-11-18): sources are independent when they come
+    from different authors/channels, regardless of domain -- two Reddit users
+    = 2, two YouTube channels = 2. Counted once: the same author anywhere
+    (matched on id or display name), crossposts/reposts of one piece of
+    content, and replies inside one thread.
   - Dedup: same category within max(radius_a, radius_b) meters -> merge.
   - Auto-publish (community_reported): confidence >= 0.85, >= 2 independent
     sources, >= 1 non-editorial. 0.5-0.85 -> HITL. < 0.5 -> held.
@@ -19,7 +23,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 from urllib.parse import urlparse
 
 # Competitors' compiled maps + GTABase (forbids copying its locations).
@@ -102,19 +106,44 @@ class Evidence:
     y: Optional[float] = None
     radius_m: Optional[float] = None
     placement_method: Optional[str] = None
+    author_name: Optional[str] = None   # display name (YouTube channel title, Reddit username)
+    thread_key: Optional[str] = None    # reddit:<post id> (crossposts -> the original), youtube:<video id>
+    content_key: Optional[str] = None   # reposted media (first image URL)
+
+
+def _ident(s: Optional[str]) -> Optional[str]:
+    v = re.sub(r"[^a-z0-9]+", "", (s or "").lower().removeprefix("u/").removeprefix("/u/"))
+    return v or None
 
 
 def independent_count(sources: Iterable[Evidence]) -> int:
-    """Largest set of sources that pairwise differ in author AND domain.
-    Greedy (exact for this small-N case in practice): a repost by the same
-    author, or a second post on the same platform/site, adds nothing."""
-    chosen: list[Evidence] = []
-    # prefer non-editorial first so the set keeps a non-editorial member if one exists
-    for s in sorted(sources, key=lambda s: (s.kind == "editorial", s.url)):
-        author = (s.author or s.url).lower()
-        if all(author != (c.author or c.url).lower() and s.domain != c.domain for c in chosen):
-            chosen.append(s)
-    return len(chosen)
+    """Number of distinct origins: sources are merged when they share an author
+    identity (id or display name, any platform), a thread, or reposted content.
+    Domain alone never merges two sources."""
+    items = list(sources)
+    parent = list(range(len(items)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    owner: dict[str, int] = {}
+    for i, s in enumerate(items):
+        keys = {f"a:{k}" for k in (_ident(s.author), _ident(s.author_name)) if k}
+        if not keys:
+            keys = {f"u:{s.url}"}          # anonymous: only the same URL is the same origin
+        if s.thread_key:
+            keys.add(f"t:{s.thread_key}")
+        if s.content_key:
+            keys.add(f"c:{s.content_key}")
+        for k in keys:
+            if k in owner:
+                parent[find(i)] = find(owner[k])
+            else:
+                owner[k] = i
+    return len({find(i) for i in range(len(items))})
 
 
 def has_non_editorial(sources: Iterable[Evidence]) -> bool:
@@ -191,9 +220,17 @@ def find_duplicate(category: str, x: Optional[float], y: Optional[float], radius
                 return m
             continue
         d = math.hypot(x - m.x, y - m.y)
+        # landmarks are dense: two different landmarks 100 m apart are not one pin
+        if category == "landmark" and name and m.name and not names_overlap(name, m.name):
+            continue
         if d <= max(radius_m or 0, m.radius_m or 0) and d < best_d:
             best, best_d = m, d
     return best
+
+
+def names_overlap(a: str, b: str) -> bool:
+    ta, tb = set(normalize_name(a).split()), set(normalize_name(b).split())
+    return bool(ta and tb) and len(ta & tb) / min(len(ta), len(tb)) >= 0.5
 
 
 def normalize_name(s: str) -> str:
@@ -202,3 +239,88 @@ def normalize_name(s: str) -> str:
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
     s = re.sub(r"\b(the|a|an|gta|6|vi)\b", " ", s)
     return " ".join(s.split())
+
+
+# ------------------------------------------------------------ claim quality
+# Real-world places Leonida parodies. A claim named after one is a real-world
+# reference, not an in-game location -- unless gtadb uses the same name.
+REAL_WORLD_PLACES = (
+    "key west", "miami", "miami beach", "south beach", "little havana", "florida", "florida keys",
+    "everglades", "orlando", "tampa", "jacksonville", "fort lauderdale", "ft lauderdale",
+    "west palm beach", "palm beach", "hialeah", "key largo", "naples", "fort myers", "tallahassee",
+    "daytona", "daytona beach", "st petersburg", "gainesville", "pensacola", "boca raton",
+    "coral gables", "homestead", "biscayne", "biscayne bay", "lake okeechobee", "okeechobee",
+    "marathon", "islamorada", "sarasota", "clearwater", "cape canaveral", "atlanta", "georgia",
+)
+# generic place types: a name that is only one of these is not a location
+GENERIC_PLACE_TYPES = {
+    "coffee shop", "cafe", "store", "shop", "gas station", "fuel station", "gun store", "gun shop",
+    "weapon store", "ammu nation", "ammunation", "clothing store", "clothes shop", "gym", "hospital",
+    "police station", "bank", "bar", "club", "nightclub", "restaurant", "diner", "liquor store",
+    "convenience store", "pawn shop", "car wash", "garage", "mod shop", "safehouse", "safe house",
+    "motel", "hotel", "beach", "house", "apartment", "mall", "barber", "barber shop", "tattoo parlor",
+    "tattoo shop", "body shop", "dealership", "car dealership", "strip club", "casino", "airport",
+    "marina", "dock", "pier", "park", "church", "school", "warehouse", "prison", "jail", "swamp",
+    "binco", "suburban", "ponsonbys", "24 7", "rob s liquor", "robs liquor", "ltd gasoline",
+}
+_GENERIC_PHRASE = re.compile(
+    r"\b(any|every|all|each|various|several|multiple|many|most|random|one of the)\s+"
+    r"(of\s+the\s+)?[\w'’-]+(\s+[\w'’-]+)?\s*(stores?|shops?|locations?|stations?|branches|outlets|"
+    r"gyms?|hospitals?|banks?|bars?|clubs?|places?|spots?|cafes?)\b", re.I)
+
+
+def claim_reject_reason(claim: dict, known_place: Callable[[str], bool]) -> Optional[str]:
+    """'generic' | 'real_world' | None. known_place(name) -> True when the
+    gazetteer (gtadb / official map) has that exact name, which overrides the
+    real-world list (Leonida reuses a few real names)."""
+    name = normalize_name(claim.get("name") or "")
+    desc = " ".join(str(claim.get(k) or "") for k in ("location_description", "evidence_quote"))
+    anchors = [normalize_name(a) for a in (claim.get("anchor_landmarks") or []) if a]
+    # real-world names: the name itself, or the ONLY anchor, is a real place
+    for cand in [name, *anchors]:
+        if cand in REAL_WORLD_PLACES and not known_place(cand):
+            if cand == name or len(anchors) == 1 and not _has_specific_anchor(anchors, known_place):
+                return "real_world"
+    # "any Ammu-Nation", "every gas station"
+    if _GENERIC_PHRASE.search(f"{claim.get('name') or ''} {desc}"):
+        return "generic"
+    # bare type name ("Coffee Shop", "Gym") with no specific anchor to pin it down
+    base = re.sub(r"\b(in|at|near|on)\b.*$", "", name).strip()
+    if (base in GENERIC_PLACE_TYPES or name in GENERIC_PLACE_TYPES) and not _has_specific_anchor(anchors, known_place):
+        return "generic"
+    return None
+
+
+def _has_specific_anchor(anchors: list[str], known_place: Callable[[str], bool]) -> bool:
+    return any(a and a not in GENERIC_PLACE_TYPES and a not in REAL_WORLD_PLACES and known_place(a) for a in anchors)
+
+
+def quote_in_source(quote: str, body: str, min_overlap: float = 0.8) -> bool:
+    """The model's evidence_quote must actually be in the source (auto-captions
+    and punctuation drift tolerated): some window of the body, as long as the
+    quote, shares >= 80% of the quote's words."""
+    q = re.findall(r"[a-z0-9]+", (quote or "").lower())
+    if len(q) < 2:
+        return False
+    b = re.findall(r"[a-z0-9]+", (body or "").lower())
+    n = len(q)
+    if len(b) < n:
+        return False
+    need = max(2, int(math.ceil(min_overlap * n)))
+    qs = set(q)
+    from collections import Counter
+    qc = Counter(q)
+    win = Counter(b[:n])
+
+    def hits(w: Counter) -> int:
+        return sum(min(c, w[t]) for t, c in qc.items())
+
+    if hits(win) >= need:
+        return True
+    for i in range(n, len(b)):
+        win[b[i]] += 1
+        win[b[i - n]] -= 1
+        if b[i] in qs or b[i - n] in qs:
+            if hits(win) >= need:
+                return True
+    return False

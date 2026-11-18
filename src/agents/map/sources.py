@@ -33,6 +33,31 @@ REDDIT_MAX_WAIT_S = 65.0
 _HREF_RE = re.compile(r'(?:href|src)="([^"]+)"', re.I)
 _TAG_RE = re.compile(r"<[^>]+>")
 _IMG_HOSTS = ("i.redd.it", "preview.redd.it", "i.imgur.com", "imgur.com")
+_REDDIT_POST_RE = re.compile(r"reddit\.com/r/[^/]+/comments/([a-z0-9]+)", re.I)
+
+
+def reddit_thread_key(entry_id: str, own_url: str, links: list[str]) -> str:
+    """reddit:<post id>. A crosspost links to the original thread; it inherits
+    that thread's key so the original and its crossposts count once."""
+    own = (_REDDIT_POST_RE.search(own_url or "") or [None, None])[1]
+    for u in links:
+        m = _REDDIT_POST_RE.search(u)
+        if m and m.group(1).lower() != (own or "").lower():
+            return f"reddit:{m.group(1).lower()}"
+    pid = own or re.sub(r"^t3_", "", entry_id or "")
+    return f"reddit:{pid.lower()}"
+
+
+def site_name(url: str) -> str:
+    """powerpyx.com -> 'powerpyx', so a site and its YouTube channel of the same
+    name count as one author (independence: same author anywhere)."""
+    host = domain_of(url)
+    return host.rsplit(".", 1)[0].rsplit(".", 1)[-1] if "." in host else host
+
+
+def _image_key(url: str) -> str:
+    """Same image regardless of preview/query params."""
+    return re.sub(r"[?#].*$", "", url).replace("preview.redd.it", "i.redd.it").lower()
 
 
 @dataclass
@@ -49,6 +74,9 @@ class SourceItem:
     links: list[str] = field(default_factory=list)
     images: list[str] = field(default_factory=list)
     video_id: Optional[str] = None
+    author_name: Optional[str] = None   # display name; author is the stable id where one exists
+    thread_key: Optional[str] = None    # independence: one thread / crosspost family counts once
+    content_key: Optional[str] = None   # independence: reposted media counts once
 
 
 @dataclass
@@ -149,19 +177,25 @@ class Fetcher:
                 key=f"reddit:{e.get('id') or e.get('link')}", source_id=source["id"], source_kind="reddit",
                 url=e.get("link", ""), domain="reddit.com", author=author, title=e.get("title", ""),
                 text=text[:4000], published_at=_iso(e), links=links, images=images[:6],
+                author_name=author, thread_key=reddit_thread_key(e.get("id") or "", e.get("link", ""), links),
+                content_key=_image_key(images[0]) if images else None,
             ))
         return out
 
     def _youtube_items(self, source: dict, feed: Any) -> list[SourceItem]:
         out = []
+        kw = [k.lower() for k in (source.get("keyword_filter") or [])]
         for e in feed.entries:
             vid = e.get("yt_videoid")
             desc = e.get("media_description") or e.get("summary", "")
+            if kw and not any(k in f"{e.get('title', '')} {desc}".lower() for k in kw):
+                continue   # multi-game channels: only GTA 6 videos
             out.append(SourceItem(
                 key=f"youtube:{vid}", source_id=source["id"], source_kind="youtube",
                 url=e.get("link", ""), domain="youtube.com",
                 author=e.get("yt_channelid") or e.get("author"), title=e.get("title", ""),
                 text=_strip(desc)[:3000], published_at=_iso(e), video_id=vid,
+                author_name=e.get("author"), thread_key=f"youtube:{vid}" if vid else None,
                 links=re.findall(r"https?://\S+", desc or ""),
             ))
         return out
@@ -178,6 +212,7 @@ class Fetcher:
                 key=f"editorial:{link}", source_id=source["id"], source_kind="editorial",
                 url=link, domain=domain_of(link), author=domain_of(link),
                 title=title, text=summary[:2000], published_at=_iso(e),
+                author_name=site_name(link), thread_key=link,
             ))
         return out
 
@@ -205,12 +240,43 @@ class Fetcher:
             return None
 
 
-def youtube_transcript(video_id: str, limit: int = 12000) -> str:
-    """Transcript text via youtube-transcript-api (no key). '' when unavailable."""
+def youtube_transcript_segments(video_id: str) -> tuple[list[tuple[float, str]], Optional[str]]:
+    """([(start_seconds, text)], error_class_name) via youtube-transcript-api
+    (no key). An 'IpBlocked' / 'RequestBlocked' error means YouTube is refusing
+    this IP: we record it and carry on without the transcript (no workarounds)."""
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
         fetched = YouTubeTranscriptApi().fetch(video_id, languages=["en", "en-US", "en-GB"])
-        return " ".join(s.text for s in fetched)[:limit]
+        return [(float(s.start), s.text) for s in fetched], None
     except Exception as exc:
         log.info("[map-scrape] no transcript for %s: %s", video_id, type(exc).__name__)
-        return ""
+        return [], type(exc).__name__
+
+
+def youtube_transcript(video_id: str, limit: int = 12000) -> str:
+    """Transcript text via youtube-transcript-api (no key). '' when unavailable."""
+    return " ".join(t for _, t in youtube_transcript_segments(video_id)[0])[:limit]
+
+
+def quote_time(quote: str, segments: list[tuple[float, str]]) -> Optional[float]:
+    """Start time (s) of the transcript stretch that best contains the quote,
+    or None if no stretch shares at least half the quote's words."""
+    q = re.findall(r"[a-z0-9]+", (quote or "").lower())
+    if len(q) < 2 or not segments:
+        return None
+    qs = set(q)
+    best_t, best = None, (0.0, 0)
+    for i in range(len(segments)):
+        for width in (1, 2, 3):            # tightest stretch that covers the quote wins ties
+            window = " ".join(t for _, t in segments[i:i + width]).lower()
+            score = len(qs & set(re.findall(r"[a-z0-9]+", window))) / len(qs)
+            if (score, -width) > best:
+                best_t, best = segments[i][0], (score, -width)
+    return best_t if best[0] >= 0.5 else None
+
+
+def reddit_lead_search_url(name: str, subreddit: str = "GTA6") -> str:
+    """r/<sub> search RSS for one lead name (newest first, past week)."""
+    from urllib.parse import quote_plus
+    return (f"https://www.reddit.com/r/{subreddit}/search.rss?q={quote_plus(chr(34) + name + chr(34))}"
+            f"&restrict_sr=1&sort=new&t=week")

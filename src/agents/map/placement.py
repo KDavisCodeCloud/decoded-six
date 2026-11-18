@@ -170,10 +170,11 @@ def looks_like_map_frame(bgr) -> bool:
 
 
 def vod_map_frames(video_url: str, max_frames: int = 30, max_duration_s: int = 2700,
-                   workdir: Optional[str] = None) -> list[bytes]:
+                   workdir: Optional[str] = None, errors: Optional[list] = None) -> list[tuple[float, bytes]]:
     """Downloads a low-res copy with yt-dlp, keeps up to max_frames frames
-    that look like the full-screen map. Frames feed screenshot matching only;
-    they are never stored or published. [] on any failure."""
+    that look like the full-screen map, as (seconds_into_video, jpeg). Frames
+    feed screenshot matching only; they are never stored or published.
+    [] on any failure."""
     import subprocess
     import tempfile
 
@@ -186,7 +187,11 @@ def vod_map_frames(video_url: str, max_frames: int = 30, max_duration_s: int = 2
                             "-f", "worst[ext=mp4][height>=360]/worst[ext=mp4]", "-o", out, video_url],
                            check=True, capture_output=True, timeout=600)
         except Exception as exc:
-            log.info("[map-scrape] yt-dlp skipped %s: %s", video_url, type(exc).__name__)
+            err = getattr(exc, "stderr", b"") or b""
+            msg = err.decode("utf-8", "replace").strip().splitlines()[-1:] if err else [type(exc).__name__]
+            log.info("[map-scrape] yt-dlp skipped %s: %s", video_url, msg)
+            if errors is not None:
+                errors.append({"url": video_url, "error": (msg[0] if msg else type(exc).__name__)[:300]})
             return []
         if not os.path.exists(out):
             return []
@@ -194,7 +199,7 @@ def vod_map_frames(video_url: str, max_frames: int = 30, max_duration_s: int = 2
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         step = max(1, int(fps * 4))                      # one frame per 4 s
-        frames: list[bytes] = []
+        frames: list[tuple[float, bytes]] = []
         last_kept = -10 ** 9
         for idx in range(0, total, step):
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
@@ -204,7 +209,7 @@ def vod_map_frames(video_url: str, max_frames: int = 30, max_duration_s: int = 2
             if idx - last_kept < fps * 8:               # avoid near-duplicates of one map view
                 continue
             if looks_like_map_frame(frame):
-                frames.append(cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])[1].tobytes())
+                frames.append((idx / fps, cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])[1].tobytes()))
                 last_kept = idx
                 if len(frames) >= max_frames:
                     break
@@ -226,9 +231,13 @@ class GazEntry:
     kind: str                   # landmark | district
 
 
+MAX_DISTRICT_SPREAD_M = 1500     # RMS spread; wider areas are towns/regions, not districts
+
+
 class Gazetteer:
     def __init__(self, entries: list[GazEntry]):
         self.entries = entries
+        self.area_names: set[str] = set()
         self.by_norm: dict[str, list[GazEntry]] = {}
         for e in entries:
             self.by_norm.setdefault(e.norm, []).append(e)
@@ -236,7 +245,7 @@ class Gazetteer:
     @classmethod
     def from_rows(cls, rows: list[dict]) -> "Gazetteer":
         """rows: map_markers gtadb_import/staff rows (name, area_name, x, y)."""
-        entries: list[GazEntry] = []
+        named: list[tuple[str, float, float]] = []
         districts: dict[str, list[tuple[float, float]]] = {}
         for r in rows:
             if r.get("x") is None:
@@ -244,16 +253,33 @@ class Gazetteer:
             x, y = float(r["x"]), float(r["y"])
             name = r.get("name") or ""
             if name and not name.startswith("Unnamed ") and normalize_name(name) not in _GENERIC:
-                entries.append(GazEntry(name, normalize_name(name), x, y, "landmark"))
+                named.append((name, x, y))
             for part in (r.get("area_name") or "").split(","):
                 part = part.strip()
                 if part and not part.endswith(" County") and part != "Leonida":
                     districts.setdefault(part, []).append((x, y))
+        entries: list[GazEntry] = []
+        area_norms: set[str] = set()
         for d, pts in districts.items():
-            if len(pts) >= 3:
-                entries.append(GazEntry(d, normalize_name(d), sum(p[0] for p in pts) / len(pts),
-                                        sum(p[1] for p in pts) / len(pts), "district"))
-        return cls(entries)
+            area_norms.add(normalize_name(d))
+            if len(pts) < 3:
+                continue
+            cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+            spread = math.sqrt(sum((p[0] - cx) ** 2 + (p[1] - cy) ** 2 for p in pts) / len(pts))
+            # a city / region ("Vice City") is not a place to pin anything to
+            if spread <= MAX_DISTRICT_SPREAD_M:
+                entries.append(GazEntry(d, normalize_name(d), cx, cy, "district"))
+        for name, x, y in named:
+            # gtadb's label points for areas ("Vice City" at the city label) are not landmarks
+            if normalize_name(name) not in area_norms:
+                entries.append(GazEntry(name, normalize_name(name), x, y, "landmark"))
+        g = cls(entries)
+        g.area_names = area_norms
+        return g
+
+    def is_area(self, phrase: str) -> bool:
+        """True for a town/district/region name (any spread) -- an area, not a place."""
+        return normalize_name(phrase) in self.area_names or normalize_name(phrase).endswith(" county")
 
     def lookup(self, phrase: str) -> Optional[GazEntry]:
         n = normalize_name(phrase)

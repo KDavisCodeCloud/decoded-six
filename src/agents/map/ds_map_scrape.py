@@ -4,9 +4,14 @@ One run:
   fetch (discovery_sources purpose='map': Reddit RSS, YouTube RSS, editorial RSS)
   -> blocklist (item URL or any link inside it) -> seen-cache (post/video ID)
   -> launch gate (published before the NZ unlock = pre_launch, dropped)
+  -> open leads first: Reddit search RSS per lead, lead-matching items processed
+     first with the lead name as a search hint (a lead is never evidence)
   -> cheap location-signal filter -> sanitize -> claude-haiku-4-5 strict-JSON
      extraction (speculation / leaks / GTA Online dropped)
-  -> placement: screenshot match (Reddit images, YouTube VOD map frames)
+  -> claim checks: evidence quote must be in the source, anchors must be in
+     the source, generic ("any Ammu-Nation") and real-world names dropped
+  -> placement: screenshot match (Reddit images; YouTube VOD map frames near
+     the moment the claim is spoken)
      -> gazetteer (gtadb landmarks) -> none ("needs placement")
   -> dedup in meters (merge + append source, never duplicate)
   -> confidence + routing: community_reported / verified (auto) | pending
@@ -29,7 +34,8 @@ from typing import Any, Optional
 from src.agents.map import rules
 from src.agents.map.placement import Gazetteer, Placement, ScreenshotMatcher, vod_map_frames
 from src.agents.map.rules import Evidence, MarkerRef
-from src.agents.map.sources import Fetcher, SourceItem, youtube_transcript
+from src.agents.map.sources import (Fetcher, SourceItem, quote_time, reddit_lead_search_url,
+                                    youtube_transcript_segments)
 
 log = logging.getLogger(__name__)
 
@@ -45,11 +51,15 @@ VALID_CATEGORIES = (
     "police_station", "side_activity", "street_race", "random_event",
 )
 COUNTIES = ("Mariana", "Vice-Dale", "Kelly", "Leonard", "Lummox")
+VOD_MAX_PER_RUN = int(os.environ.get("MAP_VOD_MAX_PER_RUN") or 8)
+LEADS_PER_RUN = int(os.environ.get("MAP_LEADS_PER_RUN") or 10)
+FRAME_WINDOW_S = 60          # a VOD map frame counts for a claim spoken within +-60 s
 
 _LOCATION_SIGNAL = re.compile(
     r"\b(locat\w*|found|find|where|spot|map|gas|fuel|store|shop|safehouse|safe house|gun|ammu|weapon|"
     r"money|cash|stash|hidden|secret|collectible|clothing|clothes|gym|hospital|police|race|fence|"
     r"easter egg|near|next to|behind|north|south|east|west|county|beach|island|key)\b", re.I)
+_HASHTAG = re.compile(r"#\w+")
 _ONLINE = re.compile(r"\bgta\s*(6|vi)?\s*online\b|\bonline (mode|heist|lobby)\b", re.I)
 
 
@@ -89,8 +99,17 @@ Return ONLY JSON: {{"claims": [ ... ]}} with zero or more objects:
 
 Include a claim ONLY if it states a concrete in-game location from playing the released game.
 Return {{"claims": []}} for: speculation, predictions, wishlists, leaks, trailer analysis,
-pre-release rumours, real-world places, other GTA games, anything about GTA Online, questions
-without an answer, or vague mentions with no place. Never invent a location."""
+pre-release rumours, other GTA games, anything about GTA Online, questions without an answer,
+or vague mentions with no place. Never invent a location.
+
+Not claims: generic statements that apply to every branch of a chain or type ("any Ammu-Nation",
+"visit a coffee shop", "every gas station sells snacks"); a bare type with no place ("a gym").
+Use in-game Leonida names only, never real-world places (Key West, Miami, Florida, Everglades):
+if the source only gives a real-world name, return no claim for it.
+anchor_landmarks and evidence_quote must be copied from the source text, not from the hints.
+
+The user message may list WATCH-FOR names. They are only things we are looking for: mention
+one only if THIS source itself says where it is. A watch-for name is never evidence."""
 
 
 def _now() -> datetime:
@@ -113,25 +132,49 @@ def _parse_json(raw: str) -> dict:
     return obj
 
 
-def extract_claims(ai: Any, item: SourceItem, body: str) -> list[dict]:
+def extract_claims(ai: Any, item: SourceItem, body: str, watch_for: Optional[list[str]] = None,
+                   known_place: Any = None, rejects: Optional[dict] = None) -> list[dict]:
+    """Model claims that survive the evidence checks. rejects[reason] counts the rest."""
     text = shield.sanitize(f"TITLE: {item.title}\n\n{body}")[:9000]
+    hints = ""
+    if watch_for:
+        hints = "\nWATCH-FOR (not evidence): " + "; ".join(shield.sanitize(w)[:120] for w in watch_for[:10])
     msg = ai.messages.create(
         model=MODEL, max_tokens=1500, temperature=0, system=_SYSTEM,
         messages=[{"role": "user", "content":
-                   f"url: {item.url}\nauthor: {item.author}\n<source>\n{text}\n</source>"}],
+                   f"url: {item.url}\nauthor: {item.author}{hints}\n<source>\n{text}\n</source>"}],
     )
     raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
     claims = _parse_json(raw).get("claims") or []
+    source_text = f"{item.title}\n{body}"
+    source_norm = f" {rules.normalize_name(source_text)} "
+    known = known_place or (lambda _n: False)
+    rejects = rejects if rejects is not None else {}
+
+    def reject(reason: str) -> None:
+        rejects[reason] = rejects.get(reason, 0) + 1
+
     out = []
     for c in claims:
         if not isinstance(c, dict) or c.get("category") not in VALID_CATEGORIES or not c.get("name"):
             continue
-        if _ONLINE.search(json.dumps(c)):
+        if _ONLINE.search(_HASHTAG.sub(" ", json.dumps(c))):
+            reject("gta_online")
             continue
         c["county"] = c.get("county") if c.get("county") in COUNTIES else None
-        c["anchor_landmarks"] = [a for a in (c.get("anchor_landmarks") or []) if isinstance(a, str)][:6]
+        anchors = [a for a in (c.get("anchor_landmarks") or []) if isinstance(a, str)][:6]
+        # an anchor the source never mentions (e.g. copied from a watch-for hint) can't place anything
+        c["anchor_landmarks"] = [a for a in anchors
+                                 if rules.normalize_name(a) and f" {rules.normalize_name(a)} " in source_norm]
         quote = " ".join(str(c.get("evidence_quote") or "").split()[:14])
         c["evidence_quote"] = quote
+        if not rules.quote_in_source(quote, source_text):
+            reject("quote_not_in_source")
+            continue
+        why = rules.claim_reject_reason(c, known)
+        if why:
+            reject(why)
+            continue
         out.append(c)
     return out
 
@@ -143,11 +186,15 @@ class Run:
         self.sb = sb
         self.c = {"fetched": 0, "new_items": 0, "extracted": 0, "auto_published": 0, "queued": 0,
                   "held": 0, "merged": 0}
-        self.placed = {"screenshot_match": 0, "gazetteer": 0, "none": 0}
+        # vod_*: YouTube videos whose map frames were checked / skipped by the per-run cap
+        self.placed = {"screenshot_match": 0, "gazetteer": 0, "none": 0, "vod_videos": 0, "vod_skipped_cap": 0}
         self.dropped: dict[str, int] = {}
         self.blocklist: list[dict] = []
         self.source_errors: list[dict] = []
         self.examples: list[dict] = []
+        self.leads = {"open": 0, "searched": 0, "search_items": 0, "items_matched": 0, "evidence_found": 0}
+        self.yt = {"transcripts_ok": 0, "transcripts_blocked": 0, "vod_ok": 0, "vod_no_frames": 0}
+        self.yt_errors: list[dict] = []
         row = sb.table("map_scrape_runs").insert({"trigger": trigger}).execute().data
         self.id = row[0]["id"] if row else None
 
@@ -155,13 +202,16 @@ class Run:
         self.dropped[reason] = self.dropped.get(reason, 0) + n
 
     def finish(self, status: str, error: Optional[str] = None) -> dict:
-        summary = {**self.c, "placed": self.placed, "dropped": self.dropped,
+        self.placed.update({f"yt_{k}": v for k, v in self.yt.items()})
+        if self.yt_errors:
+            self.source_errors += [{"source": "yt-dlp", **e} for e in self.yt_errors[:20]]
+        summary = {**self.c, "placed": self.placed, "dropped": self.dropped, "leads": self.leads,
                    "blocklist_hits": len(self.blocklist), "source_errors": len(self.source_errors)}
         if self.id:
             self.sb.table("map_scrape_runs").update({
                 **self.c, "placed": self.placed, "dropped": self.dropped,
                 "blocklist_hits": len(self.blocklist), "blocklist_detail": self.blocklist[:200],
-                "source_errors": self.source_errors, "examples": self.examples[:10],
+                "source_errors": self.source_errors, "examples": self.examples[:10], "leads": self.leads,
                 "status": status, "error": error, "finished_at": _now().isoformat(),
             }).eq("id", self.id).execute()
         self.sb.table("audit_log").insert({
@@ -174,7 +224,9 @@ class Run:
 
 def _load_markers(sb: Any) -> list[MarkerRef]:
     rows = (sb.table("map_markers").select("id,category,x,y,accuracy_radius_m,status,name")
-            .in_("source_type", ["scraper", "community_submission", "staff"]).limit(5000).execute().data or [])
+            # scraper pins only: staff region markers and community submissions are never
+            # merged into (a merge rewrites status/confidence/position)
+            .eq("source_type", "scraper").limit(5000).execute().data or [])
     return [MarkerRef(r["id"], r["category"], r["x"] and float(r["x"]), r["y"] and float(r["y"]),
                       r["accuracy_radius_m"] and float(r["accuracy_radius_m"]), r["status"], r["name"] or "")
             for r in rows]
@@ -196,11 +248,12 @@ def _evidence_rows(sb: Any, marker_id: str) -> list[Evidence]:
     rows = sb.table("map_marker_sources").select("*").eq("marker_id", marker_id).execute().data or []
     return [Evidence(r["source_kind"], r["url"], r["domain"], r.get("author_id"),
                      r.get("proposed_x") and float(r["proposed_x"]), r.get("proposed_y") and float(r["proposed_y"]),
-                     r.get("radius_m") and float(r["radius_m"]), r.get("placement_method")) for r in rows]
+                     r.get("radius_m") and float(r["radius_m"]), r.get("placement_method"),
+                     r.get("author_name"), r.get("thread_key"), r.get("content_key")) for r in rows]
 
 
 def _place(item: SourceItem, claim: dict, gaz: Gazetteer, matcher: Optional[ScreenshotMatcher],
-           shots: list[tuple[str, bytes]]) -> tuple[Optional[Placement], Optional[str]]:
+           shots: list[tuple[str, bytes]], use_description: bool = True) -> tuple[Optional[Placement], Optional[str]]:
     if matcher and shots:
         for shot_url, data in shots:
             try:
@@ -210,8 +263,8 @@ def _place(item: SourceItem, claim: dict, gaz: Gazetteer, matcher: Optional[Scre
                 p = None
             if p:
                 return p, shot_url
-    return gaz.place(claim.get("anchor_landmarks") or [], claim.get("name") or "",
-                     claim.get("location_description") or ""), None
+    desc = (claim.get("location_description") or "") if use_description else ""
+    return gaz.place(claim.get("anchor_landmarks") or [], claim.get("name") or "", desc), None
 
 
 def _apply_claim(run: Run, sb: Any, item: SourceItem, claim: dict, placement: Optional[Placement],
@@ -221,13 +274,15 @@ def _apply_claim(run: Run, sb: Any, item: SourceItem, claim: dict, placement: Op
     y = placement.y if placement else None
     radius = placement.radius_m if placement else None
     method_db = None if not placement else ("screenshot_match" if placement.method == "screenshot_match" else "gazetteer")
-    ev = Evidence(kind, item.url, item.domain, item.author, x, y, radius, method_db)
+    ev = Evidence(kind, item.url, item.domain, item.author, x, y, radius, method_db,
+                  item.author_name, item.thread_key, item.content_key)
     now = _now().isoformat()
     source_row = {
         "source_kind": kind, "url": item.url, "domain": item.domain, "author_id": item.author,
         "evidence_quote": claim.get("evidence_quote"), "screenshot_url": shot_url,
         "placement_method": method_db, "proposed_x": x, "proposed_y": y, "radius_m": radius,
-        "published_at": item.published_at,
+        "published_at": item.published_at, "author_name": item.author_name,
+        "thread_key": item.thread_key, "content_key": item.content_key,
     }
 
     dup = rules.find_duplicate(claim["category"], x, y, radius, markers, name=claim["name"])
@@ -345,6 +400,78 @@ def scrape_map_data(supabase_client: Optional[Any] = None, anthropic_client: Opt
     return result
 
 
+# ------------------------------------------------------------------ leads
+def _load_leads(sb: Any) -> list[dict]:
+    """Open leads, least recently searched first."""
+    return (sb.table("map_leads").select("id,name,category,area,search_count,matched_marker_ids,status")
+            .eq("status", "open").order("last_searched_at", desc=False, nullsfirst=True)
+            .order("created_at").limit(500).execute().data or [])
+
+
+def _lead_terms(lead: dict) -> list[str]:
+    """Normalized names a source must mention for the lead to apply."""
+    n = rules.normalize_name(lead["name"])
+    return [n] if len(n) >= 4 else []
+
+
+def leads_mentioned(text: str, leads: list[dict]) -> list[dict]:
+    hay = f" {rules.normalize_name(text)} "
+    return [ld for ld in leads if any(f" {t} " in hay for t in _lead_terms(ld))]
+
+
+def lead_for_claim(claim: dict, leads: list[dict]) -> Optional[dict]:
+    """The lead a real-evidence claim answers: same name (either contains the
+    other), and same category when the lead names one."""
+    cn = rules.normalize_name(claim.get("name") or "")
+    if not cn:
+        return None
+    for ld in leads:
+        ln = rules.normalize_name(ld["name"])
+        if len(ln) < 4:
+            continue
+        if ld.get("category") and ld["category"] != claim.get("category"):
+            continue
+        if f" {ln} " in f" {cn} " or f" {cn} " in f" {ln} ":
+            return ld
+    return None
+
+
+def _link_lead(run: Run, sb: Any, lead: dict, marker_id: str) -> None:
+    """Evidence answered a lead: tag the marker (HITL sorts it first) and mark
+    the lead. Never touches the marker's position, sources or status."""
+    sb.table("map_markers").update({"lead_id": lead["id"]}).eq("id", marker_id).execute()
+    ids = sorted(set([*(lead.get("matched_marker_ids") or []), marker_id]))
+    sb.table("map_leads").update({"status": "evidence_found", "evidence_found_at": _now().isoformat(),
+                                  "matched_marker_ids": ids, "updated_at": _now().isoformat()}
+                                 ).eq("id", lead["id"]).execute()
+    lead["matched_marker_ids"], lead["status"] = ids, "evidence_found"
+    run.leads["evidence_found"] += 1
+    _audit(sb, "map_lead_evidence_found", marker_id, f"lead {lead['id']} '{lead['name'][:80]}'")
+
+
+def _search_leads(run: Run, sb: Any, fetcher: Fetcher, leads: list[dict]) -> list[SourceItem]:
+    """Each cycle, before the regular feeds: one Reddit search RSS per open
+    lead (oldest-searched first, LEADS_PER_RUN max). Same politeness and
+    circuit breaker as the regular Reddit feeds."""
+    items: list[SourceItem] = []
+    now = _now().isoformat()
+    for ld in leads[:LEADS_PER_RUN]:
+        src = {"id": None, "name": f"lead search: {ld['name'][:60]}", "source_kind": "reddit",
+               "source_type": "reddit_rss", "fetch_url": reddit_lead_search_url(ld["name"])}
+        rep = fetcher.fetch(src)
+        sb.table("map_leads").update({"last_searched_at": now, "search_count": (ld.get("search_count") or 0) + 1}
+                                     ).eq("id", ld["id"]).execute()
+        run.leads["searched"] += 1
+        if not rep.ok:
+            run.source_errors.append({"source": src["name"], "url": src["fetch_url"], "status": rep.status,
+                                      "error": rep.error})
+            continue
+        items += rep.items
+    run.leads["search_items"] = len(items)
+    return items
+
+
+# -------------------------------------------------------------------- run
 def _run(run: Run, sb: Any, ai: Any, fetcher: Fetcher, vod_frames: bool) -> dict:
     sources = (sb.table("discovery_sources").select("*").eq("purpose", "map").eq("active", True)
                .execute().data or [])
@@ -358,22 +485,31 @@ def _run(run: Run, sb: Any, ai: Any, fetcher: Fetcher, vod_frames: bool) -> dict
     gaz = _load_gazetteer(sb)
     markers = _load_markers(sb)
     unlock = _unlock_at()
+    leads = _load_leads(sb)
+    run.leads["open"] = len(leads)
 
     items: list[SourceItem] = []
     seen_keys: set[str] = set()
+
+    def add(batch: list[SourceItem]) -> None:
+        for it in batch:
+            if it.key not in seen_keys:
+                seen_keys.add(it.key)
+                items.append(it)
+
+    # 1. open leads are searched first
+    add(_search_leads(run, sb, fetcher, leads))
+    # 2. the regular map feeds
     for s in sources:
         rep = fetcher.fetch(s)
         if not rep.ok:
             run.source_errors.append({"source": s["name"], "url": s["fetch_url"], "status": rep.status, "error": rep.error})
             continue
-        for it in rep.items:
-            if it.key not in seen_keys:
-                seen_keys.add(it.key)
-                items.append(it)
+        add(rep.items)
     run.c["fetched"] = len(items)
 
     reddit_sources = [s for s in sources if (s.get("source_kind") == "reddit")]
-    if reddit_sources and len(fetcher.reddit_failures) >= len(reddit_sources):
+    if reddit_sources and fetcher.reddit_open_circuit():
         _alert(sb, "source_blocked", "warning", f"reddit:{_now():%Y-%m-%d}",
                "Reddit refused every map feed this run (other sources kept running)",
                {"failures": fetcher.reddit_failures[:20], "policy": "logged only; no workarounds attempted"})
@@ -384,22 +520,43 @@ def _run(run: Run, sb: Any, ai: Any, fetcher: Fetcher, vod_frames: bool) -> dict
         rows = sb.table("map_scrape_seen").select("item_key").in_("item_key", keys[i:i + 200]).execute().data or []
         already.update(r["item_key"] for r in rows)
 
-    for it in items:
-        if it.key in already:
-            continue
+    fresh = [it for it in items if it.key not in already]
+    # lead-matching items go first, so the queue surfaces lead evidence early in a long run
+    hinted = {it.key: leads_mentioned(f"{it.title} {it.text}", leads) for it in fresh}
+    fresh.sort(key=lambda it: not hinted[it.key])
+    run.leads["items_matched"] = sum(1 for v in hinted.values() if v)
+    ctx = {"vod_budget": VOD_MAX_PER_RUN if vod_frames else 0, "vod_enabled": vod_frames}
+
+    for it in fresh:
         run.c["new_items"] += 1
-        outcome, marker_ids = _process_item(run, sb, ai, fetcher, it, unlock, gaz, matcher, markers, vod_frames)
+        outcome, marker_ids = _process_item(run, sb, ai, fetcher, it, unlock, gaz, matcher, markers,
+                                            leads, hinted[it.key], ctx)
         sb.table("map_scrape_seen").upsert({
             "item_key": it.key, "source_id": it.source_id, "url": it.url[:1000],
             "outcome": outcome, "marker_ids": marker_ids,
         }, on_conflict="item_key").execute()
 
+    _youtube_block_alert(run, sb)
     return run.finish("ok")
+
+
+def _youtube_block_alert(run: Run, sb: Any) -> None:
+    """YouTube refusing transcripts / video downloads from this IP: alert once a
+    day, keep running on titles + descriptions. No cookies, proxies or other
+    workarounds (Kelvin's rule)."""
+    blocked_tx = run.yt["transcripts_blocked"] >= 3 and run.yt["transcripts_ok"] == 0
+    blocked_vod = any("403" in e.get("error", "") or "Sign in" in e.get("error", "") for e in run.yt_errors) \
+        and run.yt["vod_ok"] == 0
+    if blocked_tx or blocked_vod:
+        _alert(sb, "source_blocked", "warning", f"youtube:{_now():%Y-%m-%d}",
+               "YouTube is refusing transcripts/video from this server (titles + descriptions still used)",
+               {"transcripts_blocked": run.yt["transcripts_blocked"], "transcripts_ok": run.yt["transcripts_ok"],
+                "vod_errors": run.yt_errors[:10], "policy": "logged only; no workarounds attempted"})
 
 
 def _process_item(run: Run, sb: Any, ai: Any, fetcher: Fetcher, it: SourceItem, unlock: datetime,
                   gaz: Gazetteer, matcher: Optional[ScreenshotMatcher], markers: list[MarkerRef],
-                  vod_frames: bool) -> tuple[str, list[str]]:
+                  leads: list[dict], hinted_leads: list[dict], ctx: dict) -> tuple[str, list[str]]:
     # 1. blocklist -- the item itself, or anything it links to
     hits = [r for r in [rules.blocked_reason(it.url)] if r] + rules.blocked_links_in(
         " ".join([it.text, *it.links]))
@@ -417,57 +574,96 @@ def _process_item(run: Run, sb: Any, ai: Any, fetcher: Fetcher, it: SourceItem, 
         run.drop("no_publish_date")
         return "dropped:no_publish_date", []
     # 3. GTA Online blackout + cheap location signal before spending a model call
-    if _ONLINE.search(f"{it.title} {it.text}"):
+    # "#gtaonline" hashtag spam on GTA 6 Shorts is not GTA Online content
+    if _ONLINE.search(_HASHTAG.sub(" ", f"{it.title} {it.text}")):
         run.drop("gta_online")
         return "dropped:gta_online", []
     body = it.text
-    transcript = ""
+    segments: list[tuple[float, str]] = []
     if it.source_kind == "youtube" and it.video_id:
-        transcript = youtube_transcript(it.video_id)
+        segments, terr = youtube_transcript_segments(it.video_id)
+        if segments:
+            run.yt["transcripts_ok"] += 1
+        elif terr in ("IpBlocked", "RequestBlocked"):
+            run.yt["transcripts_blocked"] += 1
+        transcript = " ".join(t for _, t in segments)[:12000]
         body = f"{it.text}\n\nTRANSCRIPT:\n{transcript}" if transcript else it.text
     elif it.source_kind == "editorial":
         if not re.search(r"\bgta\s*(6|vi)\b|grand theft auto vi|leonida|vice city", f"{it.title} {it.text}", re.I):
             run.drop("not_gta6")
             return "dropped:not_gta6", []
-        if not _LOCATION_SIGNAL.search(it.title):
+        if not _LOCATION_SIGNAL.search(it.title) and not hinted_leads:
             run.drop("no_location_signal")
             return "dropped:no_location_signal", []
         body = fetcher.article_text(it.url) or it.text
-    if not _LOCATION_SIGNAL.search(f"{it.title} {body}"):
+    if not _LOCATION_SIGNAL.search(f"{it.title} {body}") and not hinted_leads:
         run.drop("no_location_signal")
         return "dropped:no_location_signal", []
-    # 4. extraction
+    # 4. extraction (+ evidence checks)
+    rejects: dict[str, int] = {}
     try:
-        claims = extract_claims(ai, it, body)
+        claims = extract_claims(ai, it, body, watch_for=[ld["name"] for ld in hinted_leads],
+                                known_place=lambda n: gaz.lookup(n) is not None or gaz.is_area(n), rejects=rejects)
     except Exception as exc:
         run.drop("extraction_error")
         log.warning("[%s] extraction failed for %s: %s", AGENT_ID, it.url, exc)
         return "dropped:extraction_error", []
+    # a claim that is just an area ("Vice City", "Grassrivers") is not a pin
+    kept = []
+    for c in claims:
+        if gaz.is_area(c["name"]) or rules.normalize_name(c["name"]) in ("leonida", "vice city"):
+            rejects["area_not_place"] = rejects.get("area_not_place", 0) + 1
+        else:
+            kept.append(c)
+    claims = kept
+    for reason, n in rejects.items():
+        run.drop(f"claim_{reason}", n)
     if not claims:
         run.drop("no_claims")
         return "dropped:no_claims", []
     run.c["extracted"] += len(claims)
 
-    # 5. screenshots: post images (Reddit) or VOD map frames (YouTube), only if a claim says there's a map shot
-    shots: list[tuple[str, bytes]] = []
-    if any(c.get("has_map_screenshot") for c in claims):
-        if it.images:
-            for u in it.images[:4]:
-                data = fetcher.image_bytes(u)
-                if data:
-                    shots.append((u, data))
-        elif vod_frames and it.source_kind == "youtube" and re.search(r"\bmap\b", f"{it.title} {transcript}", re.I):
-            shots = [(f"{it.url}#frame{i}", b) for i, b in enumerate(vod_map_frames(it.url))]
+    # 5. screenshots. Reddit: the post's own images, only when the post makes one claim
+    # (several claims + one image = we can't tell which the image shows). YouTube: VOD map
+    # frames on every video with a claim; each claim uses only frames within +-60 s of the
+    # moment its quote is spoken.
+    post_shots: list[tuple[str, bytes]] = []
+    vod: list[tuple[float, bytes]] = []
+    if matcher and it.images and len(claims) == 1:
+        for u in it.images[:4]:
+            data = fetcher.image_bytes(u)
+            if data:
+                post_shots.append((u, data))
+    elif matcher and it.source_kind == "youtube" and (segments or len(claims) == 1):
+        if ctx["vod_budget"] > 0:
+            ctx["vod_budget"] -= 1
+            run.placed["vod_videos"] += 1
+            vod = vod_map_frames(it.url, errors=run.yt_errors)
+            run.yt["vod_ok" if vod else "vod_no_frames"] += 1
+        elif ctx["vod_enabled"]:
+            run.placed["vod_skipped_cap"] += 1
 
     marker_ids = []
     for claim in claims:
-        placement, shot_url = _place(it, claim, gaz, matcher if shots else None, shots)
+        shots = post_shots
+        if vod and segments:
+            t = quote_time(claim.get("evidence_quote") or "", segments)
+            shots = [] if t is None else [(f"{it.url}&t={int(ft)}s", b) for ft, b in vod if abs(ft - t) <= FRAME_WINDOW_S]
+        elif vod:   # no transcript timing: only safe when the video makes a single claim
+            shots = [(f"{it.url}&t={int(ft)}s", b) for ft, b in vod]
+        # with a watch-for hint in play, the model's paraphrased description is not used for
+        # placement -- only names the source itself contains (anchors, already source-checked)
+        placement, shot_url = _place(it, claim, gaz, matcher if shots else None, shots,
+                                     use_description=not hinted_leads)
         key = "none" if not placement else ("screenshot_match" if placement.method == "screenshot_match" else "gazetteer")
         run.placed[key] += 1
         try:
             mid = _apply_claim(run, sb, it, claim, placement, shot_url, markers)
             if mid:
                 marker_ids.append(mid)
+                lead = lead_for_claim(claim, leads)
+                if lead and mid not in (lead.get("matched_marker_ids") or []):
+                    _link_lead(run, sb, lead, mid)
         except Exception as exc:
             run.drop("write_error")
             log.warning("[%s] write failed for %r: %s", AGENT_ID, claim.get("name"), exc)
