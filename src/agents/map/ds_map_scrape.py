@@ -102,10 +102,15 @@ def _unlock_at() -> datetime:
 
 
 def _parse_json(raw: str) -> dict:
+    """First JSON object in the reply; tolerates code fences and trailing commentary."""
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.M).strip()
-    return json.loads(cleaned)
+    start = cleaned.find("{")
+    if start < 0:
+        raise ValueError(f"no JSON object in model reply: {raw[:200]!r}")
+    obj, _ = json.JSONDecoder().raw_decode(cleaned[start:])
+    return obj
 
 
 def extract_claims(ai: Any, item: SourceItem, body: str) -> list[dict]:

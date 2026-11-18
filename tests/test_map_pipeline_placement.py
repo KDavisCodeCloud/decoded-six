@@ -41,3 +41,9 @@ def test_cadence_15_then_30_then_240_minutes():
     assert scheduler.scrape_interval(at("2026-11-22T00:00:00")).total_seconds() == 30 * 60
     assert scheduler.scrape_interval(at("2026-11-28T00:00:00")).total_seconds() == 240 * 60
     assert scheduler.scrape_interval(at("2026-11-19T00:00:00"), "*=5").total_seconds() == 300
+
+
+def test_model_reply_parser_tolerates_fences_and_trailing_text():
+    from src.agents.map.ds_map_scrape import _parse_json
+    assert _parse_json('{"claims": []}\n\nNote: speculation only') == {"claims": []}
+    assert _parse_json('```json\n{"claims": [{"name": "x"}]}\n```') == {"claims": [{"name": "x"}]}
