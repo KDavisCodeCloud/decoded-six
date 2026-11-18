@@ -2,6 +2,8 @@
 
 import dynamic from 'next/dynamic'
 import type { MapMarker, MapArea } from '@/lib/types'
+import type { MapLayer } from '@/lib/map-layers'
+import type { PickedPoint } from '@/components/map/LeafletMap'
 
 const LeafletMap = dynamic(
   () => import('@/components/map/LeafletMap').then(m => m.LeafletMap),
@@ -34,7 +36,8 @@ interface Props {
   initialMarkerId?: string
   initialView?: DeepLinkView
   pickingLocation?: boolean
-  onPickLocation?: (lat: number, lng: number) => void
+  onPickLocation?: (p: PickedPoint) => void
+  layers?: MapLayer[]
 }
 
 export function MapClientLoader(props: Props) {

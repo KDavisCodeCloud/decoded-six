@@ -97,6 +97,10 @@ export interface MapMarker {
   updated_at: string
   submitted_ip: string | null
   submitted_source_url: string | null
+  /** Canonical game-world position in meters within `frame` (migration 029). */
+  x?: number | null
+  y?: number | null
+  frame?: string | null
 }
 
 export interface MapArea {
@@ -106,6 +110,10 @@ export interface MapArea {
   color: string
   opacity: number
   created_at: string
+  /** 'real_world_latlng' (legacy seed) or 'gtadb_world' meters (migration 029). */
+  frame?: string
+  /** 'label' = name only, geojson is a single Point. */
+  kind?: 'polygon' | 'label'
 }
 
 export interface Vehicle {

@@ -7,6 +7,7 @@ import { MapPageClient } from './MapPageClient'
 import { supabase } from '@/lib/supabase'
 import { unlocalizedAlternates } from '@/lib/seo'
 import type { MapMarker, MapArea } from '@/lib/types'
+import type { MapLayer } from '@/lib/map-layers'
 
 export const revalidate = 300
 
@@ -18,8 +19,11 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+// map_layers is read per request (RLS: enabled rows only), so pulling a layer
+// -- e.g. UPDATE map_layers SET enabled = false WHERE id = 'community' -- takes
+// effect without a redeploy.
 async function getMapData() {
-  const [{ data: markers }, { data: areas }] = await Promise.all([
+  const [{ data: markers }, { data: areas }, { data: layers }] = await Promise.all([
     supabase
       .from('map_markers')
       .select('*')
@@ -29,10 +33,16 @@ async function getMapData() {
       .from('map_areas')
       .select('*')
       .order('name', { ascending: true }),
+    supabase
+      .from('map_layers')
+      .select('id, label, kind, frame, tile_url_template, min_zoom, max_native_zoom, max_zoom, tile_ranges, background_color, attribution, source_ref, is_default, sort_order')
+      .eq('enabled', true)
+      .order('sort_order', { ascending: true }),
   ])
   return {
     markers: (markers as MapMarker[] | null) ?? [],
     areas: (areas as MapArea[] | null) ?? [],
+    layers: (layers as MapLayer[] | null) ?? [],
   }
 }
 
@@ -79,13 +89,15 @@ export default async function MapPage({
     )
   }
 
-  const { markers, areas } = await getMapData()
+  const { markers, areas, layers } = await getMapData()
   const linkedArticles = await getLinkedArticles(markers)
 
   const initialMarkerId = typeof params.marker === 'string' ? params.marker : undefined
-  const lat = parseNumber(params.lat)
-  const lng = parseNumber(params.lng)
+  // game-world layers deep-link in meters (?x=&y=&z=); the legacy real-world
+  // map keeps ?lat=&lng=&z=. LatLng in the meter CRS is [y, x].
   const zoom = parseNumber(params.z)
+  const lat = layers.length > 0 ? parseNumber(params.y) : parseNumber(params.lat)
+  const lng = layers.length > 0 ? parseNumber(params.x) : parseNumber(params.lng)
   const initialView = lat !== undefined && lng !== undefined && zoom !== undefined
     ? { lat, lng, zoom }
     : undefined
@@ -110,6 +122,7 @@ export default async function MapPage({
         <MapPageClient
           markers={markers}
           areas={areas}
+          layers={layers}
           linkedArticles={linkedArticles}
           initialMarkerId={initialMarkerId}
           initialView={initialView}

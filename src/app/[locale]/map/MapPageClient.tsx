@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { MapClientLoader } from '@/components/map/MapClientLoader'
 import { SubmitLocationForm } from '@/components/map/SubmitLocationForm'
 import type { MapMarker, MapArea } from '@/lib/types'
+import type { MapLayer } from '@/lib/map-layers'
+import type { PickedPoint } from '@/components/map/LeafletMap'
 
 interface LinkedArticleInfo {
   slug: string
@@ -20,26 +22,28 @@ interface DeepLinkView {
 interface Props {
   markers: MapMarker[]
   areas: MapArea[]
+  layers: MapLayer[]
   linkedArticles: Record<string, LinkedArticleInfo>
   initialMarkerId?: string
   initialView?: DeepLinkView
 }
 
-export function MapPageClient({ markers, areas, linkedArticles, initialMarkerId, initialView }: Props) {
+export function MapPageClient({ markers, areas, layers, linkedArticles, initialMarkerId, initialView }: Props) {
   const [picking, setPicking] = useState(false)
-  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [pickedCoords, setPickedCoords] = useState<PickedPoint | null>(null)
 
   return (
-    <div className="relative flex-1" style={{ height: 'calc(100vh - 200px)', minHeight: 500 }}>
+    <div className="relative flex-1 md:h-[calc(100vh-200px)] md:min-h-[500px]">
       <MapClientLoader
         markers={markers}
         areas={areas}
+        layers={layers}
         linkedArticles={linkedArticles}
         initialMarkerId={initialMarkerId}
         initialView={initialView}
         pickingLocation={picking}
-        onPickLocation={(lat, lng) => {
-          setPickedCoords({ lat, lng })
+        onPickLocation={(p) => {
+          setPickedCoords(p)
           setPicking(false)
         }}
       />

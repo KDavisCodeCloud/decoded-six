@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
     description?: string
     lat?: number
     lng?: number
+    x?: number      // game-world meters, with frame (map_layers / migration 029)
+    y?: number
+    frame?: string
     source_url?: string
     website?: string // honeypot -- real users never see or fill this field
   } | null
@@ -50,6 +53,9 @@ export async function POST(request: NextRequest) {
 
   const hasCoords = typeof body.lat === 'number' && typeof body.lng === 'number'
     && Number.isFinite(body.lat) && Number.isFinite(body.lng)
+  // only the gtadb world frame is accepted, and only inside its +/-16384 m bounds
+  const hasMeters = body.frame === 'gtadb_world'
+    && [body.x, body.y].every(v => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 16384)
 
   const ip = clientIp(request)
 
@@ -90,6 +96,7 @@ export async function POST(request: NextRequest) {
       description: description || null,
       category,
       coordinates: hasCoords ? { lat: body.lat, lng: body.lng } : { lat: 0, lng: 0 },
+      ...(hasMeters ? { x: Math.round(body.x!), y: Math.round(body.y!), frame: 'gtadb_world' } : {}),
       source: 'community',
       status: 'pending',
       verified: false,

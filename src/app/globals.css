@@ -174,3 +174,31 @@
     background: linear-gradient(to right, #0a0a0f 0%, #0a0a0f 40%, rgba(10,10,15,0.85) 60%, transparent 85%);
   }
 }
+
+/* Map county labels (AreaLabels.tsx) -- name-only map_areas */
+.ds-area-label span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  text-align: center;
+  font-family: var(--font-archivo), system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 12px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transition: opacity 250ms ease;
+}
+.ds-area-label small {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: #f5a623;
+}
+.ds-hide-area-labels .ds-area-label span { opacity: 0; }

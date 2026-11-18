@@ -9,7 +9,8 @@
     "dev": "next dev -p 3005",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:map": "node --experimental-strip-types --no-warnings --test src/lib/map-layers.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

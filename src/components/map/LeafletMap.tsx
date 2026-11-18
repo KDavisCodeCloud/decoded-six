@@ -8,6 +8,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import type { MapMarker, MapArea } from '@/lib/types'
+import { BaseLayer, LayerSwitcher, MapCredits } from './BaseLayer'
+import { AreaLabels } from './AreaLabels'
+import { GTADB_FRAME, metersToLatLng, layerBounds, orderLayers, type MapLayer } from '@/lib/map-layers'
+import { GTADB_CRS } from '@/lib/map-crs'
 import { CATEGORY_COLORS } from './MarkerPopup'
 import { LocationPanel, STATUS_COLORS } from './LocationPanel'
 import { AreaOverlay } from './AreaOverlay'
@@ -28,26 +32,45 @@ const MIAMI: [number, number] = [25.7617, -80.1918]
 const MAP_TILE_URL = process.env.NEXT_PUBLIC_MAP_TILE_URL || ''
 const TILE_MODE = MAP_TILE_URL.length > 0
 
+// Three render modes, fixed for the life of the map:
+//  'meters' -- map_layers rows exist (migration 029): gtadb world frame,
+//              markers/areas positioned by x/y meters; legacy lat/lng rows hidden
+//  'tiles'  -- legacy NEXT_PUBLIC_MAP_TILE_URL placeholder pyramid
+//  'world'  -- no tiles at all: CARTO real-world basemap
+type MapMode = 'meters' | 'tiles' | 'world'
+
+/** A picked map point: real-world lat/lng, or meters in a game-world frame. */
+export type PickedPoint = { lat: number; lng: number } | { x: number; y: number; frame: string }
+
 // Zoom level at or below which the perspective-tilt effect is active.
 // Removed on zoom-in per the DESIGN.md "signature first-load moment" spec.
-const TILT_ZOOM_THRESHOLD = TILE_MODE ? 1 : 11
+const TILT_ZOOM_THRESHOLD: Record<MapMode, number> = { meters: 1, tiles: 1, world: 11 }
+const FOCUS_ZOOM: Record<MapMode, number> = { meters: 3, tiles: 4, world: 14 }
 
 function createMarkerIcon(color: string) {
   return L.divIcon({
     className: '',
+    // dark ring keeps light category colours readable on gtadb's light streets
     html: `<div style="
-      width:10px;height:10px;border-radius:50%;
+      width:12px;height:12px;border-radius:50%;
       background:${color};
-      box-shadow:0 0 0 2px ${color}44, 0 0 8px ${color}66;
+      border:2px solid #070910;
+      box-shadow:0 0 0 1.5px ${color}, 0 0 8px ${color}99;
     "></div>`,
-    iconSize: [10, 10],
-    iconAnchor: [5, 5],
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
     popupAnchor: [0, -12],
   })
 }
 
-function markerPosition(marker: MapMarker): [number, number] {
-  if (TILE_MODE) return latLngToWorld(marker.coordinates.lat, marker.coordinates.lng, 1)
+/** Leaflet position for a marker in this mode, or null when it can't be placed there. */
+function markerPosition(marker: MapMarker, mode: MapMode): [number, number] | null {
+  if (mode === 'meters') {
+    if (marker.frame !== GTADB_FRAME || marker.x == null || marker.y == null) return null
+    return metersToLatLng(Number(marker.x), Number(marker.y))
+  }
+  if (marker.frame === GTADB_FRAME) return null   // game-meter row on a real-world map
+  if (mode === 'tiles') return latLngToWorld(marker.coordinates.lat, marker.coordinates.lng, 1)
   return [marker.coordinates.lat, marker.coordinates.lng]
 }
 
@@ -82,11 +105,13 @@ interface DeepLinkView {
 
 /** Reads ?marker= / ?lat=&lng=&z= once on mount and applies the view. */
 function DeepLinkController({
+  mode,
   markers,
   initialMarkerId,
   initialView,
   onOpenMarker,
 }: {
+  mode: MapMode
   markers: MapMarker[]
   initialMarkerId?: string
   initialView?: DeepLinkView
@@ -99,8 +124,9 @@ function DeepLinkController({
     if (applied.current) return
     applied.current = true
 
+    // in 'meters' mode the page passes ?x=&y= as lng/lat (LatLng = [y, x])
     if (initialView) {
-      const center = TILE_MODE
+      const center = mode === 'tiles'
         ? latLngToWorld(initialView.lat, initialView.lng, 1)
         : ([initialView.lat, initialView.lng] as [number, number])
       map.setView(center, initialView.zoom)
@@ -108,9 +134,9 @@ function DeepLinkController({
 
     if (initialMarkerId) {
       const marker = markers.find(m => m.id === initialMarkerId)
-      if (marker) {
-        const pos = markerPosition(marker)
-        map.flyTo(pos, Math.max(map.getZoom(), TILE_MODE ? 4 : 14), { duration: 1 })
+      const pos = marker && markerPosition(marker, mode)
+      if (marker && pos) {
+        map.flyTo(pos, Math.max(map.getZoom(), FOCUS_ZOOM[mode]), { duration: 1 })
         onOpenMarker(marker)
       }
     }
@@ -130,24 +156,28 @@ function ZoomWatcher({ onZoom }: { onZoom: (zoom: number) => void }) {
 }
 
 /** Active only while the community submission form is in "pick on map" mode. */
-function MapClickHandler({ active, onPick }: { active: boolean; onPick: (lat: number, lng: number) => void }) {
+function MapClickHandler({ mode, active, onPick }: { mode: MapMode; active: boolean; onPick: (p: PickedPoint) => void }) {
   useMapEvents({
     click: (e) => {
       if (!active) return
-      const [lat, lng] = TILE_MODE
+      if (mode === 'meters') {
+        onPick({ x: Math.round(e.latlng.lng), y: Math.round(e.latlng.lat), frame: GTADB_FRAME })
+        return
+      }
+      const [lat, lng] = mode === 'tiles'
         ? worldToLatLng(e.latlng.lat, e.latlng.lng, 1)
         : [e.latlng.lat, e.latlng.lng]
-      onPick(lat, lng)
+      onPick({ lat, lng })
     },
   })
   return null
 }
 
 /** Imperative fly-to, exposed to the search dropdown outside the map tree. */
-function FlyToController({ target }: { target: [number, number] | null }) {
+function FlyToController({ mode, target }: { mode: MapMode; target: [number, number] | null }) {
   const map = useMap()
   useEffect(() => {
-    if (target) map.flyTo(target, Math.max(map.getZoom(), TILE_MODE ? 4 : 14), { duration: 0.8 })
+    if (target) map.flyTo(target, Math.max(map.getZoom(), FOCUS_ZOOM[mode]), { duration: 0.8 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target])
   return null
@@ -162,12 +192,15 @@ interface LeafletMapProps {
   initialMarkerId?: string
   initialView?: DeepLinkView
   pickingLocation?: boolean
-  onPickLocation?: (lat: number, lng: number) => void
+  onPickLocation?: (p: PickedPoint) => void
+  /** Enabled map_layers rows; any present switches the map to the gtadb meter frame. */
+  layers?: MapLayer[]
 }
 
 export function LeafletMap({
-  markers,
-  areas,
+  markers: allMarkers,
+  areas: allAreas,
+  layers,
   linkedArticles,
   showAllStatuses,
   onMarkerReviewed,
@@ -179,12 +212,25 @@ export function LeafletMap({
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  const orderedLayers = useMemo(() => orderLayers(layers ?? []), [layers])
+  const [mode] = useState<MapMode>(() => orderedLayers.length > 0 ? 'meters' : TILE_MODE ? 'tiles' : 'world')
+  const [activeLayerId, setActiveLayerId] = useState(orderedLayers[0]?.id ?? '')
+  const activeLayer = orderedLayers.find(l => l.id === activeLayerId) ?? orderedLayers[0]
+
+  // only rows that can actually be drawn in this mode
+  const markers = useMemo(() => allMarkers.filter(m => markerPosition(m, mode) !== null), [allMarkers, mode])
+  const areas = useMemo(() => allAreas.filter(a =>
+    (a.frame ?? 'real_world_latlng') === (mode === 'meters' ? GTADB_FRAME : 'real_world_latlng')
+  ), [allAreas, mode])
+  const polygonAreas = useMemo(() => areas.filter(a => a.kind !== 'label'), [areas])
+  const labelAreas = useMemo(() => areas.filter(a => a.kind === 'label'), [areas])
+
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [minPayout, setMinPayout] = useState(0)
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null)
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
-  const [zoom, setZoom] = useState(TILE_MODE ? 2 : 12)
+  const [zoom, setZoom] = useState(mode === 'world' ? 12 : mode === 'meters' ? 1 : 2)
   const [processing, setProcessing] = useState(false)
 
   const toggleCategory = useCallback((cat: string) => {
@@ -223,10 +269,10 @@ export function LeafletMap({
   }, [router, searchParams])
 
   const handleSelectSearchResult = useCallback((marker: MapMarker) => {
-    setFlyTarget(markerPosition(marker))
+    setFlyTarget(markerPosition(marker, mode))
     openMarker(marker)
     setSearch('')
-  }, [openMarker])
+  }, [openMarker, mode])
 
   const closePanel = useCallback(() => {
     setSelectedMarker(null)
@@ -255,15 +301,19 @@ export function LeafletMap({
     }
   }
 
-  const tiltActive = zoom <= TILT_ZOOM_THRESHOLD
+  const tiltActive = zoom <= TILT_ZOOM_THRESHOLD[mode]
 
-  const center: [number, number] = TILE_MODE ? [128, 128] : MIAMI
-  const initialZoom = TILE_MODE ? 2 : 12
+  // meters: open on the layer's land extent (gtadb V18 is centred near Vice City)
+  const meterBounds = activeLayer ? layerBounds(activeLayer, 0) : null
+  const center: [number, number] = mode === 'meters' && meterBounds
+    ? [(meterBounds[0][0] + meterBounds[1][0]) / 2, (meterBounds[0][1] + meterBounds[1][1]) / 2]
+    : mode === 'tiles' ? [128, 128] : MIAMI
+  const initialZoom = mode === 'world' ? 12 : mode === 'meters' ? 1 : 2
 
   return (
-    <div className="flex h-full gap-3">
-      {/* Left sidebar */}
-      <aside className="w-52 flex-shrink-0 flex flex-col gap-3 overflow-y-auto pr-0.5">
+    <div className="flex h-full flex-col gap-3 md:flex-row">
+      {/* Left sidebar (below the map on phones) */}
+      <aside className="order-2 flex w-full flex-shrink-0 flex-col gap-3 pr-0.5 md:order-none md:w-52 md:overflow-y-auto">
         <div className="relative">
           <SearchBar value={search} onChange={setSearch} />
           {searchResults.length > 0 && (
@@ -290,11 +340,12 @@ export function LeafletMap({
           onClearAll={clearAll}
         />
         <MoneyFilter minPayout={minPayout} onChange={setMinPayout} />
+        {mode === 'meters' && <MapCredits layers={orderedLayers} />}
       </aside>
 
       {/* Map */}
       <div
-        className="flex-1 relative rounded-xl overflow-hidden border border-white/[0.06]"
+        className="relative order-1 h-[65vh] min-h-[360px] flex-none overflow-hidden rounded-xl border border-white/[0.06] md:order-none md:h-auto md:flex-1"
         style={{ perspective: 1400 }}
       >
         <div
@@ -310,24 +361,30 @@ export function LeafletMap({
           <MapContainer
             center={center}
             zoom={initialZoom}
-            crs={TILE_MODE ? L.CRS.Simple : undefined}
-            minZoom={TILE_MODE ? 0 : undefined}
-            maxZoom={TILE_MODE ? 6 : 19}
-            style={{ width: '100%', height: '100%', background: '#07050d' }}
+            crs={mode === 'meters' ? GTADB_CRS : mode === 'tiles' ? L.CRS.Simple : undefined}
+            minZoom={mode === 'world' ? undefined : 0}
+            maxZoom={mode === 'meters' ? Math.max(...orderedLayers.map(l => l.max_zoom)) : mode === 'tiles' ? 6 : 19}
+            maxBounds={meterBounds ? L.latLngBounds(meterBounds).pad(0.25) : undefined}
+            maxBoundsViscosity={0.8}
+            zoomSnap={0.5}
+            style={{ width: '100%', height: '100%', background: activeLayer?.background_color ?? '#07050d' }}
           >
             <ZoomWatcher onZoom={setZoom} />
             <DeepLinkController
+              mode={mode}
               markers={markers}
               initialMarkerId={initialMarkerId}
               initialView={initialView}
               onOpenMarker={openMarker}
             />
-            <FlyToController target={flyTarget} />
+            <FlyToController mode={mode} target={flyTarget} />
             {onPickLocation && (
-              <MapClickHandler active={!!pickingLocation} onPick={onPickLocation} />
+              <MapClickHandler mode={mode} active={!!pickingLocation} onPick={onPickLocation} />
             )}
 
-            {TILE_MODE ? (
+            {mode === 'meters' && activeLayer ? (
+              <BaseLayer key={activeLayer.id} layer={activeLayer} />
+            ) : mode === 'tiles' ? (
               <TileLayer
                 url={MAP_TILE_URL}
                 tileSize={256}
@@ -345,13 +402,14 @@ export function LeafletMap({
               />
             )}
 
-            {areas.length > 0 && <AreaOverlay areas={areas} />}
+            {polygonAreas.length > 0 && <AreaOverlay areas={polygonAreas} />}
+            {labelAreas.length > 0 && <AreaLabels areas={labelAreas} />}
 
             <MarkerClusterGroup
               chunkedLoading
               iconCreateFunction={clusterIcon}
-              maxClusterRadius={TILE_MODE ? 40 : 60}
-              disableClusteringAtZoom={TILE_MODE ? 5 : 16}
+              maxClusterRadius={mode === 'world' ? 60 : 40}
+              disableClusteringAtZoom={mode === 'world' ? 16 : mode === 'meters' ? 4 : 5}
             >
               {visible.map(marker => {
                 const color = showAllStatuses
@@ -360,7 +418,7 @@ export function LeafletMap({
                 return (
                   <Marker
                     key={marker.id}
-                    position={markerPosition(marker)}
+                    position={markerPosition(marker, mode)!}
                     icon={createMarkerIcon(color)}
                     eventHandlers={{ click: () => openMarker(marker) }}
                   />
@@ -369,6 +427,10 @@ export function LeafletMap({
             </MarkerClusterGroup>
           </MapContainer>
         </div>
+
+        {mode === 'meters' && activeLayer && (
+          <LayerSwitcher layers={orderedLayers} activeId={activeLayer.id} onChange={setActiveLayerId} />
+        )}
 
         {/* Marker count overlay */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-void/80 border border-white/[0.06] rounded-lg px-3 py-1.5 backdrop-blur-sm">
@@ -379,8 +441,8 @@ export function LeafletMap({
       </div>
 
       {/* Right sidebar */}
-      <aside className="w-44 flex-shrink-0 flex flex-col gap-3">
-        <MiniMap />
+      <aside className="hidden w-44 flex-shrink-0 flex-col gap-3 md:flex">
+        <MiniMap layer={mode === 'meters' ? activeLayer : undefined} />
         <DailyTracker markers={markers} />
       </aside>
 

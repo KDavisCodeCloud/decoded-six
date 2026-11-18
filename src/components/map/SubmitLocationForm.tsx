@@ -17,9 +17,12 @@ const CATEGORIES = [
 
 type Status = 'idle' | 'submitting' | 'success' | 'error'
 
+// a real-world lat/lng, or meters in a game-world frame (LeafletMap PickedPoint)
+type PickedCoords = { lat: number; lng: number } | { x: number; y: number; frame: string }
+
 interface SubmitLocationFormProps {
   mapLive: boolean
-  pickedCoords: { lat: number; lng: number } | null
+  pickedCoords: PickedCoords | null
   onStartPicking?: () => void
   onCancelPicking?: () => void
   picking?: boolean
@@ -49,10 +52,11 @@ export function SubmitLocationForm({
 
     let lat: number | undefined
     let lng: number | undefined
+    let meters: { x: number; y: number; frame: string } | undefined
 
     if (mapLive && pickedCoords) {
-      lat = pickedCoords.lat
-      lng = pickedCoords.lng
+      if ('frame' in pickedCoords) meters = pickedCoords
+      else { lat = pickedCoords.lat; lng = pickedCoords.lng }
     } else if (!mapLive && coordText.trim()) {
       const parts = coordText.split(',').map(s => parseFloat(s.trim()))
       if (parts.length === 2 && parts.every(Number.isFinite)) {
@@ -69,6 +73,7 @@ export function SubmitLocationForm({
           category,
           description: description.trim(),
           lat, lng,
+          ...(meters ? { x: meters.x, y: meters.y, frame: meters.frame } : {}),
           source_url: sourceUrl.trim(),
           website,
         }),
@@ -173,7 +178,9 @@ export function SubmitLocationForm({
         {mapLive ? (
           pickedCoords ? (
             <div className="mt-1 flex items-center gap-2 text-xs text-green font-mono">
-              {pickedCoords.lat.toFixed(4)}, {pickedCoords.lng.toFixed(4)}
+              {'frame' in pickedCoords
+                ? `x ${pickedCoords.x} m, y ${pickedCoords.y} m`
+                : `${pickedCoords.lat.toFixed(4)}, ${pickedCoords.lng.toFixed(4)}`}
               <button type="button" onClick={onStartPicking} className="text-whisper hover:text-bright underline">change</button>
             </div>
           ) : (

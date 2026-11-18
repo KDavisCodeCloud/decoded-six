@@ -5,6 +5,7 @@ import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { MapClientLoader } from '@/components/map/MapClientLoader'
 import { STATUS_COLORS } from '@/components/map/LocationPanel'
 import type { MapMarker, MapArea } from '@/lib/types'
+import type { MapLayer } from '@/lib/map-layers'
 
 interface LinkedArticleInfo {
   slug: string
@@ -15,6 +16,7 @@ interface LinkedArticleInfo {
 interface Props {
   markers: MapMarker[]
   areas: MapArea[]
+  layers: MapLayer[]
   linkedArticles: Record<string, LinkedArticleInfo>
 }
 
@@ -25,7 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
   retired: 'Retired',
 }
 
-export function DashboardMapClient({ markers: initialMarkers, areas, linkedArticles }: Props) {
+export function DashboardMapClient({ markers: initialMarkers, areas, layers, linkedArticles }: Props) {
   const [markers, setMarkers] = useState(initialMarkers)
   const [overlay, setOverlay] = useState<{ type: OverlayType } | null>(null)
 
@@ -70,6 +72,7 @@ export function DashboardMapClient({ markers: initialMarkers, areas, linkedArtic
         <MapClientLoader
           markers={markers}
           areas={areas}
+          layers={layers}
           linkedArticles={linkedArticles}
           showAllStatuses
           onMarkerReviewed={handleReviewed}
