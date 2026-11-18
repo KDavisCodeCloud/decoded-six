@@ -50,9 +50,18 @@ async def lifespan(app: FastAPI):
         from api.routes.discovery import _clients
         from src.agents.discovery.scheduler import discovery_loop
         task = asyncio.create_task(discovery_loop(_clients))
+    # Map pin scraper (cadence: MAP_SCRAPE_CADENCE) + gtadb watcher (6 h),
+    # src/agents/map/scheduler.py. MAP_SCHEDULE_DISABLED=1 turns both off.
+    map_task = None
+    if os.environ.get("MAP_SCHEDULE_DISABLED") != "1":
+        from api.routes.discovery import _clients as _map_clients
+        from src.agents.map.scheduler import map_loop
+        map_task = asyncio.create_task(map_loop(_map_clients))
     yield
     if task:
         task.cancel()
+    if map_task:
+        map_task.cancel()
 
 
 app = FastAPI(title="DecodedSix API", version="1.0.0", lifespan=lifespan)

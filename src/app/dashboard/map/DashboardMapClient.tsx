@@ -5,7 +5,8 @@ import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { MapClientLoader } from '@/components/map/MapClientLoader'
 import { STATUS_COLORS } from '@/components/map/LocationPanel'
 import type { MapMarker, MapArea } from '@/lib/types'
-import type { MapLayer } from '@/lib/map-layers'
+import { orderLayers, type MapLayer } from '@/lib/map-layers'
+import { MapReviewQueue, type QueueItem } from '@/components/map/MapReviewQueue'
 
 interface LinkedArticleInfo {
   slug: string
@@ -18,16 +19,21 @@ interface Props {
   areas: MapArea[]
   layers: MapLayer[]
   linkedArticles: Record<string, LinkedArticleInfo>
+  queue: QueueItem[]
 }
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Pending',
-  approved: 'Approved',
+  held: 'Held',
+  community_reported: 'Community',
+  verified: 'Verified',
   published: 'Published',
+  rejected: 'Rejected',
   retired: 'Retired',
 }
 
-export function DashboardMapClient({ markers: initialMarkers, areas, layers, linkedArticles }: Props) {
+export function DashboardMapClient({ markers: initialMarkers, areas, layers, linkedArticles, queue }: Props) {
+  const defaultLayer = orderLayers(layers)[0] ?? null
   const [markers, setMarkers] = useState(initialMarkers)
   const [overlay, setOverlay] = useState<{ type: OverlayType } | null>(null)
 
@@ -44,7 +50,7 @@ export function DashboardMapClient({ markers: initialMarkers, areas, layers, lin
   }
 
   return (
-    <div className="p-4 sm:p-8 flex flex-col h-screen">
+    <div className="p-4 sm:p-8 flex flex-col">
       <GTAOverlay type={overlay?.type ?? null} onDismiss={() => setOverlay(null)} />
 
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
@@ -55,7 +61,7 @@ export function DashboardMapClient({ markers: initialMarkers, areas, layers, lin
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {(['pending', 'approved', 'published', 'retired'] as const).map(status => (
+          {(['pending', 'held', 'community_reported', 'verified', 'published', 'rejected', 'retired'] as const).map(status => (
             <div key={status} className="flex items-center gap-1.5 text-xs font-mono">
               <span
                 className="w-2 h-2 rounded-full"
@@ -68,7 +74,14 @@ export function DashboardMapClient({ markers: initialMarkers, areas, layers, lin
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <section className="mb-8">
+        <h2 className="font-pricedown text-gta-gold text-2xl leading-none mb-1">PIN QUEUE <span className="text-quiet text-base">{queue.length}</span></h2>
+        <p className="text-quiet text-xs mb-4">Scraper pins at 0.5–0.85 confidence or needing placement. Drag the pin to move it. Approve = verified; reject is remembered.</p>
+        <MapReviewQueue items={queue} layer={defaultLayer}
+          onDone={a => setOverlay({ type: a === 'approve' ? 'mission-passed' : 'wasted' })} />
+      </section>
+
+      <div className="h-[75vh] min-h-[480px]">
         <MapClientLoader
           markers={markers}
           areas={areas}

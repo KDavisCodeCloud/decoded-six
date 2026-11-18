@@ -8,3 +8,8 @@ anthropic==0.34.2
 requests==2.34.2
 python-slugify==8.0.4
 feedparser==6.0.11
+# Map pin pipeline (Map Phase 3): screenshot matching, transcripts, VOD frames
+numpy==2.1.1
+opencv-python-headless==5.1.0.95
+youtube-transcript-api==1.2.5
+yt-dlp==2026.7.4

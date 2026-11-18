@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { DashboardMapClient } from './DashboardMapClient'
 import type { MapMarker, MapArea } from '@/lib/types'
 import type { MapLayer } from '@/lib/map-layers'
+import type { QueueItem } from '@/components/map/MapReviewQueue'
 
 export const metadata = { title: 'Map Control — DecodedSix' }
 
@@ -50,9 +51,32 @@ async function getLinkedArticles(markers: MapMarker[]) {
   return map
 }
 
+// Scraper HITL queue: pending scraper pins + their evidence rows (031).
+async function getReviewQueue(): Promise<QueueItem[]> {
+  const sb = serviceClient()
+  const { data: rows } = await sb.from('map_markers')
+    .select('id, name, category, description, county, x, y, accuracy_radius_m, confidence, independent_source_count, placement_method, created_at')
+    .eq('source_type', 'scraper').eq('status', 'pending')
+    .order('confidence', { ascending: false, nullsFirst: false }).limit(200)
+  const items = (rows ?? []) as Omit<QueueItem, 'sources'>[]
+  if (items.length === 0) return []
+  const { data: src } = await sb.from('map_marker_sources')
+    .select('marker_id, url, source_kind, author_id, evidence_quote, screenshot_url')
+    .in('marker_id', items.map(i => i.id))
+  const byMarker = new Map<string, QueueItem['sources']>()
+  for (const s of src ?? []) {
+    const list = byMarker.get(s.marker_id) ?? []
+    list.push(s)
+    byMarker.set(s.marker_id, list)
+  }
+  return items.map(i => ({ ...i, sources: byMarker.get(i.id) ?? [] }))
+}
+
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardMapPage() {
-  const { markers, areas, layers } = await getAllMapData()
+  const [{ markers, areas, layers }, queue] = await Promise.all([getAllMapData(), getReviewQueue()])
   const linkedArticles = await getLinkedArticles(markers)
 
-  return <DashboardMapClient markers={markers} areas={areas} layers={layers} linkedArticles={linkedArticles} />
+  return <DashboardMapClient markers={markers} areas={areas} layers={layers} linkedArticles={linkedArticles} queue={queue} />
 }

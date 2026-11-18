@@ -3,7 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
-type Action = 'approve' | 'retire'
+// approve: staff approval. Scraper pins -> 'verified' (spec: staff approval
+//          promotes), everything else keeps the original -> 'published'.
+// reject:  scraper pins -> 'rejected' (remembered; the scraper never re-creates it).
+// retire:  withdraw a live pin.
+// move:    drag-to-move / place a "needs placement" item: { x, y } in gtadb meters.
+type Action = 'approve' | 'retire' | 'reject' | 'move'
+const WORLD_HALF_M = 16384
 
 export async function POST(
   request: NextRequest,
@@ -32,11 +38,15 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json() as { action: Action }
+  const body = await request.json() as { action: Action; x?: number; y?: number }
   const { action } = body
 
-  if (!['approve', 'retire'].includes(action)) {
+  if (!['approve', 'retire', 'reject', 'move'].includes(action)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  }
+  if (action === 'move' && !(Number.isFinite(body.x) && Number.isFinite(body.y)
+      && Math.abs(body.x!) <= WORLD_HALF_M && Math.abs(body.y!) <= WORLD_HALF_M)) {
+    return NextResponse.json({ error: 'move needs x, y in gtadb meters' }, { status: 400 })
   }
 
   // Service role bypasses RLS -- same pattern as /api/articles/[id]/review.
@@ -47,7 +57,7 @@ export async function POST(
 
   const { data: marker } = await sb
     .from('map_markers')
-    .select('id, name, status')
+    .select('id, name, status, source_type, x')
     .eq('id', id)
     .single()
 
@@ -55,11 +65,23 @@ export async function POST(
     return NextResponse.json({ error: 'Marker not found' }, { status: 404 })
   }
 
-  const newStatus = action === 'approve' ? 'published' : 'retired'
   const now = new Date().toISOString()
-
-  const update: Record<string, string> = { status: newStatus, updated_at: now }
-  if (action === 'approve') update.last_confirmed = now
+  const update: Record<string, unknown> = { updated_at: now }
+  if (action === 'approve') {
+    if (marker.x == null && marker.source_type === 'scraper') {
+      return NextResponse.json({ error: 'Place it on the map first (drag the pin), then approve' }, { status: 400 })
+    }
+    update.status = marker.source_type === 'scraper' ? 'verified' : 'published'
+    update.last_confirmed = now
+    if (marker.source_type === 'scraper') { update.verified = true; update.verified_at = now }
+  } else if (action === 'reject') {
+    update.status = 'rejected'
+  } else if (action === 'retire') {
+    update.status = 'retired'
+  } else {
+    Object.assign(update, { x: body.x, y: body.y, frame: 'gtadb_world', placement_method: 'hitl_manual', accuracy_radius_m: 50 })
+  }
+  const newStatus = (update.status as string | undefined) ?? marker.status
 
   const { error } = await sb
     .from('map_markers')
@@ -72,11 +94,11 @@ export async function POST(
 
   await sb.from('audit_log').insert({
     agent_id: 'dsx-hitl-dashboard',
-    action: action === 'approve' ? 'map_marker_approved' : 'map_marker_retired',
+    action: `map_marker_${action === 'approve' ? 'approved' : action === 'retire' ? 'retired' : action === 'reject' ? 'rejected' : 'moved'}`,
     marker_id: id,
-    result: 'success',
+    result: action === 'move' ? `success: moved to ${body.x},${body.y}` : `success: ${newStatus}`,
     error: null,
   })
 
-  return NextResponse.json({ success: true, marker_id: id, action, status: newStatus })
+  return NextResponse.json({ success: true, marker_id: id, action, status: newStatus, x: body.x, y: body.y })
 }

@@ -1,4 +1,9 @@
 providers = ["python"]
 
+[phases.setup]
+# git: gtadb watcher (blob-less clone of rolux/gtadb.org)
+# glib: shared lib opencv-python-headless loads
+nixPkgs = ["...", "git", "glib"]
+
 [phases.build]
 cmds = []

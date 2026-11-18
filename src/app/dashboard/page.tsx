@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase-browser'
 import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { soundManager, SoundEvents } from '@/lib/sounds'
 import { UTILITY_PAGE_SLUGS } from '@/lib/article-utils'
+import { MapPipelineCard } from '@/components/dashboard/MapPipelineCard'
 
 interface Stats {
   published: number
@@ -166,6 +167,8 @@ export default function DashboardOverview() {
             </a>
           </div>
         </div>
+
+        <MapPipelineCard />
 
         {/* Site health + traffic */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
