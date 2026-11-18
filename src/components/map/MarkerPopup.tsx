@@ -32,6 +32,7 @@ interface MarkerPopupProps {
 }
 
 export function MarkerPopup({ marker }: MarkerPopupProps) {
+  const gtadb = marker.source_type === 'gtadb_import'
   const color = CATEGORY_COLORS[marker.category] ?? '#ffffff'
   const label = CATEGORY_LABELS[marker.category] ?? marker.category
 
@@ -60,7 +61,23 @@ export function MarkerPopup({ marker }: MarkerPopupProps) {
         {marker.name}
       </h3>
 
-      {marker.description && (
+      {gtadb && (
+        <div style={{ margin: '0 0 6px' }}>
+          <span title={marker.attribution ?? 'GTA VI Landmarks Data (CC BY 4.0)'} style={{
+            fontSize: 9, padding: '2px 6px', background: '#5a96ff18', color: '#5a96ff', borderRadius: 4,
+            fontFamily: 'JetBrains Mono, monospace',
+          }}>
+            Community-mapped (gtadb)
+          </span>
+          <a href="https://map.gtadb.org" target="_blank" rel="noopener noreferrer"
+            style={{ marginLeft: 6, fontSize: 9, color: '#5a5270', fontFamily: 'JetBrains Mono, monospace' }}>
+            gtadb.org · CC BY 4.0
+          </a>
+        </div>
+      )}
+
+      {/* gtadb descriptions are raw tag lists ("gtadb tags: ..."), not prose */}
+      {marker.description && !gtadb && (
         <p style={{ margin: '0 0 8px', fontSize: 11, color: '#9b94b8', lineHeight: 1.5 }}>
           {marker.description}
         </p>

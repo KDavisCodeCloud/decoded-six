@@ -9,7 +9,7 @@ Rules (Kelvin's spec, 2026-11-18):
   - positioned records only; nothing without in-game coordinates is invented
   - photos skipped entirely
   - source_type='gtadb_import', license='CC BY 4.0', game_version='pre_launch',
-    status='approved' (gazetteer, NOT on the public map), placement_method='import'
+    status='published' when named (public, 'Community-mapped (gtadb)' badge), 'approved' for unnamed buildings (gazetteer only, NOT on the public map), placement_method='import'
   - upsert on the gtadb record ID (external_ref, e.g. 'L1')
 
 County: gtadb has no county polygons. A record gets a county only when its own
@@ -65,6 +65,11 @@ TAG_CATEGORY = [
 def visible_tags(tags: list[str]) -> list[str]:
     """gtadb's own public filter: drop //editor-notes and L<n> layer tags."""
     return [t for t in tags if not t.startswith("//") and not (t[:1] in "lL" and t[1:].isdigit())]
+
+
+# every category the import produces; named records in these are public
+PUBLIC_CATEGORIES = {"landmark", "store", "fuel_station", "fence", "police_station", "safehouse",
+                     "hospital", "clothing", "gym", "street_race"}
 
 
 def category_for(tags: list[str]) -> str:
@@ -126,7 +131,9 @@ def build_rows(records: dict, sha: str) -> list[dict]:
             "frame": "gtadb_world",
             "coordinates": {},
             "county": explicit_county(address) or by_area.get(parts[-1]),
-            "status": "approved",
+            # Kelvin 2026-11-18: named gtadb places are public ("Community-mapped (gtadb)");
+            # unnamed buildings stay internal (scraper gazetteer only)
+            "status": "published" if name and not name.startswith("Unnamed ") and category_for(tags) in PUBLIC_CATEGORIES else "approved",
             "verified": False,
             "placement_method": "import",
             "game_version": "pre_launch",

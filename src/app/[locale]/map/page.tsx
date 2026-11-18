@@ -23,14 +23,30 @@ export async function generateMetadata(): Promise<Metadata> {
 // map_layers is read per request (RLS: enabled rows only), so pulling a layer
 // -- e.g. UPDATE map_layers SET enabled = false WHERE id = 'community' -- takes
 // effect without a redeploy.
-async function getMapData() {
-  const [{ data: markers }, { data: areas }, { data: layers }] = await Promise.all([
-    supabase
+// published (staff + named gtadb places) + community_reported (scraper
+// auto-publish) + verified. ~950 rows at launch and growing, so page past
+// PostgREST's 1000-row cap.
+async function getPublicMarkers(): Promise<{ data: MapMarker[] }> {
+  const PAGE = 1000
+  const out: MapMarker[] = []
+  for (let from = 0; from < 20000; from += PAGE) {
+    const { data, error } = await supabase
       .from('map_markers')
       .select('*')
-      // published (staff) + community_reported (scraper auto-publish) + verified
       .in('status', [...PUBLIC_MARKER_STATUSES])
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`map markers page ${from}: ${error.message}`)
+    out.push(...((data as MapMarker[] | null) ?? []))
+    if (!data || data.length < PAGE) break
+  }
+  return { data: out }
+}
+
+async function getMapData() {
+  const [{ data: markers }, { data: areas }, { data: layers }] = await Promise.all([
+    getPublicMarkers(),
     supabase
       .from('map_areas')
       .select('*')

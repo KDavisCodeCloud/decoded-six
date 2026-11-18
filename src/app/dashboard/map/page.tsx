@@ -21,20 +21,33 @@ function serviceClient() {
   )
 }
 
+async function getPublishedGtadb(sb: ReturnType<typeof serviceClient>): Promise<MapMarker[]> {
+  const out: MapMarker[] = []
+  for (let from = 0; from < 10000; from += 1000) {
+    const { data } = await sb.from('map_markers').select('*')
+      .eq('source_type', 'gtadb_import').eq('status', 'published')
+      .order('id').range(from, from + 999)
+    out.push(...((data as MapMarker[] | null) ?? []))
+    if (!data || data.length < 1000) break
+  }
+  return out
+}
+
 async function getAllMapData() {
   const sb = serviceClient()
-  const [{ data: markers }, { data: areas }, { data: layers }] = await Promise.all([
-    // the 3,340 gtadb_import rows are the scraper's gazetteer, not pins to
-    // review -- keep them out (they'd also blow past PostgREST's 1000-row cap)
+  const [{ data: markers }, gtadbPublic, { data: areas }, { data: layers }] = await Promise.all([
+    // unnamed gtadb buildings (~2,400) are the scraper's gazetteer, not pins -- keep them out
     sb.from('map_markers').select('*')
       .or('source_type.is.null,source_type.neq.gtadb_import')
       .order('created_at', { ascending: false }).limit(1000),
+    // named gtadb places are public (036): show them so this view matches /map
+    getPublishedGtadb(sb),
     sb.from('map_areas').select('*').order('name', { ascending: true }),
     // same enabled-only set the public map gets, so the preview matches it
     sb.from('map_layers').select('*').eq('enabled', true).order('sort_order', { ascending: true }),
   ])
   return {
-    markers: (markers as MapMarker[] | null) ?? [],
+    markers: [...((markers as MapMarker[] | null) ?? []), ...gtadbPublic],
     areas: (areas as MapArea[] | null) ?? [],
     layers: (layers as MapLayer[] | null) ?? [],
   }

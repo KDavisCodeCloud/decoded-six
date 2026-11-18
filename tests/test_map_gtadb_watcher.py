@@ -38,4 +38,6 @@ def test_import_skips_nothing_it_was_given_and_never_invents_positions():
     rows = imp.build_rows(recs, "8b1dc4f06")
     assert [(r["x"], r["y"]) for r in rows] == [(10.0, 20.0), (1.0, 2.0)]
     assert rows[1]["name"] == "Unnamed gas" and rows[1]["county"] == "Mariana"
-    assert all(r["status"] == "approved" and r["source_type"] == "gtadb_import" for r in rows)
+    assert all(r["source_type"] == "gtadb_import" for r in rows)
+    # named places are public (Kelvin 2026-11-18); unnamed buildings stay internal
+    assert [r["status"] for r in rows] == ["published", "approved"]
