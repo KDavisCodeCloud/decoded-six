@@ -16,15 +16,15 @@ export const MAP_CATEGORIES: MapCategory[] = [
   { key: 'money_spot',     label: 'Money Spots',      group: 'Money',        color: '#3fd17a' },
   { key: 'heist',          label: 'Heists',           group: 'Money',        color: '#f5a623' },
   { key: 'fence',          label: 'Fences',           group: 'Money',        color: '#c9e265' },
-  { key: 'daily_location', label: 'Daily',            group: 'Money',        color: '#3fd17a' },
+  { key: 'daily_location', label: 'Daily',            group: 'Money',        color: '#00c2a8' },
 
   { key: 'fuel_station',   label: 'Gas Stations',     group: 'Services',     color: '#ff8a3d' },
   { key: 'store',          label: 'Stores',           group: 'Services',     color: '#7fb2ff' },
   { key: 'clothing',       label: 'Clothing',         group: 'Services',     color: '#b07cff' },
   { key: 'gym',            label: 'Gyms',             group: 'Services',     color: '#ff5d5d' },
   { key: 'safehouse',      label: 'Safehouses',       group: 'Services',     color: '#e0c36a' },
-  { key: 'property',       label: 'Properties',       group: 'Services',     color: '#C8A84B' },
-  { key: 'hospital',       label: 'Hospitals',        group: 'Services',     color: '#5ee6d0' },
+  { key: 'property',       label: 'Properties',       group: 'Services',     color: '#a47148' },
+  { key: 'hospital',       label: 'Hospitals',        group: 'Services',     color: '#f4f4f8' },
   { key: 'police_station', label: 'Police',           group: 'Services',     color: '#2f6fe6' },
 
   { key: 'mission_start',  label: 'Missions',         group: 'Activities',   color: '#FF2D6B' },
@@ -54,3 +54,14 @@ export const CATEGORY_COLOR_BY_KEY: Record<string, string> = Object.fromEntries(
 
 /** Statuses visible on the public map (RLS policy public_read_published_markers, migration 031). */
 export const PUBLIC_MARKER_STATUSES = ['published', 'community_reported', 'verified'] as const
+
+/**
+ * Scraper pins placed from a place name (gazetteer) rather than a map
+ * screenshot or a staff drag: shown with an "Approximate location" badge and
+ * a dashed accuracy circle. A screenshot match or a staff move clears it.
+ */
+export function isApproximate(m: { source_type?: string | null; placement_method?: string | null; accuracy_radius_m?: number | string | null }): boolean {
+  return m.source_type === 'scraper'
+    && m.placement_method !== 'screenshot_match' && m.placement_method !== 'hitl_manual'
+    && Number(m.accuracy_radius_m ?? 0) > 25
+}

@@ -71,11 +71,9 @@ def test_two_reddit_users_with_screenshots_can_now_auto_publish():
 
 
 # --------------------------------------------------------- confidence/route
-def test_single_source_never_auto_publishes():
+def test_single_placed_source_publishes_without_hitl():
     s = [ev("reddit", "u1", "reddit.com", 0, 0, 25)]
-    c = rules.confidence(s, "screenshot_match")
-    assert c < rules.AUTO_PUBLISH_MIN_CONFIDENCE
-    assert rules.route(c, s, placed=True) == "pending"
+    assert rules.route(rules.confidence(s, "screenshot_match"), s, placed=True) == "community_reported"
 
 
 def test_two_independent_with_screenshot_auto_publishes_as_community_reported():
@@ -92,19 +90,22 @@ def test_three_independent_promotes_to_verified():
     assert rules.route(c, s, placed=True) == "verified"
 
 
-def test_editorial_only_can_never_auto_publish_even_at_high_confidence():
-    s = [ev("editorial", "powerpyx", "powerpyx.com", 0, 0, 25), ev("editorial", "gamespot", "gamespot.com", 0, 0, 25),
-         ev("editorial", "ign", "ign.com", 0, 0, 25)]
-    c = rules.confidence(s, "screenshot_match")
-    assert c >= 0.85
-    assert rules.route(c, s, placed=True) == "pending"
+def test_a_single_guide_article_publishes():
+    s = [ev("editorial", "powerpyx", "powerpyx.com", 0, 0, 150)]
+    assert rules.route(rules.confidence(s, "gazetteer_landmark"), s, placed=True) == "community_reported"
+
+
+def test_screenshot_plus_second_source_is_verified():
+    a = Evidence("reddit", "https://r/1", "reddit.com", "u1", 0, 0, 25, "screenshot_match")
+    b = ev("youtube", "chanA", "youtube.com", 10, 0, 150)
+    assert rules.route(0.9, [a, b], placed=True) == "verified"
 
 
 def test_low_confidence_is_held_and_unplaced_goes_to_hitl():
     s = [ev("reddit", "u1", "reddit.com")]
     c = rules.confidence(s, None)
     assert c < 0.5
-    assert rules.route(c, s, placed=True) == "held"
+    assert rules.route(c, s, placed=True) == "community_reported"   # no held tier any more
     assert rules.route(c, s, placed=False) == "pending"   # "needs placement"
 
 

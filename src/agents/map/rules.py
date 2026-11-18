@@ -13,9 +13,10 @@ Hard rules (Kelvin's map spec, 2026-11-18):
     (matched on id or display name), crossposts/reposts of one piece of
     content, and replies inside one thread.
   - Dedup: same category within max(radius_a, radius_b) meters -> merge.
-  - Auto-publish (community_reported): confidence >= 0.85, >= 2 independent
-    sources, >= 1 non-editorial. 0.5-0.85 -> HITL. < 0.5 -> held.
-    >= 3 independent sources -> verified.
+  - Publishing (Kelvin, 2026-11-18, supersedes the confidence gates): no
+    HITL for map pins -- anything placed is published as community_reported;
+    3+ independent sources (or screenshot + 1 more) -> verified; unplaced ->
+    pending ("needs placement"). See route().
 """
 
 from __future__ import annotations
@@ -176,19 +177,26 @@ def confidence(sources: list[Evidence], placement: Optional[str]) -> float:
 
 
 def route(conf: float, sources: list[Evidence], placed: bool, current_status: Optional[str] = None) -> str:
-    """Target status for a scraped marker. Never downgrades a public/terminal status."""
+    """Target status for a scraped marker. Never downgrades a public/terminal status.
+
+    Kelvin, 2026-11-18: no HITL for map pins. Every claim we can place goes
+    straight onto the public map ('community_reported'), from any source
+    including a single guide article. Pins placed by name carry an
+    'Approximate location' badge + radius circle on the map. Verified = 3+
+    independent sources, or a screenshot match plus a second independent
+    source. Only claims we cannot place wait in the dashboard ('pending' =
+    needs placement). conf is still stored and shown; it no longer gates.
+    """
     if current_status in ("rejected", "retired"):
         return current_status            # rejections are remembered
     n = independent_count(sources)
     if not placed:
-        target = "pending"               # "needs placement" HITL item
-    elif (conf >= AUTO_PUBLISH_MIN_CONFIDENCE and n >= AUTO_PUBLISH_MIN_INDEPENDENT
-          and has_non_editorial(sources)):
-        target = "verified" if n >= VERIFIED_MIN_INDEPENDENT else "community_reported"
-    elif conf >= QUEUE_MIN_CONFIDENCE:
-        target = "pending"
+        target = "pending"               # "needs placement"
+    elif n >= VERIFIED_MIN_INDEPENDENT or (
+            n >= 2 and any(s.placement_method == "screenshot_match" for s in sources)):
+        target = "verified"
     else:
-        target = "held"
+        target = "community_reported"
     rank = {"held": 0, "pending": 1, "community_reported": 2, "published": 3, "verified": 3}
     if current_status in rank and rank[current_status] > rank.get(target, 0):
         return current_status

@@ -138,7 +138,7 @@ Then stop and wait.
 - product_id on every table (product_id = 'decodedsix')
 - Every agent action writes to audit_log table
 - DataSanitizationShield before any LLM call
-- HITL approval before any content publishes
+- HITL approval before any content publishes (exception, Kelvin 2026-11-18: map pins publish without HITL -- any scraper claim we can place goes live as community_reported, name-placed pins labelled "Approximate location"; see route() in src/agents/map/rules.py)
 - FAQs NEVER count toward any article's word count — body only, every article, no exceptions. Use `_body_word_count()`; never reimplement a raw word count. Full rule above.
 - Copyright/trademark check before any publish
 - Rockstar trailer stills, screenshots, and official press art ARE permitted — editorial/news-reporting use, same basis every GTA fan/news site operates on (Fandom, gta6map.io, gtabase.com, Rockstar Intel). Every image must carry a visible source credit every time (e.g. "Screenshot: GTA 6 Trailer 2 © Rockstar Games") — never uncredited, never presented as our own art. Full tier system + exact caption rules: docs/VISUAL_STRATEGY.md. This is an editorial fair-use judgment call, not a confirmed license from Rockstar — revisit if the site's scale or a takedown notice changes the risk calculus.

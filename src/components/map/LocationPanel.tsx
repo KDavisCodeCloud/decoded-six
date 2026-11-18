@@ -2,6 +2,7 @@
 
 import type { MapMarker } from '@/lib/types'
 import { CATEGORY_COLORS, CATEGORY_LABELS } from './MarkerPopup'
+import { isApproximate } from '@/lib/map-categories'
 
 export const STATUS_COLORS: Record<string, string> = {
   pending: '#f5a623',
@@ -88,6 +89,19 @@ export function LocationPanel({
                   verified
                 </span>
               )}
+              {marker.source_type === 'gtadb_import' && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-ice/10 text-ice font-mono"
+                  title={marker.attribution ?? 'GTA VI Landmarks Data (CC BY 4.0)'}>
+                  Community-mapped (gtadb)
+                </span>
+              )}
+              {isApproximate(marker) && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                  style={{ background: '#f5a62318', color: '#f5a623' }}
+                  title={`Placed from the place name in the source, within about ${Math.round(Number(marker.accuracy_radius_m))} m`}>
+                  Approximate location · ±{Math.round(Number(marker.accuracy_radius_m))} m
+                </span>
+              )}
               {showAllStatuses && (
                 <span
                   className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase"
@@ -109,8 +123,15 @@ export function LocationPanel({
 
           <h2 className="font-heading font-bold text-bright text-lg mb-2">{marker.name}</h2>
 
-          {marker.description && (
+          {/* gtadb descriptions are raw tag lists, not prose */}
+          {marker.description && marker.source_type !== 'gtadb_import' && (
             <p className="text-quiet text-sm leading-relaxed mb-4">{marker.description}</p>
+          )}
+          {marker.source_type === 'gtadb_import' && (
+            <a href="https://map.gtadb.org" target="_blank" rel="noopener noreferrer"
+              className="block text-[10px] font-mono text-whisper hover:text-quiet mb-3">
+              Location: GTA VI Landmarks Data · gtadb.org · CC BY 4.0
+            </a>
           )}
 
           <div className="flex flex-wrap gap-3 text-xs font-mono mb-4">
