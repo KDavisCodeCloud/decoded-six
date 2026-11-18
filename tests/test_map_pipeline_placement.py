@@ -96,7 +96,7 @@ def test_extraction_drops_unquoted_hint_copied_anchors_and_generic_claims():
 def test_city_label_is_not_a_landmark_and_wide_areas_are_not_districts():
     from src.agents.map.placement import Gazetteer
     rows = [{"name": "Vice City", "area_name": "Vice City, Vice-Dale County", "x": 0, "y": 0}]
-    rows += [{"name": f"Shop {i}", "area_name": "Vice City", "x": i * 900, "y": i * 700} for i in range(-4, 5)]
+    rows += [{"name": f"Shop {i}", "area_name": "Vice City", "x": i * 600, "y": i * 450} for i in range(-4, 5)]  # ~1.4 km RMS
     rows += [{"name": f"Bar {i}", "area_name": "Little Cuba", "x": 100 + i * 50, "y": 200} for i in range(4)]
     g = Gazetteer.from_rows(rows)
     assert g.lookup("Vice City") is None              # label point + spread-out "area" -> neither

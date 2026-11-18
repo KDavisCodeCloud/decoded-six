@@ -574,8 +574,11 @@ def _process_item(run: Run, sb: Any, ai: Any, fetcher: Fetcher, it: SourceItem, 
         run.drop("no_publish_date")
         return "dropped:no_publish_date", []
     # 3. GTA Online blackout + cheap location signal before spending a model call
-    # "#gtaonline" hashtag spam on GTA 6 Shorts is not GTA Online content
-    if _ONLINE.search(_HASHTAG.sub(" ", f"{it.title} {it.text}")):
+    # "#gtaonline" hashtag spam on GTA 6 Shorts is not GTA Online content, and YouTube
+    # descriptions carry channel boilerplate ("my GTA Online playlist") -- for YouTube
+    # only the title decides here; claims are re-checked individually after extraction
+    online_text = it.title if it.source_kind == "youtube" else f"{it.title} {it.text}"
+    if _ONLINE.search(_HASHTAG.sub(" ", online_text)):
         run.drop("gta_online")
         return "dropped:gta_online", []
     body = it.text

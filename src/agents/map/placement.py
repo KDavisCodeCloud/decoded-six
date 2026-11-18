@@ -231,7 +231,7 @@ class GazEntry:
     kind: str                   # landmark | district
 
 
-MAX_DISTRICT_SPREAD_M = 1500     # RMS spread; wider areas are towns/regions, not districts
+MAX_DISTRICT_SPREAD_M = 1000     # RMS spread; wider areas (Vice City ~1.4 km) are towns, not districts
 
 
 class Gazetteer:
