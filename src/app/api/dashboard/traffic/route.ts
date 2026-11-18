@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { dashboardUser } from '@/lib/dashboard-auth'
 
 function getAdminClient() {
   return createClient(
@@ -18,6 +19,8 @@ function getAdminClient() {
 const TRACKING_STARTED = '2026-09-14'
 
 export async function GET() {
+  // Service-role read of visitor data: dashboard login required.
+  if (!(await dashboardUser())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = getAdminClient()
   const now = new Date()
   const todayStart = new Date(now)
