@@ -16,7 +16,9 @@ log = logging.getLogger(__name__)
 
 def run_fetch_cycle(sb: Any) -> dict[str, int]:
     """Returns {source_name: new_item_count} for reporting."""
-    sources = sb.table("discovery_sources").select("*").eq("active", True).execute().data or []
+    # purpose='map' rows (migration 031) belong to the map scraper, not here
+    sources = (sb.table("discovery_sources").select("*").eq("active", True)
+               .eq("purpose", "content").execute().data or [])
 
     counts: dict[str, int] = {}
     seen_urls_this_run: set[str] = set()
