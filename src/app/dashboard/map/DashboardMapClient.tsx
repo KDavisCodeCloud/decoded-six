@@ -60,7 +60,7 @@ export function DashboardMapClient({ markers: initialMarkers, areas, layers, lin
         <div>
           <h1 className="font-pricedown text-gta-gold text-3xl leading-none">MAP CONTROL</h1>
           <p className="text-quiet text-sm mt-1">
-            {markers.length} total markers across every status
+            {markers.length} total markers across every status · pin colour = category, outer ring = status
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">

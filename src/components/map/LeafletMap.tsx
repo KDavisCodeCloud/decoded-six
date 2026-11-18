@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -13,6 +13,7 @@ import { AreaLabels } from './AreaLabels'
 import { GTADB_FRAME, metersToLatLng, layerBounds, orderLayers, type MapLayer } from '@/lib/map-layers'
 import { GTADB_CRS } from '@/lib/map-crs'
 import { CATEGORY_COLORS } from './MarkerPopup'
+import { isApproximate } from '@/lib/map-categories'
 import { LocationPanel, STATUS_COLORS } from './LocationPanel'
 import { AreaOverlay } from './AreaOverlay'
 import { CategoryFilter } from './CategoryFilter'
@@ -47,15 +48,19 @@ export type PickedPoint = { lat: number; lng: number } | { x: number; y: number;
 const TILT_ZOOM_THRESHOLD: Record<MapMode, number> = { meters: 1, tiles: 1, world: 11 }
 const FOCUS_ZOOM: Record<MapMode, number> = { meters: 3, tiles: 4, world: 14 }
 
-function createMarkerIcon(color: string) {
+// Fill = what the pin IS (category colour, same on every map). In the
+// dashboard (showAllStatuses) the outer ring carries the review status, so
+// status never repaints the category.
+function createMarkerIcon(color: string, ring?: string) {
+  const outer = ring ?? color
   return L.divIcon({
     className: '',
-    // dark ring keeps light category colours readable on gtadb's light streets
+    // dark gap keeps light category colours readable on gtadb's light streets
     html: `<div style="
       width:12px;height:12px;border-radius:50%;
       background:${color};
       border:2px solid #070910;
-      box-shadow:0 0 0 1.5px ${color}, 0 0 8px ${color}99;
+      box-shadow:0 0 0 ${ring ? 2.5 : 1.5}px ${outer}, 0 0 8px ${color}99;
     "></div>`,
     iconSize: [12, 12],
     iconAnchor: [6, 6],
@@ -417,19 +422,28 @@ export function LeafletMap({
               disableClusteringAtZoom={mode === 'world' ? 16 : mode === 'meters' ? 4 : 5}
             >
               {visible.map(marker => {
-                const color = showAllStatuses
-                  ? STATUS_COLORS[marker.status] ?? '#9b94b8'
-                  : CATEGORY_COLORS[marker.category] ?? '#9b94b8'
+                const color = CATEGORY_COLORS[marker.category] ?? '#9b94b8'
+                const ring = showAllStatuses ? STATUS_COLORS[marker.status] ?? '#9b94b8' : undefined
                 return (
                   <Marker
                     key={marker.id}
                     position={markerPosition(marker, mode)!}
-                    icon={createMarkerIcon(color)}
+                    icon={createMarkerIcon(color, ring)}
                     eventHandlers={{ click: () => openMarker(marker) }}
                   />
                 )
               })}
             </MarkerClusterGroup>
+
+            {/* approximate pins: dashed accuracy circle for the open marker (meters CRS: radius is in meters) */}
+            {mode === 'meters' && selectedMarker && isApproximate(selectedMarker) && markerPosition(selectedMarker, mode) && (
+              <Circle
+                center={markerPosition(selectedMarker, mode)!}
+                radius={Number(selectedMarker.accuracy_radius_m)}
+                pathOptions={{ color: '#f5a623', weight: 1.5, dashArray: '6 6', fillColor: '#f5a623', fillOpacity: 0.08 }}
+                interactive={false}
+              />
+            )}
           </MapContainer>
         </div>
 
