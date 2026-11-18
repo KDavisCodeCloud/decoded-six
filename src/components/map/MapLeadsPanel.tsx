@@ -88,7 +88,7 @@ export function MapLeadsPanel({ initial }: { initial: MapLead[] }) {
         )}
         <p className="text-[11px] text-whisper">
           Each scraper cycle searches open leads first. A lead is never a source: it can&apos;t place or publish a pin.
-          Pins that real sources produce for a lead go to the top of the pin queue.
+          Pins that real sources produce for a lead go straight onto the map.
         </p>
       </div>
 
@@ -120,7 +120,7 @@ export function MapLeadsPanel({ initial }: { initial: MapLead[] }) {
                       )}
                       {l.area && <span className="text-whisper">{l.area}</span>}
                       <span className="text-whisper">searched {l.search_count}× · {ago(l.last_searched_at)}</span>
-                      {l.matched_marker_ids.length > 0 && <span className="text-[#3fd17a]">{l.matched_marker_ids.length} pin{l.matched_marker_ids.length === 1 ? '' : 's'} in queue</span>}
+                      {l.matched_marker_ids.length > 0 && <span className="text-[#3fd17a]">{l.matched_marker_ids.length} pin{l.matched_marker_ids.length === 1 ? '' : 's'} found</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

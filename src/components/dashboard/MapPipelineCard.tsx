@@ -66,7 +66,7 @@ export function MapPipelineCard() {
       {data && (
         <>
           <div className="grid grid-cols-3 gap-3 my-3 text-center">
-            {([['LIVE PINS', data.queue.live, '#3fd17a'], ['HITL QUEUE', data.queue.pending, '#f5a623'], ['HELD', data.queue.held, '#9b94b8']] as const).map(([l, v, c]) => (
+            {([['LIVE PINS', data.queue.live, '#3fd17a'], ['UNPLACED', data.queue.pending, '#f5a623'], ['HELD', data.queue.held, '#9b94b8']] as const).map(([l, v, c]) => (
               <div key={l}>
                 <div className="font-pricedown text-3xl" style={{ color: c }}>{v}</div>
                 <div className="text-[10px] text-whisper tracking-widest">{l}</div>
