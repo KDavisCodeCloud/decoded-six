@@ -11,7 +11,12 @@
 //     [--set "yanis,18"] [--prefix gtadb-yanis-v18] [--layer community] \
 //     [--mask-east-of 3800] [--dry-run]
 //
-// --mask-east-of <m>: gtadb's poster tiles carry a legend/credits panel east
+// The legend-panel trim is PERMANENT and ON BY DEFAULT for every gtadb
+// import (Kelvin, 2026-11-18); there is deliberately no flag to turn it off.
+// --mask-east-of only moves the cut, for a future set whose panel sits
+// elsewhere -- check that set's tiles before uploading (--dry-run).
+//
+// --mask-east-of <m> (default 3800): gtadb's poster tiles carry a legend/credits panel east
 // of the map (yanis,18: x = 4000..10000 m) that includes a "frames reference"
 // grid of Rockstar trailer stills. We never serve it: tiles wholly east of
 // the cut are dropped (and deleted from storage if already uploaded), tiles
@@ -32,9 +37,10 @@ const BUCKET = 'map-tiles';
 const CONCURRENCY = 4;
 const WORLD_HALF_M = 16384;
 const OCEAN = { r: 44, g: 103, b: 164 };   // yanis ocean fill
+const DEFAULT_MASK_EAST_OF_M = 3800;      // legend panel trim, always applied
 
 function parseArgs(argv) {
-  const a = { set: 'yanis,18', prefix: 'gtadb-yanis-v18', layer: 'community', dryRun: false, maskEastOf: null };
+  const a = { set: 'yanis,18', prefix: 'gtadb-yanis-v18', layer: 'community', dryRun: false, maskEastOf: DEFAULT_MASK_EAST_OF_M };
   const pos = [];
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--set') a.set = argv[++i];
@@ -42,6 +48,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--layer') a.layer = argv[++i];
     else if (argv[i] === '--dry-run') a.dryRun = true;
     else if (argv[i] === '--mask-east-of') a.maskEastOf = Number(argv[++i]);
+    else if (argv[i].startsWith('--')) throw new Error(`unknown flag ${argv[i]}`);
     else pos.push(argv[i]);
   }
   a.repo = pos[0];
@@ -111,6 +118,9 @@ async function uploadOne(sb, prefix, t) {
 
 async function main() {
   const a = parseArgs(process.argv.slice(2));
+  if (!Number.isFinite(a.maskEastOf) || a.maskEastOf > WORLD_HALF_M) {
+    throw new Error('--mask-east-of must be a meter value inside the world; the legend panel trim cannot be disabled');
+  }
   if (!a.repo) throw new Error('usage: upload_gtadb_tiles.mjs <gtadb-clone> [--set "yanis,18"] [--prefix ...] [--dry-run]');
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
