@@ -3,8 +3,7 @@ providers = ["python"]
 [phases.setup]
 # git: gtadb watcher (blob-less clone of rolux/gtadb.org)
 # glib: shared lib opencv-python-headless loads
-# deno: yt-dlp needs a JS runtime for YouTube (deno is its default)
-nixPkgs = ["...", "git", "glib", "deno"]
+nixPkgs = ["...", "git", "glib"]
 
 [phases.build]
 cmds = []
