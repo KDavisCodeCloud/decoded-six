@@ -4,8 +4,11 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Only our own /public images go through next/image (Header logo, palm
+  // silhouette). The old hostname '**' let any site use our optimizer and
+  // burn the Hobby plan's 5,000 transformations/month.
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: [],
   },
   // Google Search Console 404 cleanup (2026-10-01). These six URLs were all
   // reported as "Not found (404)" with validation failing since 9/14.
