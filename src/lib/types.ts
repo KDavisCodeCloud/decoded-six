@@ -87,6 +87,7 @@ export interface MapMarker {
     | 'side_activity' | 'street_race' | 'random_event'
     | 'nightclub' | 'bar' | 'fire_station' | 'liquor_store' | 'fast_food' | 'electronics' | 'convenience_store'
     | 'barber' | 'tattoo' | 'mod_shop'
+    | 'ammunation' | 'shoe_store' | 'pharmacy' | 'atm' | 'car_wash' | 'ev_charger' | 'vehicle_dealer' | 'vehicle_rental' | 'marina' | 'bus_stop' | 'train_station' | 'airport' | 'restaurant' | 'sports' | 'attraction' | 'hotel' | 'government' | 'nature' | 'residential' | 'infrastructure' | 'fishing_spot' | 'stunt_jump'
   coordinates: { lat: number; lng: number }
   area_name: string | null
   payout_per_hour: number | null

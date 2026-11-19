@@ -40,7 +40,16 @@ COUNTIES = ("Mariana", "Vice-Dale", "Kelly", "Leonard", "Lummox")
 # gtadb positions are a pre-launch reconstruction, not surveyed points
 IMPORT_RADIUS_M = 75
 
-# gtadb tag -> our category (first match wins; default 'landmark').
+# What a "landmark" is (Kelvin 2026-11-19 -- not everything can be a landmark):
+#   A LANDMARK is a NAMED place people recognise and navigate by, that isn't
+#   a service you use: monuments, signs, murals, iconic buildings and towers,
+#   named bridges and causeways, plazas, piers. If a place DOES something for
+#   the player (sells, fuels, repairs, transports, hosts an activity) it goes
+#   in that category. Generic structures ("Bridge", "Parking Lot", "Cell
+#   Tower", "Turn 9C") are Infrastructure; lakes/rivers/islands are Nature;
+#   homes and office towers are Residences & Offices.
+#
+# Order: specific '#' tags -> in-game name -> gtadb's broad tags -> landmark.
 # #gas first: a 24/7 or LTD with pumps is a gas station, not a convenience store.
 TAG_CATEGORY = [
     ("#gas", "fuel_station"),
@@ -52,19 +61,39 @@ TAG_CATEGORY = [
     ("fastfood", "fast_food"),
     ("#electronics", "electronics"),
     ("#clothes", "clothing"),
+    ("#shoes", "shoe_store"),
     ("#fence", "fence"),
+    ("fence", "fence"),
     ("#safehouse", "safehouse"),
     ("#hospital", "hospital"),
+    ("#pharmacy", "pharmacy"),
     ("#police", "police_station"),
     ("#jail", "police_station"),
     ("#racetrack", "street_race"),
-    ("#guns", "store"),
+    ("#guns", "ammunation"),
     ("#supermarket", "store"),
     ("supermarket", "store"),
     ("#hair", "barber"),
     ("#tattoos", "tattoo"),
     ("#modshop", "mod_shop"),
     ("#pay'n'spray", "mod_shop"),
+    ("#carwash", "car_wash"),
+    ("#bikeshop", "vehicle_dealer"),
+    ("#marina", "marina"),
+    ("#bus", "bus_stop"),
+    ("#train", "train_station"),
+    ("#metro", "train_station"),
+    ("#metromover", "train_station"),
+    ("#airport", "airport"),
+    ("#airbase", "airport"),
+    ("#tennis", "sports"),
+    ("#golf", "sports"),
+    ("#volleyball", "sports"),
+    ("#ferriswheel", "attraction"),
+    ("#cinema", "attraction"),
+    ("#blimp", "attraction"),
+    ("#food", "restaurant"),
+    ("#drinks", "bar"),
     ("#vendor", "store"),
     ("#gym", "gym"),
 ]
@@ -79,15 +108,36 @@ def visible_tags(tags: list[str]) -> list[str]:
 PUBLIC_CATEGORIES = {"landmark", "store", "fuel_station", "fence", "police_station", "safehouse",
                      "hospital", "clothing", "gym", "street_race",
                      "nightclub", "bar", "fire_station", "liquor_store", "fast_food", "electronics",
-                     "convenience_store", "barber", "tattoo", "mod_shop"}
+                     "convenience_store", "barber", "tattoo", "mod_shop",
+                     # 041
+                     "ammunation", "shoe_store", "pharmacy", "atm", "car_wash", "ev_charger",
+                     "vehicle_dealer", "vehicle_rental", "marina", "bus_stop", "train_station", "airport",
+                     "restaurant", "sports", "attraction", "hotel", "government", "nature",
+                     "residential", "infrastructure"}
 
+# A bare structure/feature word as the whole name is never a landmark.
+GENERIC_INFRA = re.compile(
+    r"^(foot|train|rail(road)?|draw|swing)? ?(bridge|tunnel|overpass|underpass|flyover)s?( \(?\d+\)?)?$"
+    r"|^parking( lot| garage| structure)?s?( \(?\d+\)?)?$|^(container )?crane( #?\(?\d+\)?)?$|^cell tower"
+    r"|^(water |storage |oil |fuel )?tanks?( \(?\d+\)?)?$|^turn \d+\w*$|^\d+\w?$|^fence$|^railyard$|^rail ?yard$"
+    r"|^(power|electrical) ?(station|substation|lines?|plant)$|^substation|^warehouse|^silo|^antenna|^radio tower"
+    r"|^water tower|^smokestack|^chimney|^pylon|^billboard|^construction( site)?$|^scaffold|^dock$|^loading dock"
+    r"|^lifeguard (tower|stand)|^(public )?restrooms?$|^radio mast|^hangars?$|^berths?$|^dam\??$|^breakwater|\bparking garage\b"
+    r"|^gate( building)?$|^riverbank$|^seawall$|^jetty$|\b(water|broadcast|radar|control|radio|cell|transmission) tower\b"
+    r"|\bparking lot\b|^car park$|^interchange$|^dry ?dock$|^(freight|cargo) terminal$"
+    r"|^turn \?$|^tunnel entrance$|^empty lot$|^intersection$|^guard ?(house|booth)$|^lock$"
+    r"|\bsubstation\b|^electrical$|^service gate$|\bshipyard\b|\bdistribution\b|\btunnel$",
+    re.I)
+NATURE = re.compile(r"\b(lake|river|creek|canal|bay|lagoon|swamp|marsh|everglade|island|isle|key|keys|beach|sandbar"
+                    r"|reservoir|waterfall|falls|springs?|forest|woods|mount|mt\.?|hill|ridge|cave|sound|straits?|inlet|reef|glades?)\b", re.I)
 
 # gtadb tags few businesses pre-launch, so the in-game name decides when no tag
-# does (Kelvin 2026-11-18: nightclubs, bars, fire stations, liquor, Burger Shot /
-# Cluckin' Bell, electronics, non-gas convenience stores). Checked after the
-# tags, so '#gas' still wins for an LTD or 24/7 with pumps.
+# does (Kelvin 2026-11-18/19). Checked after the '#' tags, so '#gas' still wins
+# for an LTD or 24/7 with pumps.
 NAME_CATEGORY = [
     (re.compile(r"\b(fire (rescue )?station|fire department|fire rescue)\b", re.I), "fire_station"),
+    (re.compile(r"\b(police (department|station|precinct|hq)|sheriff'?s? (office|department|station)|\bpd\b)", re.I), "police_station"),
+    (re.compile(r"\b(ammu-?nation|gun (shop|store|range)|shooting range)\b", re.I), "ammunation"),
     (re.compile(r"\b(burger ?shot|cluckin'? ?bell|taco bomb|up-n-atom|lucky plucker|pizza this|wigwam)\b", re.I), "fast_food"),
     (re.compile(r"\b(night ?club|strip ?club|disco)\b", re.I), "nightclub"),
     (re.compile(r"\b(liquor|rob'?s liquor|three sheets|wine (shop|store)|spirits)\b", re.I), "liquor_store"),
@@ -95,16 +145,59 @@ NAME_CATEGORY = [
     (re.compile(r"\b(electronics?|digital den)\b", re.I), "electronics"),
     (re.compile(r"\b(barber(shop)?|hair|salon)\b", re.I), "barber"),
     (re.compile(r"\b(tattoos?|ink)\b", re.I), "tattoo"),
-    (re.compile(r"\b(customs|mod ?shop|pay ?'?n'? ?spray|body ?shop|auto ?body)\b", re.I), "mod_shop"),
+    (re.compile(r"\b(customs|mod ?shop|pay ?'?n'? ?spray|body ?shop|auto ?body|tires?|tyres?|auto parts)\b", re.I), "mod_shop"),
+    (re.compile(r"\bgas station\b", re.I), "fuel_station"),
+    (re.compile(r"\bcar ?wash\b", re.I), "car_wash"),
+    (re.compile(r"\b(ev charg\w*|charging station|supercharger)\b", re.I), "ev_charger"),
+    (re.compile(r"\b(dealership|motorsports?|motors|auto sales|car lot|boat sales|bike shop)\b", re.I), "vehicle_dealer"),
+    (re.compile(r"\b(rentals?|rent-a-\w+|car hire)\b", re.I), "vehicle_rental"),
+    (re.compile(r"\b(atm|bank|credit union|fleeca|lombank|maze bank)\b", re.I), "atm"),
+    (re.compile(r"\b(shoes?|sneakers?|footwear|kicks)\b", re.I), "shoe_store"),
+    (re.compile(r"\b(clothing|apparel|fashion|boutique|binco|suburban|ponsonbys)\b", re.I), "clothing"),
+    (re.compile(r"\b(pharmacy|farmacia|drug ?store|apothecary)\b", re.I), "pharmacy"),
     (CONVENIENCE := re.compile(r"(\b24/7\b|\bltd\b|\bconvenience\b|\bmini ?mart\b)", re.I), "convenience_store"),
-    (re.compile(r"^hospital\b|\bmedical center\b", re.I), "hospital"),
+    (re.compile(r"^hospital\b|\bmedical cent(er|re)\b|\b(health )?clinic\b", re.I), "hospital"),
+    (re.compile(r"\b(marina|yacht club|boat (ramp|launch)|harbou?r|sea ?port|cruise terminal)\b", re.I), "marina"),
+    (re.compile(r"\b(bus (stop|station|terminal|depot)|transit center)\b", re.I), "bus_stop"),
+    (re.compile(r"\b((metro|train|rail|metromover) station|metromover|station platform)\b", re.I), "train_station"),
+    (re.compile(r"\b(airport|airfield|airstrip|air ?base|heliport|helipad|seaplane|runway|air hangar|aviation)\b", re.I), "airport"),
+    (re.compile(r"\b(hotel|motel|resort|suites|hostel|inn)\b", re.I), "hotel"),
+    (re.compile(r"\b(restaurant|grill|diner|cafe|café|seafood|steakhouse|bistro|kitchen|pizzeria|bbq|eatery|bakery|coffee|bean machine|juice|smoothie|taqueria|cantina)\b", re.I), "restaurant"),
+    (re.compile(r"\b(trailer park|rv park|mobile home)\b", re.I), "residential"),
+    (re.compile(r"\b(stadium|arena|ballpark|golf|tennis|court|speedway|grandstands?|raceway|race ?track|skate ?park|field|marina? sports)\b", re.I), "sports"),
+    (re.compile(r"\b(museum|oceanarium|aquarium|zoo|theme park|amusement|ferris|cinema|theat(er|re)|gallery|casino"
+                r"|fairground|boardwalk|spa|park|visitor center|observation|stage|concert hall|amphitheat(er|re))\b", re.I), "attraction"),
+    (re.compile(r"\b(market|outlet|store|shop|mart|strip mall|mall|shopping|furniture|hardware|pawn|supply|supplies|tools|jewel\w*|joyeria|empe[ñn]os|copyshop|deli|grocery)\b", re.I), "store"),
+    (re.compile(r"\b(city hall|town hall|courthouse|court house|prison|penitentiary|correctional|jail|post(al)? office"
+                r"|library|school|university|college|academy|capitol|coast guard|community cent(er|re)|service center|county (building|government)|embassy|consulate)\b", re.I), "government"),
+    (re.compile(r"\b(residences?|apartments?|apts|condos?|condominiums?|lofts|towers?|offices?|house [a-z])\b", re.I), "residential"),
 ]
 
+# broad gtadb tags, used only when no '#' tag or name rule decided
+BROAD_TAG_CATEGORY = [
+    ("landmark", "landmark"),
+    ("hotel", "hotel"),
+    ("restaurant", "restaurant"),
+    ("government", "government"),
+    ("natural", "nature"),
+    ("events", "attraction"),
+    ("leisure", "attraction"),
+    ("recreation", "attraction"),
+    ("retail", "store"),
+    ("residential", "residential"),
+    ("office", "residential"),
+    ("utilities", "infrastructure"),
+    ("industrial", "infrastructure"),
+    ("construction", "infrastructure"),
+    ("agriculture", "infrastructure"),
+]
 
-# 039 categories say "you can go here and use it" -- a business gtadb marks
+# categories that say "you can go here and use it" -- a business gtadb marks
 # demolished/closed in-game stays a landmark instead.
 BUSINESS_039 = {"nightclub", "bar", "fire_station", "liquor_store", "fast_food", "electronics", "convenience_store",
-                "barber", "tattoo", "mod_shop"}
+                "barber", "tattoo", "mod_shop",
+                "ammunation", "shoe_store", "pharmacy", "atm", "car_wash", "ev_charger", "vehicle_dealer",
+                "vehicle_rental", "restaurant", "hotel"}
 
 
 def category_for(tags: list[str], name: str = "") -> str:
@@ -120,10 +213,25 @@ def _category_for(tags: list[str], name: str = "") -> str:
             # a #supermarket that is really a 24/7 / LTD corner store
             if cat == "store" and name and CONVENIENCE.search(name):
                 return "convenience_store"
+            if cat == "store" and name and re.search(r"\bgas station\b", name, re.I):
+                return "fuel_station"
             return cat
+    bare = re.sub(r"\s*[\(#]?\d+\)?$", "", name.strip().strip('"')).strip()
+    if name and GENERIC_INFRA.search(name.strip().strip('"')):
+        return "infrastructure"
     for pat, cat in NAME_CATEGORY:
         if name and pat.search(name):
             return cat
+    if name and "natural" not in tags and NATURE.fullmatch(bare or ""):
+        return "nature"     # a bare "Lake" / "River"
+    for tag, cat in BROAD_TAG_CATEGORY:
+        if tag in tags:
+            return cat
+    if "transportation" in tags:
+        # a NAMED bridge/causeway is a landmark; any other transport structure is infrastructure
+        return "landmark" if re.search(r"\b(bridge|causeway|viaduct)\b", name, re.I) else "infrastructure"
+    if name and NATURE.search(name) and len(name.split()) <= 3 and not re.search(r"\b(plaza|tower|center|centre|building)\b", name, re.I):
+        return "nature"
     return "landmark"
 
 
@@ -164,7 +272,8 @@ def build_rows(records: dict, sha: str) -> list[dict]:
         parts = [p.strip() for p in address.split(",")]
         vis = visible_tags(tags)
         kind = next((t.lstrip("#") for t in vis if t.startswith("#")), None) or (vis[0] if vis else "location")
-        name = parts[0] if parts and parts[0] not in ("", "?") else f"Unnamed {kind}"
+        # "?", "? (S)", "P?" etc: gtadb hasn't identified the place -- unnamed, not a public pin
+        name = parts[0] if parts and not re.fullmatch(r"\??\w?\?( \(\w+\))?", parts[0] or "?") else f"Unnamed {kind}"
         rows.append({
             "external_ref": rid,
             "source_type": "gtadb_import",

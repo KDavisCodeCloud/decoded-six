@@ -272,6 +272,8 @@ GENERIC_PLACE_TYPES = {
     "binco", "suburban", "ponsonbys", "24 7", "rob s liquor", "robs liquor", "ltd gasoline",
     "fire station", "fire department", "fast food", "burger shot", "cluckin bell", "cluckin  bell",
     "electronics store", "electronics shop", "pub", "lounge",
+    "shoe store", "shoe shop", "footwear", "pharmacy", "atm", "ev charger", "charging station", "car rental",
+    "rental", "bus stop", "train station", "metro station", "stunt jump", "ramp", "fishing spot", "boat ramp",
 }
 _GENERIC_PHRASE = re.compile(
     r"\b(any|every|all|each|various|several|multiple|many|most|random|one of the)\s+"

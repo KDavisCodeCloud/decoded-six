@@ -13,7 +13,7 @@ import { AreaLabels } from './AreaLabels'
 import { GTADB_FRAME, metersToLatLng, layerBounds, orderLayers, type MapLayer } from '@/lib/map-layers'
 import { GTADB_CRS } from '@/lib/map-crs'
 import { CATEGORY_COLORS } from './MarkerPopup'
-import { isApproximate, MAP_CATEGORIES } from '@/lib/map-categories'
+import { isApproximate, MAP_CATEGORIES, DEFAULT_HIDDEN_CATEGORIES } from '@/lib/map-categories'
 import { LocationPanel } from './LocationPanel'
 import { AreaOverlay } from './AreaOverlay'
 import { CategoryFilter } from './CategoryFilter'
@@ -246,7 +246,8 @@ export function LeafletMap({
   const labelAreas = useMemo(() => areas.filter(a => a.kind === 'label'), [areas])
 
   // every category is ON by default; the left bar switches categories off/on
-  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(new Set())
+  // infrastructure (bridges, lots, towers) starts off on the public map; the dashboard shows everything
+  const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(() => new Set(showAllStatuses ? [] : DEFAULT_HIDDEN_CATEGORIES))
   const [search, setSearch] = useState('')
   // phones: smaller pins so the fitted whole-island view isn't a solid carpet
   const [narrow, setNarrow] = useState(false)

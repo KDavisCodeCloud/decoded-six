@@ -26,7 +26,8 @@ def test_diff_landmarks_counts_added_moved_renamed():
 
 def test_import_category_and_county_rules():
     assert imp.category_for(["#gas", "retail"]) == "fuel_station"
-    assert imp.category_for(["residential"]) == "landmark"
+    assert imp.category_for(["residential"]) == "residential"
+    assert imp.category_for([]) == "landmark"
     assert imp.explicit_county("Farm, Kelly County") == "Kelly"
     assert imp.explicit_county("?, Downtown, Vice City") is None
     assert imp.visible_tags(["//pink", "l4", "#gas", "hotel"]) == ["#gas", "hotel"]
@@ -48,6 +49,37 @@ def test_import_business_categories_039():
     assert c(["#hair"]) == "barber" and c(["#tattoos"]) == "tattoo"
     assert c(["#modshop"]) == "mod_shop" and c(["#pay'n'spray"]) == "mod_shop"
     assert c([], "Vice City Customs") == "mod_shop"
+
+
+def test_import_categories_041_and_landmark_definition():
+    c = imp.category_for
+    # services / vehicles / transit by gtadb tag
+    assert c(["#guns"]) == "ammunation" and c(["#shoes"]) == "shoe_store" and c(["#pharmacy"]) == "pharmacy"
+    assert c(["#carwash"]) == "car_wash" and c(["#marina"]) == "marina" and c(["#bus", "transportation"]) == "bus_stop"
+    assert c(["#metromover"]) == "train_station" and c(["#airport"]) == "airport" and c(["#tennis", "leisure"]) == "sports"
+    # by in-game name
+    assert c([], "Ammu-Nation") == "ammunation" and c([], "Fleeca") == "atm" and c([], "EV Charging Station") == "ev_charger"
+    assert c([], "Premium Deluxe Motorsport") == "vehicle_dealer" and c([], "Scooter Rentals") == "vehicle_rental"
+    assert c(["#supermarket"], "Xero Gas Station") == "fuel_station"
+    assert c(["enterable"], "Vice Beach Police Department") == "police_station"
+    # a landmark is a NAMED, recognisable, non-service place
+    assert c(["landmark"], "Welcome to Hamlet Sign") == "landmark"
+    assert c(["transportation"], "Rivo Bridge") == "landmark"            # named bridge
+    assert c(["transportation"], "Train Bridge") == "infrastructure"     # generic structure
+    assert c([], "Parking Lot") == "infrastructure" and c([], "Turn 9C") == "infrastructure"
+    assert c(["utilities"], "Fuzzard Power Station (3)") == "infrastructure"
+    assert c([], "Lake") == "nature" and c(["natural"], "Lake Leonida") == "nature"
+    assert c(["hotel", "enterable"], "Ocean View Hotel") == "hotel"
+    assert c(["enterable", "residential"], "Pegassi Residences South Tower") == "residential"
+    assert c(["government"], "Vice City Hall") == "government"
+    assert c([], "Vice City Oceanarium") == "attraction"
+
+
+def test_question_mark_names_are_unnamed_and_internal():
+    recs = {"L1": ["? (S), Vice Beach", [1.0, 2.0], [], "", [], [], ["residential"], "x", []],
+            "L2": ["P?, Vice Beach", [1.0, 2.0], [], "", [], [], [], "x", []],
+            "L3": ["Farm, Kelly County", [5.0, 5.0], [], "", [], [], ["agriculture"], "x", []]}
+    assert [r["status"] for r in imp.build_rows(recs, "x")] == ["approved", "approved", "published"]
 
 
 def test_import_skips_nothing_it_was_given_and_never_invents_positions():

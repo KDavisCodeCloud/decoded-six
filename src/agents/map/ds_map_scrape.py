@@ -53,6 +53,8 @@ VALID_CATEGORIES = (
     "nightclub", "bar", "fire_station", "liquor_store", "fast_food", "electronics", "convenience_store",
     # 040: barbers/salons, tattoo parlors, car customization (mod shops, Pay 'n' Spray)
     "barber", "tattoo", "mod_shop",
+    # 041 (Kelvin 2026-11-19): not everything is a landmark
+    "ammunation", "shoe_store", "pharmacy", "atm", "car_wash", "ev_charger", "vehicle_dealer", "vehicle_rental", "marina", "bus_stop", "train_station", "airport", "restaurant", "sports", "attraction", "hotel", "government", "nature", "residential", "infrastructure", "fishing_spot", "stunt_jump",
 )
 COUNTIES = ("Mariana", "Vice-Dale", "Kelly", "Leonard", "Lummox")
 VOD_MAX_PER_RUN = int(os.environ.get("MAP_VOD_MAX_PER_RUN") or 8)
@@ -64,6 +66,8 @@ _LOCATION_SIGNAL = re.compile(
     r"money|cash|stash|hidden|secret|collectible|clothing|clothes|gym|hospital|police|race|fence|"
     r"bar|pub|club|nightclub|strip club|fire station|liquor|burger shot|cluckin|fast food|electronics|24/7|"
     r"convenience|barber|salon|hair|tattoo|mod shop|customs|pay ?n ?spray|body shop|"
+    r"stunt|ramp|jump|marina|boat|fish\w*|shoes?|sneakers?|ammu-?nation|pickup|car wash|ev charg\w*|charger|"
+    r"dealer\w*|rental|rent|bus stop|bus|metro|train|station|airport|airfield|atm|bank|pharmacy|hotel|motel|restaurant|"
     r"easter egg|near|next to|behind|north|south|east|west|county|beach|island|key)\b", re.I)
 _HASHTAG = re.compile(r"#\w+")
 _ONLINE = re.compile(r"\bgta\s*(6|vi)?\s*online\b|\bonline (mode|heist|lobby)\b", re.I)
