@@ -14,7 +14,7 @@ import { GTADB_FRAME, metersToLatLng, layerBounds, orderLayers, type MapLayer } 
 import { GTADB_CRS } from '@/lib/map-crs'
 import { CATEGORY_COLORS } from './MarkerPopup'
 import { isApproximate, MAP_CATEGORIES } from '@/lib/map-categories'
-import { LocationPanel, STATUS_COLORS } from './LocationPanel'
+import { LocationPanel } from './LocationPanel'
 import { AreaOverlay } from './AreaOverlay'
 import { CategoryFilter } from './CategoryFilter'
 import { SearchBar } from './SearchBar'
@@ -46,10 +46,8 @@ export type PickedPoint = { lat: number; lng: number } | { x: number; y: number;
 // (The zoomed-out perspective tilt was removed 2026-11-18 at Kelvin's request:
 // the map always renders flat.)
 const FOCUS_ZOOM: Record<MapMode, number> = { meters: 3, tiles: 4, world: 14 }
-
-// Fill = what the pin IS (category colour, same on every map). In the
-// dashboard (showAllStatuses) the outer ring carries the review status, so
-// status never repaints the category.
+// Pin colour = category, solid, on every map (public and dashboard). Status is
+// never drawn on the pin -- it shows in the LocationPanel when a pin is opened.
 // one shared canvas for all pins (padding so pins near the edge don't pop while panning)
 const pinRenderer = typeof window !== 'undefined' ? L.canvas({ padding: 0.5 }) : undefined
 
@@ -410,7 +408,7 @@ export function LeafletMap({
               // Canvas-rendered so ~1,000+ pins stay smooth.
               visible.map(marker => {
                 const color = CATEGORY_COLORS[marker.category] ?? '#9b94b8'
-                const ring = showAllStatuses ? STATUS_COLORS[marker.status] ?? '#9b94b8' : '#070910'
+                const ring = '#070910'
                 const isOpen = selectedMarker?.id === marker.id
                 return (
                   <CircleMarker
@@ -418,7 +416,7 @@ export function LeafletMap({
                     center={markerPosition(marker, mode)!}
                     radius={isOpen ? 8.5 : 6}
                     renderer={pinRenderer}
-                    pathOptions={{ color: ring, weight: showAllStatuses ? 2.5 : 1, opacity: 1, fillColor: color, fillOpacity: 1 }}
+                    pathOptions={{ color: ring, weight: 1, opacity: 1, fillColor: color, fillOpacity: 1 }}
                     eventHandlers={{ click: () => openMarker(marker) }}
                   />
                 )
@@ -432,7 +430,7 @@ export function LeafletMap({
             >
               {visible.map(marker => {
                 const color = CATEGORY_COLORS[marker.category] ?? '#9b94b8'
-                const ring = showAllStatuses ? STATUS_COLORS[marker.status] ?? '#9b94b8' : undefined
+                const ring = undefined
                 return (
                   <Marker
                     key={marker.id}
