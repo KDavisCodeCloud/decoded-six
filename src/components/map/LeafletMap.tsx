@@ -151,6 +151,26 @@ function DeepLinkController({
   return null
 }
 
+/**
+ * Phones: the desktop opening view (zoom 1 on Vice City) shows one corner of
+ * the island on a ~360px screen. On narrow maps, open fitted to the pins
+ * instead so the whole island is visible; a deep link still wins.
+ */
+function FitOnSmallScreen({ mode, markers, skip }: { mode: MapMode; markers: MapMarker[]; skip: boolean }) {
+  const map = useMap()
+  const applied = useRef(false)
+  useEffect(() => {
+    if (applied.current || skip || mode !== 'meters') return
+    applied.current = true
+    if (map.getSize().x >= 768) return
+    const pts = markers.map(m => markerPosition(m, mode)).filter((p): p is [number, number] => !!p)
+    if (pts.length < 2) return
+    map.fitBounds(L.latLngBounds(pts), { padding: [10, 10] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map])
+  return null
+}
+
 /** Active only while the community submission form is in "pick on map" mode. */
 function MapClickHandler({ mode, active, onPick }: { mode: MapMode; active: boolean; onPick: (p: PickedPoint) => void }) {
   useMapEvents({
@@ -228,6 +248,14 @@ export function LeafletMap({
   // every category is ON by default; the left bar switches categories off/on
   const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
+  // phones: smaller pins so the fitted whole-island view isn't a solid carpet
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const on = () => setNarrow(mq.matches)
+    on(); mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
   const [minPayout, setMinPayout] = useState(0)
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null)
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
@@ -348,7 +376,7 @@ export function LeafletMap({
 
       {/* Map */}
       <div
-        className="relative order-1 h-[65vh] min-h-[360px] flex-none overflow-hidden rounded-xl border border-white/[0.06] md:order-none md:h-auto md:flex-1"
+        className="relative order-1 h-[70svh] min-h-[340px] flex-none overflow-hidden rounded-xl border border-white/[0.06] md:order-none md:h-auto md:flex-1"
       >
         <div
           style={{
@@ -361,13 +389,14 @@ export function LeafletMap({
             center={center}
             zoom={initialZoom}
             crs={mode === 'meters' ? GTADB_CRS : mode === 'tiles' ? L.CRS.Simple : undefined}
-            minZoom={mode === 'world' ? undefined : 0}
+            minZoom={mode === 'world' ? undefined : mode === 'meters' ? -1 : 0}
             maxZoom={mode === 'meters' ? Math.max(...orderedLayers.map(l => l.max_zoom)) : mode === 'tiles' ? 6 : 19}
             maxBounds={meterBounds ? L.latLngBounds(meterBounds).pad(0.25) : undefined}
             maxBoundsViscosity={0.8}
             zoomSnap={0.5}
             style={{ width: '100%', height: '100%', background: activeLayer?.background_color ?? '#07050d' }}
           >
+            <FitOnSmallScreen mode={mode} markers={markers} skip={!!initialView || !!initialMarkerId} />
             <DeepLinkController
               mode={mode}
               markers={markers}
@@ -414,7 +443,7 @@ export function LeafletMap({
                   <CircleMarker
                     key={marker.id}
                     center={markerPosition(marker, mode)!}
-                    radius={isOpen ? 8.5 : 6}
+                    radius={isOpen ? 8.5 : narrow ? 4.5 : 6}
                     renderer={pinRenderer}
                     pathOptions={{ color: ring, weight: 1, opacity: 1, fillColor: color, fillOpacity: 1 }}
                     eventHandlers={{ click: () => openMarker(marker) }}

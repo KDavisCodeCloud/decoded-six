@@ -33,7 +33,9 @@ export function BaseLayer({ layer }: { layer: MapLayer }) {
     const tl = new RangedTileLayer(layer, {
       tileSize: 256,
       noWrap: true,
-      minZoom: layer.min_zoom,
+      // phones zoom out one level past the tile set to fit the island; Leaflet scales the min-zoom tiles down
+      minZoom: Math.min(layer.min_zoom, -1),
+      minNativeZoom: layer.min_zoom,
       maxNativeZoom: layer.max_native_zoom,
       maxZoom: layer.max_zoom,
       errorTileUrl: EMPTY_TILE,

@@ -123,8 +123,9 @@ export default async function MapPage({
   return (
     <>
       <Header />
-      <main className="container py-8 flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
-        <div className="flex items-center gap-3 mb-5">
+      {/* Full-width on desktop (same footprint as the dashboard map), not the 7xl article container */}
+      <main className="mx-auto w-full max-w-[1920px] px-3 sm:px-6 lg:px-8 py-4 md:py-6 flex flex-col">
+        <div className="flex items-center gap-3 mb-3 md:mb-5">
           <div className="w-0.5 h-5 bg-flame rounded-full" />
           <h1 className="font-heading font-bold text-lg text-bright uppercase tracking-widest">
             Interactive Map

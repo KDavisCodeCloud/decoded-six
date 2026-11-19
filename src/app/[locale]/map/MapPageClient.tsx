@@ -33,7 +33,7 @@ export function MapPageClient({ markers, areas, layers, linkedArticles, initialM
   const [pickedCoords, setPickedCoords] = useState<PickedPoint | null>(null)
 
   return (
-    <div className="relative flex-1 md:h-[calc(100vh-200px)] md:min-h-[500px]">
+    <div className="relative md:h-[calc(100dvh-196px)] md:min-h-[520px]">
       <MapClientLoader
         markers={markers}
         areas={areas}
@@ -48,7 +48,8 @@ export function MapPageClient({ markers, areas, layers, linkedArticles, initialM
         }}
       />
 
-      <div className="absolute bottom-4 right-4 z-[1300] w-72">
+      {/* Phones: below the map + filters, full width. Desktop: floats over the map corner. */}
+      <div className="mt-3 w-full md:absolute md:bottom-4 md:right-4 md:z-[1300] md:mt-0 md:w-72">
         <SubmitLocationForm
           mapLive
           pickedCoords={pickedCoords}
