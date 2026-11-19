@@ -37,7 +37,7 @@ export const MAP_CATEGORIES: MapCategory[] = [
   { key: 'weapon_pickup',  label: 'Weapons',          group: 'Collectibles', color: '#e6358a' },
   { key: 'health_armor',   label: 'Health / Armor',   group: 'Collectibles', color: '#00d2ff' },
 
-  { key: 'landmark',       label: 'Landmarks',        group: 'Landmarks',    color: '#9b94b8' },
+  { key: 'landmark',       label: 'Landmarks',        group: 'Landmarks',    color: '#7c4dff' },
 ]
 
 /** Area categories (map_areas.category). Territory polygons arrive with the official map. */

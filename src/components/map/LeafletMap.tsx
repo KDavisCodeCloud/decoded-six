@@ -416,9 +416,9 @@ export function LeafletMap({
                   <CircleMarker
                     key={marker.id}
                     center={markerPosition(marker, mode)!}
-                    radius={isOpen ? 8 : 5.5}
+                    radius={isOpen ? 8.5 : 6}
                     renderer={pinRenderer}
-                    pathOptions={{ color: ring, weight: showAllStatuses ? 2.5 : 1.5, fillColor: color, fillOpacity: 1 }}
+                    pathOptions={{ color: ring, weight: showAllStatuses ? 2.5 : 1, opacity: 1, fillColor: color, fillOpacity: 1 }}
                     eventHandlers={{ click: () => openMarker(marker) }}
                   />
                 )
