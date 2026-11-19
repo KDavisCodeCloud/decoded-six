@@ -21,3 +21,7 @@ video-factory/voice/
 video-factory/output/
 video-factory/.venv/
 video-factory/music/
+
+# Rockstar official map drop (Phase 4 input) -- large binary, never committed
+map-source/*
+!map-source/README.md

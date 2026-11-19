@@ -370,6 +370,7 @@ export function LeafletMap({
           onShowAll={showAllCategories}
           onHideAll={hideAllCategories}
           counts={categoryCounts}
+          hideEmpty={!showAllStatuses}
         />
         <MoneyFilter minPayout={minPayout} onChange={setMinPayout} />
         {mode === 'meters' && <MapCredits layers={orderedLayers} />}

@@ -4,7 +4,10 @@ src/agents/map/scheduler.py, so two Railway instances never double-run).
   vercel usage   every 12 h (twice daily) -> vercel_usage_checks,
                  Mission Control alerts at VERCEL_USAGE_ALERT_PCT (70%).
 
-VERCEL_USAGE_DISABLED=1 turns it off for an instance.
+  rockstar map   every 30 min -> map_alerts when the official Leonida map
+                 download appears on rockstargames.com/VI (Kelvin 2026-11-19).
+
+VERCEL_USAGE_DISABLED=1 / ROCKSTAR_MAP_WATCH_DISABLED=1 turn them off for an instance.
 """
 
 from __future__ import annotations
@@ -20,10 +23,12 @@ from src.agents.map.scheduler import _claim, _now, due
 log = logging.getLogger(__name__)
 
 VERCEL_USAGE_INTERVAL = timedelta(hours=12)
+ROCKSTAR_MAP_INTERVAL = timedelta(minutes=30)
 TICK_SECONDS = 300
 
 
-def tick(sb: Any, check: Optional[Callable[..., dict]] = None) -> dict:
+def tick(sb: Any, check: Optional[Callable[..., dict]] = None,
+         map_watch: Optional[Callable[[Any], dict]] = None) -> dict:
     now = _now()
     ran: dict = {}
     if os.environ.get("VERCEL_USAGE_DISABLED") != "1":
@@ -34,6 +39,14 @@ def tick(sb: Any, check: Optional[Callable[..., dict]] = None) -> dict:
                 ran["vercel_usage"] = check(sb, trigger="schedule")
             except Exception as exc:   # already recorded in vercel_usage_checks + audit_log
                 ran["vercel_usage"] = {"error": str(exc)}
+    if os.environ.get("ROCKSTAR_MAP_WATCH_DISABLED") != "1":
+        if due(sb, "rockstar_map_claim", ROCKSTAR_MAP_INTERVAL, now) and _claim(sb, "rockstar_map_claim", now):
+            if map_watch is None:
+                from src.agents.map.rockstar_map_watch import run_check as map_watch
+            try:
+                ran["rockstar_map"] = map_watch(sb)
+            except Exception as exc:   # already in audit_log
+                ran["rockstar_map"] = {"error": str(exc)}
     return ran
 
 

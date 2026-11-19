@@ -10,13 +10,15 @@ interface CategoryFilterProps {
   onHideAll: () => void
   /** marker count per category; categories with none are listed but dimmed */
   counts?: Record<string, number>
+  /** public map: leave out categories with no pins yet (they appear on their first pin); the dashboard lists all */
+  hideEmpty?: boolean
 }
 
 // Grouped Money / Services / Activities / Collectibles / Territory / Landmarks
 // (Map Phase 2). Territory has no marker categories -- gang turf is drawn as
 // map_areas polygons once the official map lands -- so it only shows when
 // something is in it.
-export function CategoryFilter({ hidden, onToggle, onShowAll, onHideAll, counts }: CategoryFilterProps) {
+export function CategoryFilter({ hidden, onToggle, onShowAll, onHideAll, counts, hideEmpty }: CategoryFilterProps) {
 
   return (
     <div className="bg-panel border border-white/[0.06] rounded-xl p-4">
@@ -33,7 +35,7 @@ export function CategoryFilter({ hidden, onToggle, onShowAll, onHideAll, counts 
 
       <div className="flex flex-col gap-3">
         {CATEGORY_GROUPS.map(group => {
-          const cats = MAP_CATEGORIES.filter(c => c.group === group)
+          const cats = MAP_CATEGORIES.filter(c => c.group === group && (!hideEmpty || (counts?.[c.key] ?? 0) > 0))
           if (cats.length === 0) return null
           return (
             <div key={group}>
