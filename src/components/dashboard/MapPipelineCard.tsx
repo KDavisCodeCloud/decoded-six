@@ -103,7 +103,7 @@ export function MapPipelineCard() {
               ))}
             </div>
           )}
-          <a href="/dashboard/map"><button className="dash-vc-btn-cyan mt-3" style={{ width: '100%' }}>OPEN MAP QUEUE</button></a>
+          <a href="/dashboard/map"><button className="dash-vc-btn-cyan mt-3" style={{ width: '100%' }}>OPEN MAP</button></a>
         </>
       )}
     </div>

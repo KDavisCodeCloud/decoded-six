@@ -57,7 +57,15 @@ async def lifespan(app: FastAPI):
         from api.routes.discovery import _clients as _map_clients
         from src.agents.map.scheduler import map_loop
         map_task = asyncio.create_task(map_loop(_map_clients))
+    # Vercel usage vs Hobby limits, twice daily (src/agents/ops/scheduler.py).
+    ops_task = None
+    if os.environ.get("VERCEL_USAGE_DISABLED") != "1":
+        from api.routes.discovery import _clients as _ops_clients
+        from src.agents.ops.scheduler import ops_loop
+        ops_task = asyncio.create_task(ops_loop(_ops_clients))
     yield
+    if ops_task:
+        ops_task.cancel()
     if task:
         task.cancel()
     if map_task:
