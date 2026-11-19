@@ -3,7 +3,7 @@
 // src/agents/map/ds_map_scrape.py -- keep all three in sync.
 // gang_territory is an AREA category (map_areas.category), not a marker.
 
-export type CategoryGroup = 'Money' | 'Services' | 'Activities' | 'Collectibles' | 'Territory' | 'Landmarks'
+export type CategoryGroup = 'Money' | 'Services' | 'Food & Nightlife' | 'Activities' | 'Collectibles' | 'Territory' | 'Landmarks'
 
 export interface MapCategory {
   key: string
@@ -26,6 +26,17 @@ export const MAP_CATEGORIES: MapCategory[] = [
   { key: 'property',       label: 'Properties',       group: 'Services',     color: '#a47148' },
   { key: 'hospital',       label: 'Hospitals',        group: 'Services',     color: '#f4f4f8' },
   { key: 'police_station', label: 'Police',           group: 'Services',     color: '#2f6fe6' },
+  { key: 'fire_station',   label: 'Fire Stations',    group: 'Services',     color: '#e63946' },
+  { key: 'convenience_store', label: 'Convenience Stores', group: 'Services', color: '#06d6a0' },
+  { key: 'electronics',    label: 'Electronics',      group: 'Services',     color: '#4cc9f0' },
+  { key: 'barber',         label: 'Barbers & Salons', group: 'Services',     color: '#ffafcc' },
+  { key: 'tattoo',         label: 'Tattoo Parlors',   group: 'Services',     color: '#9b5de5' },
+  { key: 'mod_shop',       label: 'Car Customization', group: 'Services',    color: '#e9ff70' },
+
+  { key: 'fast_food',      label: 'Fast Food',        group: 'Food & Nightlife', color: '#ffe14d' },
+  { key: 'bar',            label: 'Bars',             group: 'Food & Nightlife', color: '#e07a5f' },
+  { key: 'nightclub',      label: 'Nightclubs',       group: 'Food & Nightlife', color: '#ff2bd6' },
+  { key: 'liquor_store',   label: 'Liquor Stores',    group: 'Food & Nightlife', color: '#9d4edd' },
 
   { key: 'mission_start',  label: 'Missions',         group: 'Activities',   color: '#FF2D6B' },
   { key: 'side_activity',  label: 'Side Activities',  group: 'Activities',   color: '#ff6fb5' },
@@ -45,7 +56,7 @@ export const AREA_CATEGORIES = [
   { key: 'gang_territory', label: 'Gang Territory', group: 'Territory' as CategoryGroup, color: '#ff2d6b' },
 ]
 
-export const CATEGORY_GROUPS: CategoryGroup[] = ['Money', 'Services', 'Activities', 'Collectibles', 'Territory', 'Landmarks']
+export const CATEGORY_GROUPS: CategoryGroup[] = ['Money', 'Services', 'Food & Nightlife', 'Activities', 'Collectibles', 'Territory', 'Landmarks']
 
 export const MARKER_CATEGORY_KEYS = MAP_CATEGORIES.map(c => c.key)
 

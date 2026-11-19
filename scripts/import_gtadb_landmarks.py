@@ -28,6 +28,7 @@ import argparse
 import collections
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -39,9 +40,17 @@ COUNTIES = ("Mariana", "Vice-Dale", "Kelly", "Leonard", "Lummox")
 # gtadb positions are a pre-launch reconstruction, not surveyed points
 IMPORT_RADIUS_M = 75
 
-# gtadb tag -> our category (first match wins; default 'landmark')
+# gtadb tag -> our category (first match wins; default 'landmark').
+# #gas first: a 24/7 or LTD with pumps is a gas station, not a convenience store.
 TAG_CATEGORY = [
     ("#gas", "fuel_station"),
+    ("#nightclub", "nightclub"),
+    ("#stripclub", "nightclub"),
+    ("#bar", "bar"),
+    ("#liquor", "liquor_store"),
+    ("#fastfood", "fast_food"),
+    ("fastfood", "fast_food"),
+    ("#electronics", "electronics"),
     ("#clothes", "clothing"),
     ("#fence", "fence"),
     ("#safehouse", "safehouse"),
@@ -52,11 +61,10 @@ TAG_CATEGORY = [
     ("#guns", "store"),
     ("#supermarket", "store"),
     ("supermarket", "store"),
-    ("#electronics", "store"),
-    ("#hair", "store"),
-    ("#tattoos", "store"),
-    ("#modshop", "store"),
-    ("#pay'n'spray", "store"),
+    ("#hair", "barber"),
+    ("#tattoos", "tattoo"),
+    ("#modshop", "mod_shop"),
+    ("#pay'n'spray", "mod_shop"),
     ("#vendor", "store"),
     ("#gym", "gym"),
 ]
@@ -69,12 +77,52 @@ def visible_tags(tags: list[str]) -> list[str]:
 
 # every category the import produces; named records in these are public
 PUBLIC_CATEGORIES = {"landmark", "store", "fuel_station", "fence", "police_station", "safehouse",
-                     "hospital", "clothing", "gym", "street_race"}
+                     "hospital", "clothing", "gym", "street_race",
+                     "nightclub", "bar", "fire_station", "liquor_store", "fast_food", "electronics",
+                     "convenience_store", "barber", "tattoo", "mod_shop"}
 
 
-def category_for(tags: list[str]) -> str:
+# gtadb tags few businesses pre-launch, so the in-game name decides when no tag
+# does (Kelvin 2026-11-18: nightclubs, bars, fire stations, liquor, Burger Shot /
+# Cluckin' Bell, electronics, non-gas convenience stores). Checked after the
+# tags, so '#gas' still wins for an LTD or 24/7 with pumps.
+NAME_CATEGORY = [
+    (re.compile(r"\b(fire (rescue )?station|fire department|fire rescue)\b", re.I), "fire_station"),
+    (re.compile(r"\b(burger ?shot|cluckin'? ?bell|taco bomb|up-n-atom|lucky plucker|pizza this|wigwam)\b", re.I), "fast_food"),
+    (re.compile(r"\b(night ?club|strip ?club|disco)\b", re.I), "nightclub"),
+    (re.compile(r"\b(liquor|rob'?s liquor|three sheets|wine (shop|store)|spirits)\b", re.I), "liquor_store"),
+    (re.compile(r"\b(bar|pub|tavern|saloon)\b", re.I), "bar"),
+    (re.compile(r"\b(electronics?|digital den)\b", re.I), "electronics"),
+    (re.compile(r"\b(barber(shop)?|hair|salon)\b", re.I), "barber"),
+    (re.compile(r"\b(tattoos?|ink)\b", re.I), "tattoo"),
+    (re.compile(r"\b(customs|mod ?shop|pay ?'?n'? ?spray|body ?shop|auto ?body)\b", re.I), "mod_shop"),
+    (CONVENIENCE := re.compile(r"(\b24/7\b|\bltd\b|\bconvenience\b|\bmini ?mart\b)", re.I), "convenience_store"),
+    (re.compile(r"^hospital\b|\bmedical center\b", re.I), "hospital"),
+]
+
+
+# 039 categories say "you can go here and use it" -- a business gtadb marks
+# demolished/closed in-game stays a landmark instead.
+BUSINESS_039 = {"nightclub", "bar", "fire_station", "liquor_store", "fast_food", "electronics", "convenience_store",
+                "barber", "tattoo", "mod_shop"}
+
+
+def category_for(tags: list[str], name: str = "") -> str:
+    cat = _category_for(tags, name)
+    if cat in BUSINESS_039 and ({"demolished", "closed"} & set(tags)):
+        return "landmark"
+    return cat
+
+
+def _category_for(tags: list[str], name: str = "") -> str:
     for tag, cat in TAG_CATEGORY:
         if tag in tags:
+            # a #supermarket that is really a 24/7 / LTD corner store
+            if cat == "store" and name and CONVENIENCE.search(name):
+                return "convenience_store"
+            return cat
+    for pat, cat in NAME_CATEGORY:
+        if name and pat.search(name):
             return cat
     return "landmark"
 
@@ -124,7 +172,7 @@ def build_rows(records: dict, sha: str) -> list[dict]:
             "name": name[:200],
             "area_name": ", ".join(p for p in parts[1:] if p and p != "?") or None,
             "description": f"gtadb tags: {', '.join(vis)}" if vis else None,
-            "category": category_for(tags),
+            "category": category_for(tags, name if not name.startswith("Unnamed ") else ""),
             "tags": vis,
             "x": round(float(x), 2),
             "y": round(float(y), 2),
@@ -133,7 +181,7 @@ def build_rows(records: dict, sha: str) -> list[dict]:
             "county": explicit_county(address) or by_area.get(parts[-1]),
             # Kelvin 2026-11-18: named gtadb places are public ("Community-mapped (gtadb)");
             # unnamed buildings stay internal (scraper gazetteer only)
-            "status": "published" if name and not name.startswith("Unnamed ") and category_for(tags) in PUBLIC_CATEGORIES else "approved",
+            "status": "published" if name and not name.startswith("Unnamed ") and category_for(tags, name) in PUBLIC_CATEGORIES else "approved",
             "verified": False,
             "placement_method": "import",
             "game_version": "pre_launch",

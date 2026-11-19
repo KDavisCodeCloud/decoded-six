@@ -49,6 +49,10 @@ VALID_CATEGORIES = (
     "health_armor", "collectible", "landmark", "daily_location",
     "fuel_station", "store", "clothing", "fence", "gym", "safehouse", "hospital",
     "police_station", "side_activity", "street_race", "random_event",
+    # 039 (Kelvin 2026-11-18): businesses that matter in GTA
+    "nightclub", "bar", "fire_station", "liquor_store", "fast_food", "electronics", "convenience_store",
+    # 040: barbers/salons, tattoo parlors, car customization (mod shops, Pay 'n' Spray)
+    "barber", "tattoo", "mod_shop",
 )
 COUNTIES = ("Mariana", "Vice-Dale", "Kelly", "Leonard", "Lummox")
 VOD_MAX_PER_RUN = int(os.environ.get("MAP_VOD_MAX_PER_RUN") or 8)
@@ -58,6 +62,8 @@ FRAME_WINDOW_S = 60          # a VOD map frame counts for a claim spoken within 
 _LOCATION_SIGNAL = re.compile(
     r"\b(locat\w*|found|find|where|spot|map|gas|fuel|store|shop|safehouse|safe house|gun|ammu|weapon|"
     r"money|cash|stash|hidden|secret|collectible|clothing|clothes|gym|hospital|police|race|fence|"
+    r"bar|pub|club|nightclub|strip club|fire station|liquor|burger shot|cluckin|fast food|electronics|24/7|"
+    r"convenience|barber|salon|hair|tattoo|mod shop|customs|pay ?n ?spray|body shop|"
     r"easter egg|near|next to|behind|north|south|east|west|county|beach|island|key)\b", re.I)
 _HASHTAG = re.compile(r"#\w+")
 _ONLINE = re.compile(r"\bgta\s*(6|vi)?\s*online\b|\bonline (mode|heist|lobby)\b", re.I)

@@ -23,6 +23,16 @@ export const CATEGORY_LABELS: Record<string, string> = {
   side_activity: 'Side Activity',
   street_race: 'Street Race',
   random_event: 'Random Event',
+  nightclub: 'Nightclub',
+  bar: 'Bar',
+  fire_station: 'Fire Station',
+  liquor_store: 'Liquor Store',
+  fast_food: 'Fast Food',
+  electronics: 'Electronics Store',
+  convenience_store: 'Convenience Store',
+  barber: 'Barber / Salon',
+  tattoo: 'Tattoo Parlor',
+  mod_shop: 'Car Customization',
 }
 
 export const CATEGORY_COLORS: Record<string, string> = CATEGORY_COLOR_BY_KEY

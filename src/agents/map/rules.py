@@ -270,6 +270,8 @@ GENERIC_PLACE_TYPES = {
     "tattoo shop", "body shop", "dealership", "car dealership", "strip club", "casino", "airport",
     "marina", "dock", "pier", "park", "church", "school", "warehouse", "prison", "jail", "swamp",
     "binco", "suburban", "ponsonbys", "24 7", "rob s liquor", "robs liquor", "ltd gasoline",
+    "fire station", "fire department", "fast food", "burger shot", "cluckin bell", "cluckin  bell",
+    "electronics store", "electronics shop", "pub", "lounge",
 }
 _GENERIC_PHRASE = re.compile(
     r"\b(any|every|all|each|various|several|multiple|many|most|random|one of the)\s+"

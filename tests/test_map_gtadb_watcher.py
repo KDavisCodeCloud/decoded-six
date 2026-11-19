@@ -32,6 +32,24 @@ def test_import_category_and_county_rules():
     assert imp.visible_tags(["//pink", "l4", "#gas", "hotel"]) == ["#gas", "hotel"]
 
 
+def test_import_business_categories_039():
+    c = imp.category_for
+    assert c(["#nightclub"]) == "nightclub" and c(["#stripclub"]) == "nightclub"
+    assert c(["#bar"]) == "bar" and c(["#liquor"]) == "liquor_store" and c(["#electronics"]) == "electronics"
+    assert c([], "Burger Shot") == "fast_food" and c([], "Cluckin' Bell") == "fast_food"
+    assert c(["government"], "City of Vice Fire Rescue Station") == "fire_station"
+    assert c([], "Fire Danger Sign") == "landmark"
+    assert c(["supermarket"], "24/7 Supermarket") == "convenience_store"
+    assert c(["#supermarket"], "Big Grocer") == "store"
+    assert c(["#gas", "retail"], "LTD Gas Station") == "fuel_station"   # pumps -> gas station, not convenience
+    assert c(["#liquor", "demolished"], "Uncle Jack's") == "landmark"   # gone in-game -> not a business pin
+    assert c(["#hospital"]) == "hospital" and c([], "Hospital") == "hospital"
+    assert c(["public"], "Animal Hospital of Key Lento") == "landmark"
+    assert c(["#hair"]) == "barber" and c(["#tattoos"]) == "tattoo"
+    assert c(["#modshop"]) == "mod_shop" and c(["#pay'n'spray"]) == "mod_shop"
+    assert c([], "Vice City Customs") == "mod_shop"
+
+
 def test_import_skips_nothing_it_was_given_and_never_invents_positions():
     recs = {"L1": ["Pier, Vice Beach", [10.0, 20.0], [], "", [], [], ["landmark"], "x", []],
             "L2": ["?, Hamlet, Mariana County", [1.0, 2.0], [], "", [], [], ["#gas"], "x", []]}

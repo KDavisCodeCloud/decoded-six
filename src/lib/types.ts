@@ -85,6 +85,8 @@ export interface MapMarker {
   category: 'money_spot' | 'vehicle_spawn' | 'property' | 'heist' | 'mission_start' | 'weapon_pickup' | 'health_armor' | 'collectible' | 'landmark' | 'daily_location'
     | 'fuel_station' | 'store' | 'clothing' | 'fence' | 'gym' | 'safehouse' | 'hospital' | 'police_station'
     | 'side_activity' | 'street_race' | 'random_event'
+    | 'nightclub' | 'bar' | 'fire_station' | 'liquor_store' | 'fast_food' | 'electronics' | 'convenience_store'
+    | 'barber' | 'tattoo' | 'mod_shop'
   coordinates: { lat: number; lng: number }
   area_name: string | null
   payout_per_hour: number | null
