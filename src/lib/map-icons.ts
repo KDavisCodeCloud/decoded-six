@@ -1,6 +1,15 @@
 // Map pin glyphs (2026-11-23, Kelvin: "the pins themselves need icons" so a
 // player can tell a bus stop from a stunt jump at a glance).
 //
+// IN-GAME ICONS FIRST (Kelvin, 2026-11-23): where we have GTA 6's own map icon
+// for a category, the pin uses it -- players recognise them instantly. Kelvin
+// accepted the risk of using Rockstar's icon art and granted an explicit,
+// icons-only exception to the never-copy blocklist: these were cut from an
+// icon sheet he supplied that came from mapgenie (see CLAUDE.md). Files live in
+// public/images/map-icons/<category>.png (64 px, transparent); credited
+// "Map icons © Rockstar Games" in the map credits. Categories with no in-game
+// icon yet fall back to the original line-art badges below.
+//
 // Every glyph here is ORIGINAL DecodedSix line art drawn on a 24x24 grid. We
 // deliberately do not lift Rockstar's in-game blip sprites: they aren't in
 // Rockstar's press kit, and the copies other map sites use come from sites on
@@ -87,6 +96,14 @@ function glyphColor(hex: string): string {
   return lum > 0.6 ? '#070910' : '#ffffff'
 }
 
+/** Categories with a GTA 6 in-game icon in public/images/map-icons/. */
+export const GAME_ICON_CATEGORIES = new Set([
+  'airport', 'ammunation', 'atm', 'attraction', 'bar', 'barber', 'bus_stop', 'car_wash', 'clothing',
+  'convenience_store', 'electronics', 'fast_food', 'fuel_station', 'gym', 'hospital', 'liquor_store',
+  'marina', 'mod_shop', 'nightclub', 'restaurant', 'safehouse', 'shoe_store', 'sports', 'store',
+  'street_race', 'tattoo', 'vehicle_spawn', 'weapon_pickup',
+])
+
 export function hasGlyph(category: string): boolean {
   return category in G
 }
@@ -103,6 +120,13 @@ export function glyphSvg(category: string, px: number, color?: string): string {
  * light colours still read on gtadb's pale streets, and the glyph centred.
  */
 export function pinHtml(category: string, size: number, selected = false): string {
+  if (GAME_ICON_CATEGORIES.has(category)) {
+    const accent = CATEGORY_COLOR_BY_KEY[category] ?? '#f5a623'
+    const shadow = selected
+      ? `drop-shadow(0 0 2px #070910) drop-shadow(0 0 6px ${accent}) drop-shadow(0 0 10px ${accent})`
+      : 'drop-shadow(0 1px 2px rgba(0,0,0,.6))'
+    return `<img src="/images/map-icons/${category}.png" alt="" width="${size}" height="${size}" draggable="false" style="display:block;width:${size}px;height:${size}px;filter:${shadow}">`
+  }
   const badge = CATEGORY_COLOR_BY_KEY[category] ?? '#9b94b8'
   const ring = selected ? `0 0 0 2px #070910, 0 0 0 4px ${badge}, 0 0 14px ${badge}` : `0 0 0 1px ${badge}aa, 0 1px 4px rgba(0,0,0,.55)`
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${badge};border:2px solid #070910;box-shadow:${ring};display:flex;align-items:center;justify-content:center;box-sizing:border-box">${glyphSvg(category, Math.round(size * 0.6))}</div>`

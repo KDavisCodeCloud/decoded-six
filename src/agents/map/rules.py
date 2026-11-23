@@ -29,6 +29,10 @@ from urllib.parse import urlparse
 
 # Competitors' compiled maps + GTABase (forbids copying its locations).
 # gtadb.ORG is allowed (CC BY 4.0); gtadb.NET is a different site and blocked.
+# ONE exception, icons only (Kelvin, 2026-11-23: "allow icons from mapgenie"):
+# the GTA 6 in-game map icons in public/images/map-icons/ were cut from a
+# mapgenie icon sheet Kelvin supplied. Pin LOCATIONS, names and data from these
+# sites stay blocked exactly as before -- the exception covers icon art only.
 BLOCKLIST = (
     "gtabase.com", "gtalens.com", "gtadb.net", "gtamap.io", "map-6.com", "gta6maps.wiki",
     "sixintelhq.com", "gta6map.io", "gta6map.org", "gta-6-map.org", "gta6state.com",
