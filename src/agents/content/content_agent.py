@@ -2014,6 +2014,11 @@ def _node_humanizer(state: dict, sb: Any, ai: Any) -> dict:
         # its floor a few words under it (1,218 -> 1,185 seen 2026-11-23).
         # Expand from the same fact brief, then re-check. Still body-only.
         state = _node_expander(state, ai)
+        # The expansion is new text the humanizer never saw: give it the same
+        # mechanical pass (no em dashes / banned words, markers protected).
+        from src.agents.content.ds_humanizer import _mechanical_pass
+        state["content"] = _mechanical_pass(state["content"])
+        state["word_count"] = _body_word_count(state["content"])
         sb.table("articles").update({"content": state["content"], "word_count": state["word_count"]}) \
             .eq("id", article_id).execute()
         _audit(sb, article_id, "guide_post_humanizer_expand", "success")
