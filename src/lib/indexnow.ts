@@ -3,7 +3,8 @@
 // Free, no account. Google does not use IndexNow, so every pinged URL is also
 // logged to audit_log ('indexnow_ping') for Kelvin to submit in GSC URL
 // Inspection. The key is public by design; it lives in INDEXNOW_KEY and is
-// served at /api/indexnow-key (the keyLocation below).
+// served at the site root as /indexnow-key.txt (rewritten to /api/indexnow-key;
+// a key file only covers URLs at or below its own directory).
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
@@ -20,7 +21,7 @@ export async function pingIndexNow(sb: SupabaseClient, urls: string[], articleId
       const res = await fetch('https://api.indexnow.org/indexnow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({ host, key, keyLocation: `${siteUrl}/api/indexnow-key`, urlList: urls }),
+        body: JSON.stringify({ host, key, keyLocation: `${siteUrl}/indexnow-key.txt`, urlList: urls }),
       })
       result = res.ok || res.status === 202 ? 'success' : 'failure'
       if (result === 'failure') error = `IndexNow returned ${res.status}`

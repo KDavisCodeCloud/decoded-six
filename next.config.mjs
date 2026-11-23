@@ -64,6 +64,12 @@ const nextConfig = {
       },
     ])
   },
+  // IndexNow (2026-11-23): a key file only authorises URLs at or below its own
+  // directory, so /api/indexnow-key covered nothing but /api/* and every ping
+  // came back 422. Serve it from the site root instead.
+  async rewrites() {
+    return { beforeFiles: [{ source: '/indexnow-key.txt', destination: '/api/indexnow-key' }] }
+  },
   async headers() {
     return [
       {
