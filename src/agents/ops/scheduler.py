@@ -7,7 +7,11 @@ src/agents/map/scheduler.py, so two Railway instances never double-run).
   rockstar map   every 30 min -> map_alerts when the official Leonida map
                  download appears on rockstargames.com/VI (Kelvin 2026-11-19).
 
-VERCEL_USAGE_DISABLED=1 / ROCKSTAR_MAP_WATCH_DISABLED=1 turn them off for an instance.
+  guide videos   every 12 h -> oEmbed check of every launch-guide YouTube pick;
+                 dead embeds hidden + Mission Control alert (2026-11-23).
+
+VERCEL_USAGE_DISABLED=1 / ROCKSTAR_MAP_WATCH_DISABLED=1 / GUIDE_VIDEO_HEALTH_DISABLED=1
+turn them off for an instance.
 """
 
 from __future__ import annotations
@@ -24,11 +28,13 @@ log = logging.getLogger(__name__)
 
 VERCEL_USAGE_INTERVAL = timedelta(hours=12)
 ROCKSTAR_MAP_INTERVAL = timedelta(minutes=30)
+GUIDE_VIDEO_INTERVAL = timedelta(hours=12)
 TICK_SECONDS = 300
 
 
 def tick(sb: Any, check: Optional[Callable[..., dict]] = None,
-         map_watch: Optional[Callable[[Any], dict]] = None) -> dict:
+         map_watch: Optional[Callable[[Any], dict]] = None,
+         video_health: Optional[Callable[[Any], dict]] = None) -> dict:
     now = _now()
     ran: dict = {}
     if os.environ.get("VERCEL_USAGE_DISABLED") != "1":
@@ -47,6 +53,14 @@ def tick(sb: Any, check: Optional[Callable[..., dict]] = None,
                 ran["rockstar_map"] = map_watch(sb)
             except Exception as exc:   # already in audit_log
                 ran["rockstar_map"] = {"error": str(exc)}
+    if os.environ.get("GUIDE_VIDEO_HEALTH_DISABLED") != "1":
+        if due(sb, "guide_video_claim", GUIDE_VIDEO_INTERVAL, now) and _claim(sb, "guide_video_claim", now):
+            if video_health is None:
+                from src.agents.content.guide_video_health import run_check as video_health
+            try:
+                ran["guide_videos"] = video_health(sb)
+            except Exception as exc:   # already in audit_log
+                ran["guide_videos"] = {"error": str(exc)}
     return ran
 
 

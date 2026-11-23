@@ -3,6 +3,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { NextResponse, type NextRequest } from 'next/server'
+import { pingIndexNow } from '@/lib/indexnow'
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.thedecodedsix.com'
 
 type Action = 'approve' | 'reject' | 'revise' | 'unpublish'
 
@@ -31,6 +34,19 @@ function revalidateArticleSurfaces(category: string, slug: string) {
   revalidatePath(`/[locale]/${listingSegment}/[slug]`, 'layout')
   revalidatePath('/')
   revalidatePath('/[locale]', 'layout')
+  revalidatePath('/sitemap.xml')
+}
+
+// Launch guides (2026-11-23): a guide's series nav lists only PUBLISHED
+// siblings, so publishing one changes every sibling's page and the hub.
+// Revalidate each explicitly (default + locale-prefixed paths) rather than
+// trusting the layout-wide pattern alone.
+async function revalidateGuideGroup(sb: SupabaseClient, group: string | null, slug: string) {
+  if (!group) return [] as string[]
+  const { data } = await sb.from('articles').select('slug').eq('guide_group', group).eq('status', 'published')
+  const slugs = [...new Set([slug, ...((data as { slug: string }[] | null) ?? []).map(r => r.slug)])]
+  for (const s of slugs) revalidatePath(`/guides/${s}`)
+  return slugs
 }
 
 export async function POST(
@@ -79,7 +95,7 @@ export async function POST(
 
   const { data: article } = await sb
     .from('articles')
-    .select('id, slug, status, category')
+    .select('id, slug, status, category, article_type, guide_group')
     .eq('id', id)
     .single()
 
@@ -141,6 +157,14 @@ export async function POST(
   // 'revise' just flips to revision_in_progress, nothing public changes.
   if (action === 'approve' || action === 'reject' || action === 'unpublish') {
     revalidateArticleSurfaces(article.category, article.slug)
+    await revalidateGuideGroup(sb, article.guide_group, article.slug)
+  }
+
+  // Search engines hear about a new/removed page now, not at next crawl.
+  // English URL only -- locale pages are noindex (lib/seo.ts articleRobots).
+  if (action === 'approve' || action === 'unpublish') {
+    const section = article.category === 'guide' ? 'guides' : 'news'
+    await pingIndexNow(sb, [`${siteUrl}/${section}/${article.slug}`], id)
   }
 
   await sb.from('audit_log').insert({
