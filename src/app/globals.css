@@ -202,3 +202,30 @@
   color: #f5a623;
 }
 .ds-hide-area-labels .ds-area-label span { opacity: 0; }
+
+/* Region hover tooltip (AreaOverlay.tsx) */
+.leaflet-tooltip.area-tooltip {
+  background: rgba(7, 9, 16, 0.88);
+  border: 1px solid rgba(245, 166, 35, 0.45);
+  border-radius: 8px;
+  padding: 4px 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  text-align: center;
+}
+.leaflet-tooltip.area-tooltip::before { display: none; }
+.area-tooltip-name {
+  display: block;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+.area-tooltip-note {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #9b94b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

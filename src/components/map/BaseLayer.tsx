@@ -117,7 +117,7 @@ export function MapCredits({ layers }: { layers: MapLayer[] }) {
             className="overflow-hidden px-3 pb-3 text-[11px] leading-relaxed text-quiet"
           >
             {layers.flatMap(l => l.attribution.map((a, i) => <Credit key={`${l.id}-${i}`} label={l.label} a={a} />))}
-            {gtadbFrame && <Credit label="County labels & region positions" a={GTADB_LANDMARKS_ATTRIBUTION} />}
+            {gtadbFrame && <Credit label="County labels, region outlines (approx.) & positions" a={GTADB_LANDMARKS_ATTRIBUTION} />}
             <li className="mt-2">
               <a href="https://leafletjs.com" target="_blank" rel="noopener" className="underline decoration-white/20 hover:text-flame">Leaflet</a> (BSD-2-Clause)
             </li>
