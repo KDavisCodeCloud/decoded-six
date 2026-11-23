@@ -137,6 +137,37 @@ def even_timing(text, duration):
     return out
 
 
+# Pronunciation (Kelvin 2026-11-23): Lucia is "loo-SEE-ah"; the site is "The
+# Decoded SIX" (the word six, never spelled out). The TTS gets phonetic text and
+# the caption word timings are mapped back to the real spelling.
+SPEAK = [(re.compile(r"\bLucia\b"), "Loo-see-ah"),
+         (re.compile(r"\bDecoded ?Six\b", re.I), "Decoded 6")]
+_CAPTION_FIX = [(["loo-see-ah"], "Lucia"), (["loo", "see", "ah"], "Lucia")]
+
+
+def spoken(text):
+    for rx, rep in SPEAK:
+        text = rx.sub(rep, text)
+    return text
+
+
+def fix_caption_words(words):
+    out, i = [], 0
+    while i < len(words):
+        for seq, real in _CAPTION_FIX:
+            n = len(seq)
+            if [re.sub(r"[^\w-]", "", w[0]).lower() for w in words[i:i + n]] == seq:
+                tail = re.sub(r"^[\w-]+", "", words[i + n - 1][0])
+                out.append((real + tail, words[i][1], words[i + n - 1][2])); i += n
+                break
+        else:
+            w, a, b = words[i]
+            if re.fullmatch(r"6[.,!?]?", w) and out and out[-1][0].lower().startswith("decoded"):
+                w = "Six" + w[1:]
+            out.append((w, a, b)); i += 1
+    return out
+
+
 def make_voice(day, text, work, voice=None, rate=None, custom_prefix=""):
     """custom_prefix separates tracks' own voice files (Track B: voice/b01.mp3)."""
     custom = next((p for p in (ROOT / "voice").glob(f"{custom_prefix}{int(day):02d}.*")), None) if (ROOT / "voice").exists() else None
@@ -149,7 +180,7 @@ def make_voice(day, text, work, voice=None, rate=None, custom_prefix=""):
     # retry with backoff before failing the row.
     for attempt in range(3):
         try:
-            words = asyncio.run(_edge(text, mp3, voice, rate))
+            words = fix_caption_words(asyncio.run(_edge(spoken(text), mp3, voice, rate)) or [])
             break
         except Exception as e:
             if attempt == 2:
