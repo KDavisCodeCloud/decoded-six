@@ -87,7 +87,10 @@ export default function ContentPageClient() {
   const editorial = articles.filter(a => !UTILITY_PAGE_SLUGS.has(a.slug))
 
   const filtered = editorial.filter(a =>
-    !search || a.title.toLowerCase().includes(search.toLowerCase())
+    // Match the slug too: titles get rewritten, the URL doesn't (2026-11-23, a
+    // search for "pc graphics settings" missed "GTA 6 PC: Expected Graphics...").
+    !search || [a.title, a.slug, a.slug.replace(/-/g, ' ')].some(s =>
+      s.toLowerCase().includes(search.toLowerCase().trim()))
   )
 
   const totalWords = editorial.reduce((sum, a) => sum + (a.word_count ?? 0), 0)
