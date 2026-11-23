@@ -23,7 +23,7 @@ import { DailyTracker } from './DailyTracker'
 import { MiniMap } from './MiniMap'
 import { latLngToWorld, worldToLatLng, CRS_SIMPLE_BOUNDS } from '@/lib/map-coords'
 import { soundManager, SoundEvents } from '@/lib/sounds'
-import { pinHtml } from '@/lib/map-icons'
+import { pinHtml, pinGeometry } from '@/lib/map-icons'
 
 const MIAMI: [number, number] = [25.7617, -80.1918]
 
@@ -58,12 +58,14 @@ function createMarkerIcon(category: string, size: number, selected = false) {
   const key = `${category}|${size}|${selected ? 1 : 0}`
   let icon = iconCache.get(key)
   if (!icon) {
+    // pointer-style in-game blips anchor at their tip so they sit ON the spot
+    const g = pinGeometry(category, size)
     icon = L.divIcon({
       className: '',
-      html: pinHtml(category, size, selected),
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-      popupAnchor: [0, -size / 2],
+      html: pinHtml(category, g.size, selected),
+      iconSize: [g.size, g.size],
+      iconAnchor: g.anchor,
+      popupAnchor: [0, -g.size / 2],
     })
     iconCache.set(key, icon)
   }

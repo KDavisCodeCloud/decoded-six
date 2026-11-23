@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<!-- DecodedSix map pin; glyph: Material Symbols by Google (Apache 2.0) -->
+<path d="M12 4h40a8 8 0 0 1 8 8v34a8 8 0 0 1-8 8H38l-6 8-6-8H12a8 8 0 0 1-8-8V12a8 8 0 0 1 8-8z" fill="#e5989b" stroke="#0b0c14" stroke-width="3" stroke-linejoin="round"/>
+<svg x="14" y="11" width="36" height="36" viewBox="0 -960 960 960" fill="#0b0c14"><path d="M80-200q-17 0-28.5-11.5T40-240v-520q0-17 11.5-28.5T80-800q17 0 28.5 11.5T120-760v360h320v-240q0-33 23.5-56.5T520-720h240q66 0 113 47t47 113v320q0 17-11.5 28.5T880-200q-17 0-28.5-11.5T840-240v-80H120v80q0 17-11.5 28.5T80-200Zm115-275q-35-35-35-85t35-85q35-35 85-35t85 35q35 35 35 85t-35 85q-35 35-85 35t-85-35Z"/></svg>
+</svg>

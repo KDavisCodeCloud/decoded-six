@@ -78,6 +78,37 @@ export const MAP_CATEGORIES: MapCategory[] = [
   { key: 'weapon_pickup',  label: 'Weapon Pickups',   group: 'Collectibles', color: '#e6358a' },
   { key: 'health_armor',   label: 'Health / Armor',   group: 'Collectibles', color: '#00d2ff' },
 
+  // 044 (Kelvin 2026-11-23): every in-game map blip type gets a category
+  { key: 'arcade', label: "Arcades", group: 'Activities', color: '#c77dff' },
+  { key: 'base_jump', label: "Base Jumps", group: 'Activities', color: '#48bfe3' },
+  { key: 'drone_race', label: "Drone Races", group: 'Activities', color: '#4895ef' },
+  { key: 'hunting', label: "Hunting", group: 'Activities', color: '#6a994e' },
+  { key: 'knife_flight', label: "Knife Flights", group: 'Activities', color: '#90a955' },
+  { key: 'mini_golf', label: "Mini Golf", group: 'Activities', color: '#a7c957' },
+  { key: 'shooting_range', label: "Shooting Ranges", group: 'Activities', color: '#9d4edd' },
+  { key: 'under_the_bridge', label: "Under the Bridge", group: 'Activities', color: '#5e60ce' },
+  { key: 'book_swap', label: "Book Swaps", group: 'Collectibles', color: '#adb5bd' },
+  { key: 'collectible_card', label: "Collectible Cards", group: 'Collectibles', color: '#ffd60a' },
+  { key: 'hidden_package', label: "Hidden Packages", group: 'Collectibles', color: '#f4a261' },
+  { key: 'magazine', label: "Magazines", group: 'Collectibles', color: '#7b9acc' },
+  { key: 'mural', label: "Murals", group: 'Collectibles', color: '#b388eb' },
+  { key: 'playlist', label: "Playlists", group: 'Collectibles', color: '#577590' },
+  { key: 'treasure', label: "Treasure", group: 'Collectibles', color: '#ffbe0b' },
+  { key: 'waink_curiosity', label: "WAiNK Curiosities", group: 'Collectibles', color: '#4ea8de' },
+  { key: 'waink_landmark', label: "WAiNK Landmarks", group: 'Collectibles', color: '#5390d9' },
+  { key: 'waink_sculpture', label: "WAiNK Sculptures", group: 'Collectibles', color: '#6930c3' },
+  { key: 'cafe', label: "Caf\u00e9s", group: 'Food & Nightlife', color: '#ddb892' },
+  { key: 'street_food', label: "Street Food", group: 'Food & Nightlife', color: '#ffcb77' },
+  { key: 'bank', label: "Banks", group: 'Money', color: '#52b788' },
+  { key: 'gang_operation', label: "Illegal Operations", group: 'Money', color: '#e9c46a' },
+  { key: 'payday_loan', label: "Payday Loans", group: 'Money', color: '#2dc653' },
+  { key: 'safe', label: "Safes", group: 'Money', color: '#ced4da' },
+  { key: 'smash_n_grab', label: "Smash & Grabs", group: 'Money', color: '#57cc99' },
+  { key: 'towable_atm', label: "Towable ATMs", group: 'Money', color: '#80ed99' },
+  { key: 'hangar', label: "Hangars", group: 'Transit', color: '#8ecae6' },
+  { key: 'standout_vehicle', label: "Standout Vehicles", group: 'Vehicles', color: '#3a86ff' },
+  { key: 'vehicle_request', label: "Vehicle Requests", group: 'Vehicles', color: '#ffd166' },
+
   // Landmark = a NAMED place people recognise and navigate by that isn't a
   // service you use (signs, monuments, murals, iconic buildings, named bridges).
   // Anything that does something for the player has its own category above.

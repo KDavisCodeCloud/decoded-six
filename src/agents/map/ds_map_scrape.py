@@ -57,6 +57,8 @@ VALID_CATEGORIES = (
     "ammunation", "shoe_store", "pharmacy", "atm", "car_wash", "ev_charger", "vehicle_dealer", "vehicle_rental", "marina", "bus_stop", "train_station", "airport", "restaurant", "sports", "attraction", "hotel", "government", "nature", "residential", "infrastructure", "fishing_spot", "stunt_jump",
     # 043 (Kelvin 2026-11-23): every in-game map icon gets a category
     "golf", "tennis", "basketball", "cinema", "jewelry_store", "strip_club", "pay_n_spray", "bike_mod_shop", "helipad", "skydiving", "pool_hall",
+    # 044 (Kelvin 2026-11-23): the rest of the in-game blip types
+    "arcade", "bank", "base_jump", "book_swap", "cafe", "collectible_card", "drone_race", "gang_operation", "hangar", "hidden_package", "hunting", "knife_flight", "magazine", "mini_golf", "mural", "payday_loan", "playlist", "safe", "shooting_range", "smash_n_grab", "standout_vehicle", "street_food", "towable_atm", "treasure", "under_the_bridge", "vehicle_request", "waink_curiosity", "waink_landmark", "waink_sculpture",
 )
 COUNTIES = ("Mariana", "Vice-Dale", "Kelly", "Leonard", "Lummox")
 VOD_MAX_PER_RUN = int(os.environ.get("MAP_VOD_MAX_PER_RUN") or 8)

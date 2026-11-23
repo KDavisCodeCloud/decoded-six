@@ -5,7 +5,8 @@
 // for a category, the pin uses it -- players recognise them instantly. Kelvin
 // accepted the risk of using Rockstar's icon art and granted an explicit,
 // icons-only exception to the never-copy blocklist: these were cut from an
-// icon sheet he supplied that came from mapgenie (see CLAUDE.md). Files live in
+// icon sheet he supplied that came from mapgenie, and the pointer-style blips
+// come from gtabase's map icon set (both icons-only, see CLAUDE.md). Files live in
 // public/images/map-icons/<category>.png (64 px, transparent); credited
 // "Map icons © Rockstar Games" in the map credits. Categories with no in-game
 // icon yet fall back to the original line-art badges below.
@@ -106,7 +107,28 @@ export const GAME_ICON_CATEGORIES = new Set([
   'money_spot', 'heist', 'fence', 'pharmacy', 'property', 'ev_charger', 'vehicle_dealer', 'stunt_jump',
   'fishing_spot', 'collectible', 'golf', 'tennis', 'basketball', 'cinema', 'jewelry_store', 'strip_club',
   'pay_n_spray', 'bike_mod_shop', 'helipad', 'skydiving', 'pool_hall',
+  // third batch (2026-11-23): in-game blips from gtabase's map (icons-only exception, see CLAUDE.md)
+  'arcade', 'bank', 'base_jump', 'book_swap', 'cafe', 'collectible_card', 'drone_race', 'gang_operation', 'hangar', 'hidden_package', 'hunting', 'knife_flight', 'magazine', 'mini_golf', 'mural', 'payday_loan', 'playlist', 'safe', 'shooting_range', 'smash_n_grab', 'standout_vehicle', 'street_food', 'towable_atm', 'treasure', 'under_the_bridge', 'vehicle_request', 'waink_curiosity', 'waink_landmark', 'waink_sculpture', 'train_station', 'vehicle_rental',
 ])
+
+/** No in-game blip exists for these: pointer pins with Material Symbols glyphs
+ *  (Google, Apache 2.0) in public/images/map-icons/<category>.svg. */
+export const MATERIAL_PIN_CATEGORIES = new Set([
+  'police_station', 'fire_station', 'hotel', 'landmark', 'nature', 'government', 'residential',
+  'infrastructure', 'mission_start', 'side_activity', 'random_event', 'health_armor', 'daily_location',
+])
+
+/** In-game blips drawn as a pin with a pointer: anchor at the tip, not the centre. */
+export const POINTER_ICON_CATEGORIES = new Set(['ammunation', 'arcade', 'atm', 'bank', 'bar', 'barber', 'base_jump', 'basketball', 'book_swap', 'bus_stop', 'cafe', 'car_wash', 'clothing', 'collectible_card', 'convenience_store', 'drone_race', 'electronics', 'ev_charger', 'fast_food', 'fence', 'fishing_spot', 'fuel_station', 'gang_operation', 'golf', 'gym', 'hangar', 'heist', 'helipad', 'hidden_package', 'hunting', 'jewelry_store', 'knife_flight', 'liquor_store', 'magazine', 'marina', 'mini_golf', 'mod_shop', 'mural', 'nightclub', 'pay_n_spray', 'payday_loan', 'playlist', 'pool_hall', 'property', 'safe', 'safehouse', 'shoe_store', 'shooting_range', 'smash_n_grab', 'standout_vehicle', 'street_food', 'street_race', 'stunt_jump', 'tattoo', 'towable_atm', 'train_station', 'treasure', 'under_the_bridge', 'vehicle_dealer', 'vehicle_rental', 'vehicle_request', 'vehicle_spawn', 'waink_curiosity', 'waink_landmark', 'waink_sculpture', 'weapon_pickup'])
+
+/** Leaflet icon size/anchor for a category's pin. */
+export function pinGeometry(category: string, size: number): { size: number; anchor: [number, number] } {
+  if (POINTER_ICON_CATEGORIES.has(category) || MATERIAL_PIN_CATEGORIES.has(category)) {
+    const s = Math.round(size * 1.3)
+    return { size: s, anchor: [s / 2, s] }
+  }
+  return { size, anchor: [size / 2, size / 2] }
+}
 
 export function hasGlyph(category: string): boolean {
   return category in G
@@ -124,12 +146,12 @@ export function glyphSvg(category: string, px: number, color?: string): string {
  * light colours still read on gtadb's pale streets, and the glyph centred.
  */
 export function pinHtml(category: string, size: number, selected = false): string {
-  if (GAME_ICON_CATEGORIES.has(category)) {
+  if (GAME_ICON_CATEGORIES.has(category) || MATERIAL_PIN_CATEGORIES.has(category)) {
     const accent = CATEGORY_COLOR_BY_KEY[category] ?? '#f5a623'
     const shadow = selected
       ? `drop-shadow(0 0 2px #070910) drop-shadow(0 0 6px ${accent}) drop-shadow(0 0 10px ${accent})`
       : 'drop-shadow(0 1px 2px rgba(0,0,0,.6))'
-    return `<img src="/images/map-icons/${category}.png" alt="" width="${size}" height="${size}" draggable="false" style="display:block;width:${size}px;height:${size}px;filter:${shadow}">`
+    return `<img src="/images/map-icons/${category}.${MATERIAL_PIN_CATEGORIES.has(category) ? 'svg' : 'png'}" alt="" width="${size}" height="${size}" draggable="false" style="display:block;width:${size}px;height:${size}px;filter:${shadow}">`
   }
   const badge = CATEGORY_COLOR_BY_KEY[category] ?? '#9b94b8'
   const ring = selected ? `0 0 0 2px #070910, 0 0 0 4px ${badge}, 0 0 14px ${badge}` : `0 0 0 1px ${badge}aa, 0 1px 4px rgba(0,0,0,.55)`

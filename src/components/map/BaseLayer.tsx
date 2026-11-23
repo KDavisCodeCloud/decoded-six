@@ -118,7 +118,7 @@ export function MapCredits({ layers }: { layers: MapLayer[] }) {
           >
             {layers.flatMap(l => l.attribution.map((a, i) => <Credit key={`${l.id}-${i}`} label={l.label} a={a} />))}
             {gtadbFrame && <Credit label="County labels, region outlines (approx.) & positions" a={GTADB_LANDMARKS_ATTRIBUTION} />}
-            <li className="mt-2">Map icons © Rockstar Games</li>
+            <li className="mt-2">Map icons © Rockstar Games. Some category pins: <a href="https://fonts.google.com/icons" target="_blank" rel="noopener" className="underline decoration-white/20 hover:text-flame">Material Symbols</a> by Google (Apache 2.0)</li>
             <li className="mt-2">
               <a href="https://leafletjs.com" target="_blank" rel="noopener" className="underline decoration-white/20 hover:text-flame">Leaflet</a> (BSD-2-Clause)
             </li>
