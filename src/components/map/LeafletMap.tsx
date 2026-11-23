@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MapContainer, TileLayer, Marker, Circle, CircleMarker, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -12,7 +12,7 @@ import { BaseLayer, LayerSwitcher, MapCredits } from './BaseLayer'
 import { AreaLabels } from './AreaLabels'
 import { GTADB_FRAME, metersToLatLng, layerBounds, orderLayers, type MapLayer } from '@/lib/map-layers'
 import { GTADB_CRS } from '@/lib/map-crs'
-import { CATEGORY_COLORS } from './MarkerPopup'
+import { CategoryBadge } from './CategoryBadge'
 import { isApproximate, MAP_CATEGORIES, DEFAULT_HIDDEN_CATEGORIES } from '@/lib/map-categories'
 import { LocationPanel } from './LocationPanel'
 import { AreaOverlay } from './AreaOverlay'
@@ -23,6 +23,7 @@ import { DailyTracker } from './DailyTracker'
 import { MiniMap } from './MiniMap'
 import { latLngToWorld, worldToLatLng, CRS_SIMPLE_BOUNDS } from '@/lib/map-coords'
 import { soundManager, SoundEvents } from '@/lib/sounds'
+import { pinHtml } from '@/lib/map-icons'
 
 const MIAMI: [number, number] = [25.7617, -80.1918]
 
@@ -48,24 +49,25 @@ export type PickedPoint = { lat: number; lng: number } | { x: number; y: number;
 const FOCUS_ZOOM: Record<MapMode, number> = { meters: 3, tiles: 4, world: 14 }
 // Pin colour = category, solid, on every map (public and dashboard). Status is
 // never drawn on the pin -- it shows in the LocationPanel when a pin is opened.
-// one shared canvas for all pins (padding so pins near the edge don't pop while panning)
-const pinRenderer = typeof window !== 'undefined' ? L.canvas({ padding: 0.5 }) : undefined
-
-function createMarkerIcon(color: string, ring?: string) {
-  const outer = ring ?? color
-  return L.divIcon({
-    className: '',
-    // dark gap keeps light category colours readable on gtadb's light streets
-    html: `<div style="
-      width:12px;height:12px;border-radius:50%;
-      background:${color};
-      border:2px solid #070910;
-      box-shadow:0 0 0 ${ring ? 2.5 : 1.5}px ${outer}, 0 0 8px ${color}99;
-    "></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
-    popupAnchor: [0, -12],
-  })
+// Icon pins (2026-11-23): a round badge in the category colour with an
+// original glyph (src/lib/map-icons.ts), so a bus stop, stunt jump or fishing
+// spot reads at a glance. Icons are cached per category/size/state -- Leaflet
+// reuses the same L.DivIcon object, so ~1,000 dashboard pins stay cheap.
+const iconCache = new Map<string, L.DivIcon>()
+function createMarkerIcon(category: string, size: number, selected = false) {
+  const key = `${category}|${size}|${selected ? 1 : 0}`
+  let icon = iconCache.get(key)
+  if (!icon) {
+    icon = L.divIcon({
+      className: '',
+      html: pinHtml(category, size, selected),
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size / 2],
+    })
+    iconCache.set(key, icon)
+  }
+  return icon
 }
 
 /** Leaflet position for a marker in this mode, or null when it can't be placed there. */
@@ -354,10 +356,7 @@ export function LeafletMap({
                   onClick={() => handleSelectSearchResult(m)}
                   className="w-full text-left px-3 py-2 text-xs text-quiet hover:bg-white/[0.05] hover:text-bright transition-colors flex items-center gap-2"
                 >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ background: CATEGORY_COLORS[m.category] ?? '#9b94b8' }}
-                  />
+                  <CategoryBadge category={m.category} size={16} />
                   <span className="truncate">{m.name}</span>
                 </button>
               ))}
@@ -435,19 +434,15 @@ export function LeafletMap({
             {labelAreas.length > 0 && <AreaLabels areas={labelAreas} />}
 
             {mode === 'meters' ? (
-              // every pin at once, in its category colour, at every zoom -- no clustering.
-              // Canvas-rendered so ~1,000+ pins stay smooth.
+              // every pin at once, as a category icon badge, at every zoom -- no clustering.
               visible.map(marker => {
-                const color = CATEGORY_COLORS[marker.category] ?? '#9b94b8'
-                const ring = '#070910'
                 const isOpen = selectedMarker?.id === marker.id
                 return (
-                  <CircleMarker
+                  <Marker
                     key={marker.id}
-                    center={markerPosition(marker, mode)!}
-                    radius={isOpen ? 8.5 : narrow ? 4.5 : 6}
-                    renderer={pinRenderer}
-                    pathOptions={{ color: ring, weight: 1, opacity: 1, fillColor: color, fillOpacity: 1 }}
+                    position={markerPosition(marker, mode)!}
+                    icon={createMarkerIcon(marker.category, isOpen ? 30 : narrow ? 20 : 24, isOpen)}
+                    zIndexOffset={isOpen ? 1000 : 0}
                     eventHandlers={{ click: () => openMarker(marker) }}
                   />
                 )
@@ -460,13 +455,12 @@ export function LeafletMap({
               disableClusteringAtZoom={mode === 'world' ? 16 : 5}
             >
               {visible.map(marker => {
-                const color = CATEGORY_COLORS[marker.category] ?? '#9b94b8'
-                const ring = undefined
+                const isOpen = selectedMarker?.id === marker.id
                 return (
                   <Marker
                     key={marker.id}
                     position={markerPosition(marker, mode)!}
-                    icon={createMarkerIcon(color, ring)}
+                    icon={createMarkerIcon(marker.category, isOpen ? 30 : 24, isOpen)}
                     eventHandlers={{ click: () => openMarker(marker) }}
                   />
                 )

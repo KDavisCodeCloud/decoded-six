@@ -1,6 +1,7 @@
 'use client'
 
 import { CATEGORY_GROUPS, MAP_CATEGORIES } from '@/lib/map-categories'
+import { CategoryBadge } from './CategoryBadge'
 
 interface CategoryFilterProps {
   /** categories switched OFF; everything else is drawn */
@@ -57,10 +58,7 @@ export function CategoryFilter({ hidden, onToggle, onShowAll, onHideAll, counts,
                           : 'text-whisper opacity-40 hover:opacity-60'
                       }`}
                     >
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: active ? cat.color : '#5a5270' }}
-                      />
+                      <CategoryBadge category={cat.key} size={18} muted={!active} />
                       <span className="flex-1">{cat.label}</span>
                       {counts && (
                         <span className={`font-mono text-[10px] ${n ? 'text-quiet' : 'text-whisper/50'}`}>{n ?? 0}</span>

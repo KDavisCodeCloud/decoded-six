@@ -3,6 +3,7 @@
 import type { MapMarker } from '@/lib/types'
 import { CATEGORY_COLORS, CATEGORY_LABELS } from './MarkerPopup'
 import { isApproximate } from '@/lib/map-categories'
+import { CategoryBadge } from './CategoryBadge'
 
 export const STATUS_COLORS: Record<string, string> = {
   pending: '#f5a623',
@@ -74,10 +75,7 @@ export function LocationPanel({
         <div className="p-5">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ background: color, boxShadow: `0 0 8px ${color}88` }}
-              />
+              <CategoryBadge category={marker.category} size={22} />
               <span
                 className="text-[10px] font-mono uppercase tracking-widest"
                 style={{ color, fontFamily: 'JetBrains Mono, monospace' }}
