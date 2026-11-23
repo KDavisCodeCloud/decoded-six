@@ -102,6 +102,10 @@ export const GAME_ICON_CATEGORIES = new Set([
   'convenience_store', 'electronics', 'fast_food', 'fuel_station', 'gym', 'hospital', 'liquor_store',
   'marina', 'mod_shop', 'nightclub', 'restaurant', 'safehouse', 'shoe_store', 'sports', 'store',
   'street_race', 'tattoo', 'vehicle_spawn', 'weapon_pickup',
+  // second batch (2026-11-23): the rest of Kelvin's reference icons
+  'money_spot', 'heist', 'fence', 'pharmacy', 'property', 'ev_charger', 'vehicle_dealer', 'stunt_jump',
+  'fishing_spot', 'collectible', 'golf', 'tennis', 'basketball', 'cinema', 'jewelry_store', 'strip_club',
+  'pay_n_spray', 'bike_mod_shop', 'helipad', 'skydiving', 'pool_hall',
 ])
 
 export function hasGlyph(category: string): boolean {

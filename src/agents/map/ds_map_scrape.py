@@ -55,6 +55,8 @@ VALID_CATEGORIES = (
     "barber", "tattoo", "mod_shop",
     # 041 (Kelvin 2026-11-19): not everything is a landmark
     "ammunation", "shoe_store", "pharmacy", "atm", "car_wash", "ev_charger", "vehicle_dealer", "vehicle_rental", "marina", "bus_stop", "train_station", "airport", "restaurant", "sports", "attraction", "hotel", "government", "nature", "residential", "infrastructure", "fishing_spot", "stunt_jump",
+    # 043 (Kelvin 2026-11-23): every in-game map icon gets a category
+    "golf", "tennis", "basketball", "cinema", "jewelry_store", "strip_club", "pay_n_spray", "bike_mod_shop", "helipad", "skydiving", "pool_hall",
 )
 COUNTIES = ("Mariana", "Vice-Dale", "Kelly", "Leonard", "Lummox")
 VOD_MAX_PER_RUN = int(os.environ.get("MAP_VOD_MAX_PER_RUN") or 8)
