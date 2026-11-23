@@ -35,7 +35,7 @@ def test_import_category_and_county_rules():
 
 def test_import_business_categories_039():
     c = imp.category_for
-    assert c(["#nightclub"]) == "nightclub" and c(["#stripclub"]) == "nightclub"
+    assert c(["#nightclub"]) == "nightclub" and c(["#stripclub"]) == "strip_club"   # 043
     assert c(["#bar"]) == "bar" and c(["#liquor"]) == "liquor_store" and c(["#electronics"]) == "electronics"
     assert c([], "Burger Shot") == "fast_food" and c([], "Cluckin' Bell") == "fast_food"
     assert c(["government"], "City of Vice Fire Rescue Station") == "fire_station"
@@ -47,7 +47,7 @@ def test_import_business_categories_039():
     assert c(["#hospital"]) == "hospital" and c([], "Hospital") == "hospital"
     assert c(["public"], "Animal Hospital of Key Lento") == "landmark"
     assert c(["#hair"]) == "barber" and c(["#tattoos"]) == "tattoo"
-    assert c(["#modshop"]) == "mod_shop" and c(["#pay'n'spray"]) == "mod_shop"
+    assert c(["#modshop"]) == "mod_shop" and c(["#pay'n'spray"]) == "pay_n_spray"   # 043
     assert c([], "Vice City Customs") == "mod_shop"
 
 
@@ -56,7 +56,8 @@ def test_import_categories_041_and_landmark_definition():
     # services / vehicles / transit by gtadb tag
     assert c(["#guns"]) == "ammunation" and c(["#shoes"]) == "shoe_store" and c(["#pharmacy"]) == "pharmacy"
     assert c(["#carwash"]) == "car_wash" and c(["#marina"]) == "marina" and c(["#bus", "transportation"]) == "bus_stop"
-    assert c(["#metromover"]) == "train_station" and c(["#airport"]) == "airport" and c(["#tennis", "leisure"]) == "sports"
+    assert c(["#metromover"]) == "train_station" and c(["#airport"]) == "airport" and c(["#tennis", "leisure"]) == "tennis"   # 043
+    assert c(["#golf"]) == "golf" and c(["#cinema"]) == "cinema" and c(["#bikeshop"]) == "bike_mod_shop" and c(["#vendor"]) == "street_food"
     # by in-game name
     assert c([], "Ammu-Nation") == "ammunation" and c([], "Fleeca") == "atm" and c([], "EV Charging Station") == "ev_charger"
     assert c([], "Premium Deluxe Motorsport") == "vehicle_dealer" and c([], "Scooter Rentals") == "vehicle_rental"
