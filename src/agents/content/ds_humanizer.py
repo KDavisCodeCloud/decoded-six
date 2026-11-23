@@ -23,25 +23,17 @@ VOICE_MD_PATH = REPO_ROOT / "docs" / "VOICE.md"
 MODEL = "claude-sonnet-4-6"
 AGENT_ID = "ds_humanizer"
 
-_FAQ_HEADING_RE = re.compile(r"^##\s*Frequently Asked Questions\s*$", re.MULTILINE | re.IGNORECASE)
-_NEXT_HEADING_RE = re.compile(r"\n##\s")
-
-
 def _body_word_count(content: str) -> int:
     """
-    Same FAQ-exclusion logic as content_agent.py's _body_word_count --
-    duplicated (not imported) so this module has no hard dependency on
-    content_agent.py's internals, same reasoning as synthesis.py's
-    duplicated blackout check. Keep the two in sync if the rule changes.
+    Delegates to content_agent._body_word_count, the single source of truth
+    (CLAUDE.md). This used to be a duplicated copy "kept in sync" by hand;
+    the 2026-11-23 rule change (sources/captions/placeholders excluded too)
+    is exactly the kind of drift that made a copy unsafe. Imported lazily
+    because content_agent imports this module at load time.
     """
-    if not content:
-        return 0
-    match = _FAQ_HEADING_RE.search(content)
-    if not match:
-        return len(content.split())
-    next_heading = _NEXT_HEADING_RE.search(content, match.end())
-    body = content[:match.start()] + (content[next_heading.start():] if next_heading else "")
-    return len(body.split())
+    from src.agents.content.content_agent import _body_word_count as canonical
+    return canonical(content)
+
 
 # Mechanically enforceable regardless of what the LLM rewrite produces —
 # docs/VOICE.md "Words That Never Appear" + rule 3.
@@ -52,6 +44,8 @@ BANNED_WORDS = [
 ]
 
 _EM_DASH_RE = re.compile(r"[—–]")  # em dash + en dash — classic AI tell
+_EM_DASH_SPACED_RE = re.compile(r"\s*[—–]\s*")
+_DASH_CELL_RE = re.compile(r"\|[ \t]*[—–-][ \t]*\|")
 _UTILIZE_RE = re.compile(r"\butilize\b", re.IGNORECASE)
 _IN_ORDER_TO_RE = re.compile(r"\bin order to\b", re.IGNORECASE)
 _WHITESPACE_RE = re.compile(r"[ \t]{2,}")
@@ -71,6 +65,11 @@ _BLANK_LINES_RE = re.compile(r"\n{3,}")
 # to catch, and stripping it from the caption would just make the
 # caption wrong instead of the URL.
 _MD_LINK_RE = re.compile(r'!?\[[^\]\n]*\]\([^)\n]+\)')
+# Also protected (2026-11-23): Rockstar's product name "Ultimate Edition" in
+# body text (the banned-word pass turned "GTA 6 Ultimate Edition cars" into
+# "GTA 6  Edition cars"), and the {{screenshot:...}} / {{video:...}} guide
+# markers, whose filenames must survive the rewrite byte-for-byte.
+_PROTECTED_RE = re.compile(r"!?\[[^\]\n]*\]\([^)\n]+\)|\{\{[^}\n]+\}\}|\bUltimate Edition\b", re.IGNORECASE)
 
 
 def _md_inline(text: str) -> str:
@@ -192,9 +191,15 @@ def _mechanical_pass(text: str) -> str:
         protected.append(m.group(0))
         return f"\x00PROTECTED{len(protected) - 1}\x00"
 
-    text = _MD_LINK_RE.sub(_stash, text)
+    text = _PROTECTED_RE.sub(_stash, text)
 
-    text = _EM_DASH_RE.sub(",", text)
+    # A table cell holding only a dash means "nothing here": say n/a rather
+    # than leave a lone comma in the cell. Everywhere else a dash becomes ", "
+    # WITH a following space -- the old bare "," produced "sequence,Tourist
+    # Trap," (seen in the first launch guide, 2026-11-23).
+    text = _DASH_CELL_RE.sub("| n/a |", text)
+    text = _DASH_CELL_RE.sub("| n/a |", text)
+    text = _EM_DASH_SPACED_RE.sub(", ", text)
     text = _UTILIZE_RE.sub("use", text)
     text = _IN_ORDER_TO_RE.sub("to", text)
     for word in BANNED_WORDS:
@@ -245,6 +250,9 @@ def humanize_article(
             "- Preserve every image embed line (![caption](url)) exactly as written.\n"
             "- Preserve every credit line (*Image credit: Rockstar Games*) exactly as written.\n"
             "- Do not modify, remove, or paraphrase image or credit lines.\n"
+            "- Preserve every {{screenshot:...}} and {{video:...}} marker line exactly, on its own line, in place.\n"
+            "- Preserve markdown tables (| col | col | rows) exactly: same rows, same columns, same facts.\n"
+            "- Never change a fact: names, numbers, locations, chapters, payouts and mission names stay word-for-word.\n"
             "- Put a blank line between every paragraph. Never collapse paragraphs.\n"
             "- Keep ## and ### headings on their own lines with blank lines before and after.\n"
             "- Return ONLY the rewritten article body — no commentary, no code fences."
