@@ -51,6 +51,8 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    // Large image previews in Discover/Search (launch guides, 2026-11-23).
+    'max-image-preview': 'large',
   },
 }
 

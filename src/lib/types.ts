@@ -25,7 +25,7 @@ export interface Article {
   status: 'draft' | 'published' | 'archived' | 'pending_review' | 'needs_revision'
   ai_detect_score: number | null
   // Agent-generated fields (005_articles_agent_fields.sql)
-  article_type: 'news' | 'evergreen' | 'conversion' | null
+  article_type: 'news' | 'evergreen' | 'conversion' | 'feature' | 'exclusive' | 'deep_dive' | 'breaking_news' | 'guide' | 'guide_hub' | null
   publish_date: string | null
   faq_pairs: FaqPair[] | null
   internal_links_used: string[] | null
@@ -48,6 +48,14 @@ export interface Article {
   og_image_url: string | null
   // Template rotation (017_template_variant.sql) -- null on every pre-2026-09-14 row
   template_variant: 'A' | 'B' | 'C' | 'D' | null
+  // Launch guides (042_launch_guides.sql) -- null on everything else
+  sources?: { url: string; outlet?: string; published?: string }[] | null
+  claim_verification?: { claim: string; sources: string[]; status: 'verified' | 'single_source' | 'conflict' }[] | null
+  video_embeds?: import('@/components/shared/VideoEmbed').VideoEmbedData[] | null
+  screenshot_slots?: import('@/components/shared/ScreenshotSlot').ScreenshotSlotData[] | null
+  hub_slug?: string | null
+  guide_group?: string | null
+  date_modified?: string | null
 }
 
 export interface Rumor {

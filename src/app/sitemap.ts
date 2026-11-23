@@ -63,9 +63,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const { data } = await supabase
     .from('articles')
-    .select('id, slug, category, published_at')
+    .select('id, slug, category, published_at, date_modified')
     .eq('status', 'published')
-  const articles = (data as { id: string; slug: string; category: string; published_at: string }[] | null) ?? []
+  const articles = (data as { id: string; slug: string; category: string; published_at: string; date_modified: string | null }[] | null) ?? []
 
   // ENGLISH ONLY (2026-10-15). This previously listed one URL per completed
   // translation, which put 504 machine-translated article URLs in the sitemap
@@ -88,7 +88,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const route = article.category === 'guide' ? `/guides/${article.slug}` : `/news/${article.slug}`
     return {
       url: `${siteUrl}${route}`,
-      lastModified: new Date(article.published_at),
+      // date_modified moves only on real content edits (screenshot drop-ins,
+      // guide updates) -- see 042_launch_guides.sql.
+      lastModified: new Date(article.date_modified ?? article.published_at),
       changeFrequency: 'weekly' as const,
       priority: 0.6,
     }

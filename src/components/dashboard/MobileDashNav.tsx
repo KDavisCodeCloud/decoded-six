@@ -8,6 +8,7 @@ const NAV = [
   { href: '/dashboard',         label: 'Overview',   icon: '⬡' },
   { href: '/dashboard/queue',   label: 'HITL Queue', icon: '📋' },
   { href: '/dashboard/shorts',  label: 'Shorts',     icon: '🎬' },
+  { href: '/dashboard/shots',   label: 'Shot List',  icon: '📸' },
   { href: '/dashboard/gates',   label: 'Gates',      icon: '🎯' },
   { href: '/dashboard/agents',  label: 'Agents',     icon: '🤖' },
   { href: '/dashboard/content', label: 'Content',    icon: '📝' },

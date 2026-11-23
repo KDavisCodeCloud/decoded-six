@@ -20,6 +20,7 @@ import {
   AUTHOR_ORG as ARTICLE_AUTHOR_ORG,
 } from '@/lib/author'
 import type { Article } from '@/lib/types'
+import { getGuideSeries, GuideSeriesNav, getLinkedPins, OnTheMap, SourcesList } from '@/components/shared/GuideExtras'
 
 // Mirrors src/app/[locale]/news/[slug]/page.tsx exactly (data fetching,
 // translation overlay, JSON-LD, layout) -- the only differences are the
@@ -140,7 +141,7 @@ export async function generateMetadata({
       url: `${siteUrl}${canonicalPath}`,
       siteName: 'Decoded Six',
       publishedTime: article.published_at,
-      modifiedTime: article.created_at,
+      modifiedTime: article.date_modified ?? article.published_at,
       authors: [ARTICLE_AUTHOR_NAME],
       section: article.category,
       images: [{ url: ogImage, width: 1200, height: 630 }],
@@ -210,14 +211,22 @@ export default async function GuidePage({
   const prefix = locale === routing.defaultLocale ? '' : `/${locale}`
   const canonicalUrl = `${siteUrl}${prefix}/guides/${slug}`
 
+  const isLaunchGuide = article.article_type === 'guide' || article.article_type === 'guide_hub'
+  const dateModified = article.date_modified ?? article.published_at
+  const [series, pins] = isLaunchGuide
+    ? await Promise.all([getGuideSeries(article.guide_group), getLinkedPins(article.id)])
+    : [[], []]
+  const filledShots = (article.screenshot_slots ?? []).filter(s => s.status === 'filled' && s.url)
+
   const articleJsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'NewsArticle',
+    // How-to/location guides are evergreen reference pages, not news.
+    '@type': isLaunchGuide ? 'Article' : 'NewsArticle',
     headline: title,
     description: excerptText ?? undefined,
-    image: [ogImage],
+    image: [ogImage, ...filledShots.slice(0, 3).map(s => absoluteUrl(s.url!))],
     datePublished: article.published_at,
-    dateModified: article.published_at,
+    dateModified,
     inLanguage: locale,
     // Named Person author, matching /news -- see src/lib/author.ts.
     author: {
@@ -311,9 +320,15 @@ export default async function GuidePage({
             >
               By {ARTICLE_AUTHOR_NAME}
             </Link>
-            <time dateTime={article.published_at} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
-              {fmtLong(article.published_at, locale)}
-            </time>
+            {isLaunchGuide ? (
+              <time dateTime={dateModified} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
+                Updated {fmtLong(dateModified, locale)}
+              </time>
+            ) : (
+              <time dateTime={article.published_at} className="text-sm font-ibm" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
+                {fmtLong(article.published_at, locale)}
+              </time>
+            )}
             {article.source_url && (
               <a
                 href={article.source_url}
@@ -348,7 +363,19 @@ export default async function GuidePage({
         </div>
 
         {contentText && (
-          <ArticleMarkdown content={contentText} stripFaq={templateVariant !== 'C'} />
+          <ArticleMarkdown
+            content={contentText}
+            stripFaq={templateVariant !== 'C'}
+            videos={article.video_embeds}
+            screenshots={article.screenshot_slots}
+          />
+        )}
+
+        {isLaunchGuide && (
+          <>
+            <OnTheMap pins={pins} prefix={prefix} />
+            <GuideSeriesNav series={series} currentId={article.id} group={article.guide_group ?? ''} prefix={prefix} />
+          </>
         )}
 
         {!hideVisibleFaqBlock && faqPairs && faqPairs.length > 0 && (
@@ -365,7 +392,9 @@ export default async function GuidePage({
           </section>
         )}
 
-        {article.agent_generated && article.external_citation && (
+        {isLaunchGuide && article.sources && <SourcesList sources={article.sources} />}
+
+        {!isLaunchGuide && article.agent_generated && article.external_citation && (
           <div className="mt-10 p-4 rounded-lg border border-white/[0.06] text-whisper text-sm" style={{ background: '#0d0d0d' }}>
             {t('referencesNotice')}{' '}
             <a href={article.external_citation} target="_blank" rel="noopener noreferrer" className="text-flame hover:underline">

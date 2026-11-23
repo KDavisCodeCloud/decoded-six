@@ -6,6 +6,7 @@ import GTAOverlay, { type OverlayType } from '@/components/dashboard/GTAOverlay'
 import { soundManager, SoundEvents } from '@/lib/sounds'
 import { ArticleMarkdown } from '@/components/shared/ArticleMarkdown'
 import type { Article } from '@/lib/types'
+import { GuideReviewPanel } from '@/components/dashboard/GuideReviewPanel'
 
 type GenerateStatus = 'idle' | 'running' | 'queued' | 'error'
 type ArticleTypeOption = 'news' | 'evergreen' | 'conversion'
@@ -13,12 +14,16 @@ type ArticleTypeOption = 'news' | 'evergreen' | 'conversion'
 type QueueStatus = 'pending_review' | 'needs_revision'
 
 const TYPE_LABEL: Record<string, string> = {
+  guide: 'GUIDE',
+  guide_hub: 'GUIDE HUB',
   news: 'NEWS',
   evergreen: 'EVERGREEN',
   conversion: 'CONVERSION',
 }
 
 const TYPE_CLASS: Record<string, string> = {
+  guide: 'border-[#3fd17a]/30 text-[#3fd17a]',
+  guide_hub: 'border-[#3fd17a]/60 text-[#3fd17a]',
   news: 'border-ice/30 text-ice',
   evergreen: 'border-gta-gold/30 text-gta-gold',
   conversion: 'border-neon-pink/30 text-neon-pink',
@@ -168,6 +173,8 @@ function ArticlePreview({
 
         <div className="h-px bg-white/[0.06] mb-8" />
 
+        <GuideReviewPanel article={article} />
+
         {article.hitl_notes && (
           <div className="mb-6 text-xs text-neon-pink bg-neon-pink/5 border border-neon-pink/20 rounded p-3">
             <span className="font-bold">Revision notes:</span> {article.hitl_notes}
@@ -181,7 +188,13 @@ function ArticlePreview({
         )}
 
         {article.content && (
-          <ArticleMarkdown content={article.content} stripFaq />
+          <ArticleMarkdown
+            content={article.content}
+            stripFaq
+            videos={article.video_embeds}
+            screenshots={article.screenshot_slots}
+            showPlaceholders
+          />
         )}
 
         {article.faq_pairs && article.faq_pairs.length > 0 && (
@@ -540,6 +553,8 @@ export default function QueuePage() {
                       {article.excerpt}
                     </p>
                   )}
+
+                  <GuideReviewPanel article={article} compact />
 
                   {article.hitl_notes && (
                     <div className="text-xs text-neon-pink bg-neon-pink/5 border border-neon-pink/20 rounded p-2 mb-2">

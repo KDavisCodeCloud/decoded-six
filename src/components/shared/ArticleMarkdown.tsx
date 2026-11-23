@@ -4,6 +4,15 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import type { Components } from 'react-markdown'
+import { VideoEmbed, type VideoEmbedData } from './VideoEmbed'
+import { ScreenshotSlot, type ScreenshotSlotData } from './ScreenshotSlot'
+
+// Launch-guide markers (2026-11-23), each on its own line in the body:
+//   {{video:N}}               -> Nth entry of articles.video_embeds (1-based)
+//   {{screenshot:<file>.webp}} -> matching articles.screenshot_slots entry
+// Content without markers renders exactly as before. A marker with no data
+// behind it (broken video, unfilled slot) renders nothing, never raw text.
+const MARKER_LINE_RE = /^[ \t]*\{\{\s*(video|screenshot):([^}\s]+)\s*\}\}[ \t]*$/gm
 
 // Strip FAQ section — rendered separately as cards below the article body
 function stripFaqSection(md: string): string {
@@ -174,20 +183,59 @@ interface ArticleMarkdownProps {
   content: string
   stripFaq?: boolean
   className?: string
+  videos?: VideoEmbedData[] | null
+  screenshots?: ScreenshotSlotData[] | null
+  // Dashboard preview only: show unfilled screenshot slots as visible boxes.
+  showPlaceholders?: boolean
 }
 
-export function ArticleMarkdown({ content, stripFaq = true, className }: ArticleMarkdownProps) {
+type Segment = { kind: 'md'; text: string } | { kind: 'video' | 'screenshot'; ref: string }
+
+function splitMarkers(md: string): Segment[] {
+  const out: Segment[] = []
+  let last = 0
+  for (const m of md.matchAll(MARKER_LINE_RE)) {
+    if (m.index! > last) out.push({ kind: 'md', text: md.slice(last, m.index) })
+    out.push({ kind: m[1] as 'video' | 'screenshot', ref: m[2] })
+    last = m.index! + m[0].length
+  }
+  if (last < md.length) out.push({ kind: 'md', text: md.slice(last) })
+  return out
+}
+
+function Markdown({ text }: { text: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={components}>
+      {text}
+    </ReactMarkdown>
+  )
+}
+
+export function ArticleMarkdown({ content, stripFaq = true, className, videos, screenshots, showPlaceholders }: ArticleMarkdownProps) {
   const processed = stripFaq ? stripFaqSection(content) : content
+  const segments = splitMarkers(processed)
 
   return (
     <div className={className}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
-        components={components}
-      >
-        {processed}
-      </ReactMarkdown>
+      {segments.map((seg, i) => {
+        if (seg.kind === 'md') return seg.text.trim() ? <Markdown key={i} text={seg.text} /> : null
+        if (seg.kind === 'video') {
+          const v = videos?.[Number(seg.ref) - 1]
+          return v && v.status !== 'broken' ? <VideoEmbed key={i} video={v} /> : null
+        }
+        const slot = screenshots?.find(s => s.filename === seg.ref)
+        if (showPlaceholders && slot?.status !== 'filled') {
+          return (
+            <div key={i} className="my-8 rounded-lg border-2 border-dashed border-gta-gold/40 p-4 text-xs text-gta-gold">
+              <p className="font-mono uppercase tracking-widest">Screenshot needed</p>
+              <p className="mt-1 text-quiet">{slot?.shot ?? 'Unknown slot'}</p>
+              <p className="mt-1 font-mono text-whisper">{seg.ref}</p>
+              {slot?.alt && <p className="mt-1 text-whisper">alt: {slot.alt}</p>}
+            </div>
+          )
+        }
+        return <ScreenshotSlot key={i} slot={slot} />
+      })}
     </div>
   )
 }
