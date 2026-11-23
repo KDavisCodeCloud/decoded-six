@@ -2009,6 +2009,14 @@ def _node_humanizer(state: dict, sb: Any, ai: Any) -> dict:
     _audit(sb, article_id, "humanizer_pass", "success")
 
     floor = WORD_COUNT_FLOORS.get(state.get("article_type", "news"), 800)
+    if state["word_count"] < floor and state.get("article_type") in GUIDE_TYPES:
+        # Guides: the humanizer's tightening pass can drop a guide that cleared
+        # its floor a few words under it (1,218 -> 1,185 seen 2026-11-23).
+        # Expand from the same fact brief, then re-check. Still body-only.
+        state = _node_expander(state, ai)
+        sb.table("articles").update({"content": state["content"], "word_count": state["word_count"]}) \
+            .eq("id", article_id).execute()
+        _audit(sb, article_id, "guide_post_humanizer_expand", "success")
     if state["word_count"] < floor:
         notes = (
             f"Humanizer rewrite brought the article body to {state['word_count']} "
