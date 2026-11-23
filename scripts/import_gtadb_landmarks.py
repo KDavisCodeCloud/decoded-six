@@ -54,7 +54,7 @@ IMPORT_RADIUS_M = 75
 TAG_CATEGORY = [
     ("#gas", "fuel_station"),
     ("#nightclub", "nightclub"),
-    ("#stripclub", "nightclub"),
+    ("#stripclub", "strip_club"),
     ("#bar", "bar"),
     ("#liquor", "liquor_store"),
     ("#fastfood", "fast_food"),
@@ -76,9 +76,9 @@ TAG_CATEGORY = [
     ("#hair", "barber"),
     ("#tattoos", "tattoo"),
     ("#modshop", "mod_shop"),
-    ("#pay'n'spray", "mod_shop"),
+    ("#pay'n'spray", "pay_n_spray"),
     ("#carwash", "car_wash"),
-    ("#bikeshop", "vehicle_dealer"),
+    ("#bikeshop", "bike_mod_shop"),
     ("#marina", "marina"),
     ("#bus", "bus_stop"),
     ("#train", "train_station"),
@@ -86,15 +86,15 @@ TAG_CATEGORY = [
     ("#metromover", "train_station"),
     ("#airport", "airport"),
     ("#airbase", "airport"),
-    ("#tennis", "sports"),
-    ("#golf", "sports"),
+    ("#tennis", "tennis"),
+    ("#golf", "golf"),
     ("#volleyball", "sports"),
     ("#ferriswheel", "attraction"),
-    ("#cinema", "attraction"),
+    ("#cinema", "cinema"),
     ("#blimp", "attraction"),
     ("#food", "restaurant"),
     ("#drinks", "bar"),
-    ("#vendor", "store"),
+    ("#vendor", "street_food"),
     ("#gym", "gym"),
 ]
 
@@ -113,7 +113,9 @@ PUBLIC_CATEGORIES = {"landmark", "store", "fuel_station", "fence", "police_stati
                      "ammunation", "shoe_store", "pharmacy", "atm", "car_wash", "ev_charger",
                      "vehicle_dealer", "vehicle_rental", "marina", "bus_stop", "train_station", "airport",
                      "restaurant", "sports", "attraction", "hotel", "government", "nature",
-                     "residential", "infrastructure"}
+                     "residential", "infrastructure",
+                     # 043/044 in-game icon categories gtadb tags map to
+                     "strip_club", "pay_n_spray", "bike_mod_shop", "tennis", "golf", "cinema", "street_food"}
 
 # A bare structure/feature word as the whole name is never a landmark.
 GENERIC_INFRA = re.compile(
