@@ -162,6 +162,9 @@ def fix_caption_words(words):
                 break
         else:
             w, a, b = words[i]
+            m = re.match(r"(?i)loo-see-ah(\W.*)?$", w)   # possessive / punctuation: Loo-see-ah's -> Lucia's
+            if m:
+                w = 'Lucia' + (m.group(1) or '')
             if re.fullmatch(r"6[.,!?]?", w) and out and out[-1][0].lower().startswith("decoded"):
                 w = "Six" + w[1:]
             out.append((w, a, b)); i += 1
